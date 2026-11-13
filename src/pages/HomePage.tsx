@@ -29,11 +29,11 @@ export function HomePage() {
       <section className="relative overflow-hidden pt-[calc(var(--header-h)+1rem)] pb-20 sm:pt-32 sm:pb-28">
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-brand-50/80 via-white to-white" />
         <div
-          className="absolute -right-32 -top-24 -z-10 h-[28rem] w-[28rem] rounded-full bg-brand-200/40 blur-3xl"
+          className="absolute -right-32 -top-24 -z-10 h-[32rem] w-[32rem] rounded-full bg-gradient-to-br from-brand-300/30 to-brand-100/10 blur-3xl animate-float"
           aria-hidden
         />
         <div
-          className="absolute -left-24 top-40 -z-10 h-[22rem] w-[22rem] rounded-full bg-gold-200/40 blur-3xl"
+          className="absolute -left-24 top-40 -z-10 h-[28rem] w-[28rem] rounded-full bg-gradient-to-tr from-gold-300/25 to-gold-100/10 blur-3xl animate-float [animation-delay:3s]"
           aria-hidden
         />
         <div className="container-page grid items-center gap-12 lg:grid-cols-2">
@@ -74,19 +74,19 @@ export function HomePage() {
           </div>
 
           <div className="relative animate-scale-in">
-            <div className="relative overflow-hidden rounded-3xl shadow-lift">
+            <div className="relative overflow-hidden rounded-3xl shadow-lift ring-1 ring-black/5 group">
               <img
                 src={HERO_IMG}
                 alt="Fresh vegetables at a vibrant market stall"
-                className="h-[28rem] w-full object-cover sm:h-[34rem]"
+                className="h-[28rem] w-full object-cover transition-transform duration-700 group-hover:scale-105 sm:h-[34rem]"
                 loading="eager"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-ink-950/40 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink-950/50 via-transparent to-transparent" />
             </div>
             {/* Floating card */}
-            <div className="absolute -bottom-6 -left-4 sm:-left-8 w-60 rounded-2xl border border-ink-100 bg-white p-4 shadow-lift animate-float">
+            <div className="absolute -bottom-6 -left-4 sm:-left-8 w-64 rounded-2xl border border-white/40 bg-white/90 p-4 shadow-lift backdrop-blur-md animate-float transition-all hover:scale-105">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-soft">
                   <Leaf className="h-5 w-5" />
                 </span>
                 <div>
@@ -95,10 +95,10 @@ export function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="absolute -top-5 right-4 hidden rounded-2xl border border-ink-100 bg-white p-4 shadow-lift sm:block animate-float [animation-delay:2s]">
+            <div className="absolute -top-5 right-4 hidden rounded-2xl border border-white/40 bg-white/90 p-4 shadow-lift backdrop-blur-md sm:block animate-float [animation-delay:2s] transition-all hover:scale-105">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-100 text-gold-700">
-                  <Star className="h-5 w-5 fill-gold-500 text-gold-500" />
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 text-white shadow-soft">
+                  <Star className="h-5 w-5 fill-white text-white" />
                 </span>
                 <div>
                   <p className="text-sm font-bold text-ink-900">Trusted quality</p>
@@ -199,27 +199,27 @@ export function HomePage() {
               },
             ].map((d) => (
               <Reveal key={d.title}>
-                <div className="group h-full rounded-3xl border border-white/10 bg-white/[0.04] p-7 transition-all hover:bg-white/[0.08] hover:border-white/20">
+                <div className="group h-full rounded-3xl border border-white/10 bg-white/[0.04] p-7 backdrop-blur-sm transition-all duration-300 hover:bg-white/[0.08] hover:border-gold-400/40 hover:-translate-y-1.5 hover:shadow-lift">
                   <div className="flex items-center justify-between">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-500/15 text-gold-300">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-500/20 to-gold-400/10 text-gold-300 ring-1 ring-gold-400/30 transition-transform duration-300 group-hover:scale-110">
                       <d.icon className="h-6 w-6" />
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${
                         d.tag === 'Active'
-                          ? 'bg-brand-400/15 text-brand-200'
+                          ? 'bg-brand-400/20 text-brand-200 ring-1 ring-brand-400/40'
                           : 'bg-white/5 text-ink-300'
                       }`}
                     >
                       {d.tag}
                     </span>
                   </div>
-                  <h3 className="mt-5 font-display text-xl font-bold text-white">{d.title}</h3>
+                  <h3 className="mt-5 font-display text-xl font-bold text-white transition-colors group-hover:text-gold-200">{d.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-brand-100">{d.desc}</p>
                   {d.cta && (
                     <button
                       onClick={() => navigate(d.path!)}
-                      className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-gold-300 hover:text-gold-200"
+                      className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-gold-300 transition-all duration-200 hover:text-gold-100 hover:translate-x-1"
                     >
                       {d.cta} <ArrowRight className="h-4 w-4" />
                     </button>

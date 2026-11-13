@@ -131,12 +131,12 @@ export function AboutPage() {
               },
             ].map((b, i) => (
               <Reveal key={b.title} delay={i * 100}>
-                <div className="h-full rounded-3xl border border-white/10 bg-white/[0.04] p-7">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-500/15 text-gold-300">
-                    <b.icon className="h-6 w-6" />
+                <div className="group h-full rounded-3xl border border-white/10 bg-white/[0.04] p-8 backdrop-blur-sm transition-all duration-300 hover:bg-white/[0.08] hover:border-gold-400/40 hover:-translate-y-1.5 hover:shadow-lift">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-500/25 to-gold-400/10 text-gold-300 ring-1 ring-gold-400/30 transition-transform duration-300 group-hover:scale-110">
+                    <b.icon className="h-7 w-7" />
                   </span>
-                  <h3 className="mt-5 font-display text-xl font-bold text-white">{b.title}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-brand-100">{b.desc}</p>
+                  <h3 className="mt-6 font-display text-2xl font-bold text-white transition-colors group-hover:text-gold-200">{b.title}</h3>
+                  <p className="mt-3 text-base leading-relaxed text-brand-100/90">{b.desc}</p>
                 </div>
               </Reveal>
             ))}
