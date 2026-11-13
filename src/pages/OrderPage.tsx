@@ -20,6 +20,8 @@ import {
   ZoomIn,
   X,
   Sparkles,
+  Search,
+  Filter,
 } from 'lucide-react';
 import {
   fetchProducts,
@@ -59,6 +61,8 @@ export function OrderPage() {
   const [cart, setCart] = useState<Cart>({});
   const [step, setStep] = useState<'browse' | 'checkout' | 'done'>('browse');
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'vegetable' | 'fruit' | 'milk'>('all');
 
   useEffect(() => {
     let active = true;
@@ -97,13 +101,21 @@ export function OrderPage() {
     });
   }, [mode, products]);
 
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchCat = categoryFilter === 'all' || p.category === categoryFilter;
+      const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
+      return matchCat && matchSearch;
+    });
+  }, [products, categoryFilter, searchQuery]);
+
   const grouped = useMemo(
     () => ({
-      vegetable: products.filter((p) => p.category === 'vegetable'),
-      fruit: products.filter((p) => p.category === 'fruit'),
-      milk: products.filter((p) => p.category === 'milk'),
+      vegetable: filteredProducts.filter((p) => p.category === 'vegetable'),
+      fruit: filteredProducts.filter((p) => p.category === 'fruit'),
+      milk: filteredProducts.filter((p) => p.category === 'milk'),
     }),
-    [products]
+    [filteredProducts]
   );
 
   const productById = useMemo(() => {
@@ -187,6 +199,52 @@ export function OrderPage() {
                   <>
                     {/* Mode toggle */}
                     <ModeToggle mode={mode} onChange={setMode} />
+
+                    {/* Quick Search & Filter Controls */}
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                        <input
+                          type="text"
+                          placeholder="Search vegetables, fruits, milk…"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full rounded-xl border border-ink-200 bg-white pl-10 pr-4 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-400 hover:text-ink-600"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                        {(
+                          [
+                            { id: 'all', label: 'All' },
+                            { id: 'vegetable', label: 'Vegetables' },
+                            { id: 'fruit', label: 'Fruits' },
+                            { id: 'milk', label: 'Milk' },
+                          ] as const
+                        ).map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setCategoryFilter(tab.id)}
+                            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                              categoryFilter === tab.id
+                                ? 'bg-brand-700 text-white shadow-soft'
+                                : 'bg-ink-100 text-ink-600 hover:bg-ink-200 hover:text-ink-900'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
                     {/* Offer banner */}
                     <div className="mt-5 flex items-start gap-3 rounded-2xl bg-gold-50 p-4 text-gold-900">
