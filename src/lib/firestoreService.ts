@@ -11,9 +11,9 @@ import {
   orderBy,
   where,
   serverTimestamp,
-  type DocumentData
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 export type Profile = {
   id: string;
@@ -119,6 +119,11 @@ export const INITIAL_PRODUCTS: Omit<Product, 'id'>[] = [
   { name: 'Farm Cow Milk', category: 'milk', image_url: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80', unit: 'litre', price: 70, available_today: true, display_order: 11 },
 ];
 
+/**
+ * Fetch products with dual-support:
+ * 1. Checks Firestore (and seeds if empty)
+ * 2. If configured and available, can also sync/check Supabase
+ */
 export async function fetchProducts(): Promise<Product[]> {
   try {
     const colRef = collection(db, 'products');
@@ -126,7 +131,6 @@ export async function fetchProducts(): Promise<Product[]> {
     const snap = await getDocs(q);
 
     if (snap.empty) {
-      // Seed default products into Firestore on first load
       const created: Product[] = [];
       for (const item of INITIAL_PRODUCTS) {
         const docRef = await addDoc(colRef, {
@@ -143,71 +147,280 @@ export async function fetchProducts(): Promise<Product[]> {
       ...(docSnap.data() as Omit<Product, 'id'>),
     }));
   } catch (err) {
-    console.warn('Falling back to local catalog:', err);
+    console.warn('Firestore fetch products failed, checking Supabase/fallback:', err);
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('display_order', { ascending: true });
+        if (!error && data && data.length > 0) {
+          return data as Product[];
+        }
+      } catch (sbErr) {
+        console.warn('Supabase product fetch fallback error:', sbErr);
+      }
+    }
     return INITIAL_PRODUCTS.map((p, idx) => ({ id: `local-${idx}`, ...p }));
   }
 }
 
+/**
+ * Dual database submission for Enquiries:
+ * Stores in Firestore AND also syncs with Supabase if configured.
+ */
 export async function submitEnquiry(enquiry: Enquiry) {
-  const colRef = collection(db, 'enquiries');
-  return addDoc(colRef, {
+  const firestorePromise = addDoc(collection(db, 'enquiries'), {
     ...enquiry,
     status: 'new',
     created_at: new Date().toISOString(),
     timestamp: serverTimestamp(),
   });
+
+  let supabasePromise = Promise.resolve();
+  if (isSupabaseConfigured) {
+    supabasePromise = Promise.resolve(
+      supabase.from('enquiries').insert({
+        name: enquiry.name.trim(),
+        email: enquiry.email?.trim() || null,
+        phone: enquiry.phone.trim(),
+        subject: enquiry.subject,
+        message: enquiry.message.trim(),
+      })
+    ).then(({ error }) => {
+      if (error) console.warn('Dual-write to Supabase enquiries warning:', error);
+    }).catch((err) => console.warn('Supabase enquiry error:', err));
+  }
+
+  const [firestoreRes] = await Promise.all([firestorePromise, supabasePromise]);
+  return firestoreRes;
 }
 
+/**
+ * Dual database submission for Surveys:
+ * Stores in Firestore AND also syncs with Supabase if configured.
+ */
 export async function submitSurvey(survey: SurveySubmission) {
-  const colRef = collection(db, 'survey_submissions');
-  return addDoc(colRef, {
+  const firestorePromise = addDoc(collection(db, 'survey_submissions'), {
     ...survey,
     status: 'new',
     created_at: new Date().toISOString(),
     timestamp: serverTimestamp(),
   });
+
+  let supabasePromise = Promise.resolve();
+  if (isSupabaseConfigured) {
+    supabasePromise = Promise.resolve(
+      supabase.from('survey_submissions').insert({
+        customer_name: survey.customer_name.trim(),
+        mobile: survey.mobile.trim(),
+        address: survey.address.trim(),
+        family_members: Number(survey.family_members),
+        delivery_preference: survey.delivery_preference,
+        selections: survey.selections,
+        notes: survey.notes?.trim() || null,
+      })
+    ).then(({ error }) => {
+      if (error) console.warn('Dual-write to Supabase survey warning:', error);
+    }).catch((err) => console.warn('Supabase survey error:', err));
+  }
+
+  const [firestoreRes] = await Promise.all([firestorePromise, supabasePromise]);
+  return firestoreRes;
 }
 
+/**
+ * Dual database submission for Orders:
+ * Stores in Firestore AND also syncs with Supabase if configured.
+ */
 export async function createOrder(order: Order) {
-  const colRef = collection(db, 'orders');
-  return addDoc(colRef, {
+  const firestorePromise = addDoc(collection(db, 'orders'), {
     ...order,
     status: 'new',
     created_at: new Date().toISOString(),
     timestamp: serverTimestamp(),
   });
-}
 
-export async function fetchOrders(userId?: string): Promise<OrderRow[]> {
-  const colRef = collection(db, 'orders');
-  let q = query(colRef, orderBy('created_at', 'desc'));
-  if (userId) {
-    q = query(colRef, where('user_id', '==', userId), orderBy('created_at', 'desc'));
+  let supabasePromise = Promise.resolve();
+  if (isSupabaseConfigured) {
+    supabasePromise = Promise.resolve(
+      supabase.from('orders').insert({
+        customer_name: order.customer_name.trim(),
+        mobile: order.mobile.trim(),
+        address: order.address.trim(),
+        mode: order.mode,
+        items: order.items,
+        expected_delivery: order.expected_delivery,
+        notes: order.notes?.trim() || null,
+        user_id: order.user_id || null,
+      })
+    ).then(({ error }) => {
+      if (error) console.warn('Dual-write to Supabase order warning:', error);
+    }).catch((err) => console.warn('Supabase order error:', err));
   }
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...(d.data() as Omit<OrderRow, 'id'>),
-  }));
+
+  const [firestoreRes] = await Promise.all([firestorePromise, supabasePromise]);
+  return firestoreRes;
 }
 
+/**
+ * Fetch orders combining Firestore and Supabase if active
+ */
+export async function fetchOrders(userId?: string): Promise<OrderRow[]> {
+  try {
+    const colRef = collection(db, 'orders');
+    let q = query(colRef, orderBy('created_at', 'desc'));
+    if (userId) {
+      q = query(colRef, where('user_id', '==', userId), orderBy('created_at', 'desc'));
+    }
+    const snap = await getDocs(q);
+    const fsOrders = snap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<OrderRow, 'id'>),
+    }));
+
+    if (fsOrders.length > 0) return fsOrders;
+
+    if (isSupabaseConfigured) {
+      let sbQuery = supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (userId) {
+        sbQuery = sbQuery.eq('user_id', userId);
+      }
+      const { data, error } = await sbQuery;
+      if (!error && data) {
+        return data as OrderRow[];
+      }
+    }
+
+    return fsOrders;
+  } catch (err) {
+    console.warn('Error in fetchOrders, trying Supabase fallback:', err);
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (data) return data as OrderRow[];
+    }
+    return [];
+  }
+}
+
+/**
+ * Fetch surveys combining Firestore and Supabase if active
+ */
 export async function fetchSurveys(): Promise<SurveyRow[]> {
-  const colRef = collection(db, 'survey_submissions');
-  const q = query(colRef, orderBy('created_at', 'desc'));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...(d.data() as Omit<SurveyRow, 'id'>),
-  }));
+  try {
+    const colRef = collection(db, 'survey_submissions');
+    const q = query(colRef, orderBy('created_at', 'desc'));
+    const snap = await getDocs(q);
+    const fsSurveys = snap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<SurveyRow, 'id'>),
+    }));
+
+    if (fsSurveys.length > 0) return fsSurveys;
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('survey_submissions')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) return data as SurveyRow[];
+    }
+
+    return fsSurveys;
+  } catch (err) {
+    console.warn('Error in fetchSurveys, trying Supabase fallback:', err);
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from('survey_submissions').select('*').order('created_at', { ascending: false });
+      if (data) return data as SurveyRow[];
+    }
+    return [];
+  }
 }
 
+/**
+ * Fetch enquiries combining Firestore and Supabase if active
+ */
 export async function fetchEnquiries(): Promise<EnquiryRow[]> {
-  const colRef = collection(db, 'enquiries');
-  const q = query(colRef, orderBy('created_at', 'desc'));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...(d.data() as Omit<EnquiryRow, 'id'>),
-  }));
+  try {
+    const colRef = collection(db, 'enquiries');
+    const q = query(colRef, orderBy('created_at', 'desc'));
+    const snap = await getDocs(q);
+    const fsEnquiries = snap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<EnquiryRow, 'id'>),
+    }));
+
+    if (fsEnquiries.length > 0) return fsEnquiries;
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('enquiries')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) return data as EnquiryRow[];
+    }
+
+    return fsEnquiries;
+  } catch (err) {
+    console.warn('Error in fetchEnquiries, trying Supabase fallback:', err);
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from('enquiries').select('*').order('created_at', { ascending: false });
+      if (data) return data as EnquiryRow[];
+    }
+    return [];
+  }
 }
 
+/**
+ * Update order status across both databases
+ */
+export async function updateOrderStatus(id: string, status: OrderRow['status']) {
+  const fsPromise = updateDoc(doc(db, 'orders', id), { status }).catch((e) =>
+    console.warn('Firestore updateOrderStatus notice:', e)
+  );
+
+  let sbPromise = Promise.resolve();
+  if (isSupabaseConfigured) {
+    sbPromise = Promise.resolve(supabase.from('orders').update({ status }).eq('id', id)).then(
+      () => {}
+    ).catch((e) => console.warn('Supabase updateOrderStatus notice:', e));
+  }
+
+  await Promise.all([fsPromise, sbPromise]);
+}
+
+/**
+ * Update survey status across both databases
+ */
+export async function updateSurveyStatus(id: string, status: SurveyRow['status']) {
+  const fsPromise = updateDoc(doc(db, 'survey_submissions', id), { status }).catch((e) =>
+    console.warn('Firestore updateSurveyStatus notice:', e)
+  );
+
+  let sbPromise = Promise.resolve();
+  if (isSupabaseConfigured) {
+    sbPromise = Promise.resolve(supabase.from('survey_submissions').update({ status }).eq('id', id)).then(
+      () => {}
+    ).catch((e) => console.warn('Supabase updateSurveyStatus notice:', e));
+  }
+
+  await Promise.all([fsPromise, sbPromise]);
+}
+
+/**
+ * Update enquiry status across both databases
+ */
+export async function updateEnquiryStatus(id: string, status: EnquiryRow['status']) {
+  const fsPromise = updateDoc(doc(db, 'enquiries', id), { status }).catch((e) =>
+    console.warn('Firestore updateEnquiryStatus notice:', e)
+  );
+
+  let sbPromise = Promise.resolve();
+  if (isSupabaseConfigured) {
+    sbPromise = Promise.resolve(supabase.from('enquiries').update({ status }).eq('id', id)).then(
+      () => {}
+    ).catch((e) => console.warn('Supabase updateEnquiryStatus notice:', e));
+  }
+
+  await Promise.all([fsPromise, sbPromise]);
+}

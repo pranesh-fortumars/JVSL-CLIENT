@@ -28,12 +28,13 @@ import {
   fetchOrders,
   fetchSurveys,
   fetchEnquiries,
+  updateOrderStatus as syncUpdateOrderStatus,
+  updateSurveyStatus as syncUpdateSurveyStatus,
+  updateEnquiryStatus as syncUpdateEnquiryStatus,
   type OrderRow,
   type SurveyRow,
   type EnquiryRow
 } from '@/lib/firestoreService';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
@@ -116,7 +117,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const updateOrderStatus = async (id: string, status: OrderRow['status']) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
     try {
-      await updateDoc(doc(db, 'orders', id), { status });
+      await syncUpdateOrderStatus(id, status);
     } catch (error) {
       console.error(error);
       setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: o.status } : o)));
@@ -125,7 +126,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const updateSurveyStatus = async (id: string, status: SurveyRow['status']) => {
     setSurveys((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
     try {
-      await updateDoc(doc(db, 'survey_submissions', id), { status });
+      await syncUpdateSurveyStatus(id, status);
     } catch (error) {
       console.error(error);
       setSurveys((prev) => prev.map((s) => (s.id === id ? { ...s, status: s.status } : s)));
@@ -134,7 +135,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const updateEnquiryStatus = async (id: string, status: EnquiryRow['status']) => {
     setEnquiries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
     try {
-      await updateDoc(doc(db, 'enquiries', id), { status });
+      await syncUpdateEnquiryStatus(id, status);
     } catch (error) {
       console.error(error);
       setEnquiries((prev) => prev.map((e) => (e.id === id ? { ...e, status: e.status } : e)));
