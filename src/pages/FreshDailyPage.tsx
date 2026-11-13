@@ -168,28 +168,29 @@ export function FreshDailyPage() {
   return (
     <div className="pt-[calc(var(--header-h)+2rem)]">
       {/* Header / branding */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-800 to-brand-950 text-white">
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-gold-500/20 blur-3xl" aria-hidden />
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0c2e1f] via-[#123d29] to-[#071d13] text-white">
+        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-gold-400/20 blur-3xl pointer-events-none" aria-hidden />
+        <div className="absolute left-1/3 -bottom-24 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl pointer-events-none" aria-hidden />
         <div className="container-page py-12 sm:py-16">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gold-300">
+          <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-gold-500/15 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-gold-300 backdrop-blur-md">
             JVLSD-FD Fresh Daily · through SHAKWALA
           </span>
-          <h1 className="mt-5 max-w-3xl font-display text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
+          <h1 className="mt-5 max-w-3xl font-display text-3xl font-extrabold leading-tight text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
             Introducing Fresh Veg, Fruits &amp; Milk — Daily Direct Delivery
           </h1>
-          <p className="mt-4 max-w-2xl text-brand-100">
+          <p className="mt-4 max-w-2xl text-base sm:text-lg leading-relaxed text-emerald-50/95 font-medium">
             By Jagatpati Vigneshwara LSD (JVLSD). Tell us your household's fresh requirements
             and we'll plan procurement around your needs — reducing waste and keeping
             everything genuinely fresh.
           </p>
           <div className="mt-6 flex flex-wrap gap-3 text-sm">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-white">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 font-medium text-white shadow-soft backdrop-blur-sm">
               <CalendarClock className="h-4 w-4 text-gold-300" /> Plan one day ahead
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-white">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 font-medium text-white shadow-soft backdrop-blur-sm">
               <Truck className="h-4 w-4 text-gold-300" /> Doorstep delivery
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-white">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 font-medium text-white shadow-soft backdrop-blur-sm">
               <Leaf className="h-4 w-4 text-gold-300" /> Less waste, fairer prices
             </span>
           </div>

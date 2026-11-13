@@ -40,16 +40,16 @@ export function AboutPage() {
     <div className="pt-[calc(var(--header-h)+2rem)]">
       {/* Hero */}
       <section className="relative overflow-hidden pb-16 sm:pb-20">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-brand-50 to-white" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-sage-50 via-mint-50/40 to-transparent" />
         <div className="container-page">
           <Reveal className="max-w-3xl">
-            <span className="eyebrow">
-              <Sprout className="h-3.5 w-3.5" /> About JVLSD
+            <span className="eyebrow text-forest-800">
+              <Sprout className="h-3.5 w-3.5 text-brand-600" /> About JVLSD
             </span>
             <h1 className="mt-5 font-display text-4xl font-extrabold leading-tight text-ink-950 sm:text-5xl">
               Building a trusted house of everyday essentials.
             </h1>
-            <p className="mt-6 text-lg leading-relaxed text-ink-600">
+            <p className="mt-6 text-lg leading-relaxed text-ink-700">
               Jagatpati Vigneshwara LSD LLP (JVLSD) is the parent organisation behind a
               growing family of business activities. We are starting with Shakhwala and the
               JVLSD-FD Fresh Daily direct delivery service — and the structure is designed to
@@ -103,11 +103,13 @@ export function AboutPage() {
       </section>
 
       {/* Vision / Mission / Purpose */}
-      <section className="bg-brand-950 py-20 text-white sm:py-28">
-        <div className="container-page">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0c2e1f] via-[#113a27] to-[#071d13] py-20 text-white sm:py-28">
+        <div className="absolute right-0 top-1/4 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" aria-hidden />
+        <div className="absolute -left-20 bottom-10 h-72 w-72 rounded-full bg-gold-400/10 blur-3xl pointer-events-none" aria-hidden />
+        <div className="container-page relative z-10">
           <Reveal className="max-w-2xl">
-            <span className="eyebrow text-gold-300">What guides us</span>
-            <h2 className="mt-4 font-display text-3xl sm:text-4xl font-bold text-white">
+            <span className="eyebrow text-gold-300 font-semibold tracking-widest">What guides us</span>
+            <h2 className="mt-4 font-display text-3xl font-extrabold text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
               Vision, mission &amp; purpose.
             </h2>
           </Reveal>
@@ -131,12 +133,12 @@ export function AboutPage() {
               },
             ].map((b, i) => (
               <Reveal key={b.title} delay={i * 100}>
-                <div className="group h-full rounded-3xl border border-white/10 bg-white/[0.04] p-8 backdrop-blur-sm transition-all duration-300 hover:bg-white/[0.08] hover:border-gold-400/40 hover:-translate-y-1.5 hover:shadow-lift">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-500/25 to-gold-400/10 text-gold-300 ring-1 ring-gold-400/30 transition-transform duration-300 group-hover:scale-110">
+                <div className="group h-full rounded-3xl border border-white/15 bg-white/[0.07] p-8 backdrop-blur-md transition-all duration-300 hover:bg-white/[0.12] hover:border-gold-400/50 hover:-translate-y-1.5 hover:shadow-lift">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-500/30 to-gold-400/15 text-gold-300 ring-1 ring-gold-400/40 transition-transform duration-300 group-hover:scale-110 shadow-sm">
                     <b.icon className="h-7 w-7" />
                   </span>
                   <h3 className="mt-6 font-display text-2xl font-bold text-white transition-colors group-hover:text-gold-200">{b.title}</h3>
-                  <p className="mt-3 text-base leading-relaxed text-brand-100/90">{b.desc}</p>
+                  <p className="mt-3 text-base leading-relaxed text-emerald-50/95 font-normal">{b.desc}</p>
                 </div>
               </Reveal>
             ))}

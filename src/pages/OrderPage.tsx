@@ -163,16 +163,17 @@ export function OrderPage() {
   return (
     <div className="pt-[calc(var(--header-h)+2rem)]">
       {/* Header */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-800 to-brand-950 text-white">
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-gold-500/20 blur-3xl" aria-hidden />
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0c2e1f] via-[#123d29] to-[#071d13] text-white">
+        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-gold-400/20 blur-3xl pointer-events-none" aria-hidden />
+        <div className="absolute left-1/4 -bottom-20 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl pointer-events-none" aria-hidden />
         <div className="container-page py-10 sm:py-14">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gold-300">
+          <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-gold-500/15 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold-300 backdrop-blur-md">
             <ShoppingBasket className="h-3.5 w-3.5" /> JVLSD-FD Fresh Daily · Order
           </span>
-          <h1 className="mt-4 font-display text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
+          <h1 className="mt-4 font-display text-3xl font-extrabold leading-tight text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
             Order fresh vegetables, fruits &amp; milk.
           </h1>
-          <p className="mt-3 max-w-2xl text-brand-100">
+          <p className="mt-3 max-w-2xl text-base sm:text-lg leading-relaxed text-emerald-50/95 font-medium">
             Choose your mode, pick your products, and check out. Pre-orders help us plan
             procurement and reduce waste.
           </p>
@@ -335,9 +336,9 @@ export function OrderPage() {
                             </div>
                             <p className="mt-2 text-sm text-ink-600">
                               Selected unit: <span className="font-semibold text-ink-900">{previewProduct.unit}</span>
-                              {previewProduct.price && (
+                              {previewProduct.price ? (
                                 <> · Base price: <span className="font-semibold text-brand-700">₹{previewProduct.price}</span></>
-                              )}
+                              ) : null}
                             </p>
                             <div className="mt-6 flex justify-end">
                               <button
