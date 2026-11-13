@@ -492,6 +492,11 @@ function ProductSection({
                       active ? 'scale-105' : 'group-hover:scale-105'
                     }`}
                     loading="lazy"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.src = 'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=600&q=80';
+                    }}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-ink-300">
