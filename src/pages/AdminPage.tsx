@@ -24,7 +24,16 @@ import {
   Apple,
   Milk,
 } from 'lucide-react';
-import { supabase, type OrderRow, type SurveyRow, type EnquiryRow } from '@/lib/supabase';
+import {
+  fetchOrders,
+  fetchSurveys,
+  fetchEnquiries,
+  type OrderRow,
+  type SurveyRow,
+  type EnquiryRow
+} from '@/lib/firestoreService';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
@@ -63,16 +72,13 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
     setLoadError(null);
     try {
       const [o, s, e] = await Promise.all([
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('survey_submissions').select('*').order('created_at', { ascending: false }),
-        supabase.from('enquiries').select('*').order('created_at', { ascending: false }),
+        fetchOrders(),
+        fetchSurveys(),
+        fetchEnquiries(),
       ]);
-      if (o.error) throw o.error;
-      if (s.error) throw s.error;
-      if (e.error) throw e.error;
-      setOrders((o.data ?? []) as OrderRow[]);
-      setSurveys((s.data ?? []) as SurveyRow[]);
-      setEnquiries((e.data ?? []) as EnquiryRow[]);
+      setOrders(o);
+      setSurveys(s);
+      setEnquiries(e);
     } catch (err) {
       console.error(err);
       setLoadError('Could not load dashboard data. Please refresh.');
@@ -109,24 +115,27 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
 
   const updateOrderStatus = async (id: string, status: OrderRow['status']) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
-    const { error } = await supabase.from('orders').update({ status }).eq('id', id);
-    if (error) {
+    try {
+      await updateDoc(doc(db, 'orders', id), { status });
+    } catch (error) {
       console.error(error);
       setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: o.status } : o)));
     }
   };
   const updateSurveyStatus = async (id: string, status: SurveyRow['status']) => {
     setSurveys((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
-    const { error } = await supabase.from('survey_submissions').update({ status }).eq('id', id);
-    if (error) {
+    try {
+      await updateDoc(doc(db, 'survey_submissions', id), { status });
+    } catch (error) {
       console.error(error);
       setSurveys((prev) => prev.map((s) => (s.id === id ? { ...s, status: s.status } : s)));
     }
   };
   const updateEnquiryStatus = async (id: string, status: EnquiryRow['status']) => {
     setEnquiries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
-    const { error } = await supabase.from('enquiries').update({ status }).eq('id', id);
-    if (error) {
+    try {
+      await updateDoc(doc(db, 'enquiries', id), { status });
+    } catch (error) {
       console.error(error);
       setEnquiries((prev) => prev.map((e) => (e.id === id ? { ...e, status: e.status } : e)));
     }

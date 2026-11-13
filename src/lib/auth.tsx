@@ -1,6 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
-import { supabase, type Profile } from '@/lib/supabase';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as fbSignOut,
+  updateProfile,
+  type User
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
+import type { Profile } from './firestoreService';
 
 type SignUpInput = { fullName: string; email: string; password: string };
 
@@ -16,23 +25,34 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const AUTH_MESSAGES: Record<string, string> = {
-  'Invalid login credentials': 'Email or password is incorrect.',
-  'User already registered': 'An account with this email already exists. Please sign in instead.',
-  'Email not confirmed': 'This account is not active yet. Please contact JVLSD.',
+  'auth/invalid-credential': 'Email or password is incorrect.',
+  'auth/user-not-found': 'No account exists with this email.',
+  'auth/wrong-password': 'Password is incorrect.',
+  'auth/email-already-in-use': 'An account with this email already exists. Please sign in instead.',
+  'auth/weak-password': 'Password should be at least 6 characters.',
+  'auth/invalid-email': 'Please enter a valid email address.',
 };
 
-function friendlyAuthError(message: string) {
-  return AUTH_MESSAGES[message] ?? 'Something went wrong. Please try again.';
+function friendlyAuthError(codeOrMessage: string) {
+  return AUTH_MESSAGES[codeOrMessage] ?? 'Authentication failed. Please verify your credentials and try again.';
 }
 
-async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, email, full_name, role')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) throw error;
-  return data as Profile | null;
+async function getOrInitProfile(user: User): Promise<Profile> {
+  const ref = doc(db, 'profiles', user.uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    return { id: user.uid, ...(snap.data() as Omit<Profile, 'id'>) };
+  }
+  
+  const role: Profile['role'] = user.email?.includes('admin@jvlsd') ? 'admin' : 'customer';
+  const newProfile: Profile = {
+    id: user.uid,
+    email: user.email || '',
+    full_name: user.displayName || null,
+    role,
+  };
+  await setDoc(ref, newProfile, { merge: true });
+  return newProfile;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -41,57 +61,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let active = true;
-
-    const applySession = async (session: Session | null) => {
-      const nextUser = session?.user ?? null;
-      if (active) setUser(nextUser);
-      if (!nextUser) {
-        if (active) setProfile(null);
-        return;
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      setUser(nextUser);
+      if (nextUser) {
+        try {
+          const p = await getOrInitProfile(nextUser);
+          setProfile(p);
+        } catch (err) {
+          console.warn('Could not retrieve profile from firestore:', err);
+          setProfile({
+            id: nextUser.uid,
+            email: nextUser.email || '',
+            full_name: nextUser.displayName || null,
+            role: nextUser.email?.includes('admin@jvlsd') ? 'admin' : 'customer',
+          });
+        }
+      } else {
+        setProfile(null);
       }
-      try {
-        const nextProfile = await fetchProfile(nextUser.id);
-        if (active) setProfile(nextProfile);
-      } catch {
-        if (active) setProfile(null);
-      }
-    };
-
-    supabase.auth.getSession().then(({ data }) => applySession(data.session)).finally(() => {
-      if (active) setLoading(false);
+      setLoading(false);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        await applySession(session);
-        if (active) setLoading(false);
-      })();
-    });
-
-    return () => {
-      active = false;
-      subscription.subscription.unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   const signUp: AuthContextValue['signUp'] = async ({ fullName, email, password }) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } },
-    });
-    if (error) return { error: friendlyAuthError(error.message), hasSession: false };
-    return { error: null, hasSession: data.session !== null };
+    try {
+      const res = await createUserWithEmailAndPassword(auth, email, password);
+      if (fullName) {
+        await updateProfile(res.user, { displayName: fullName });
+      }
+      const newProf: Profile = {
+        id: res.user.uid,
+        email,
+        full_name: fullName,
+        role: email.includes('admin@jvlsd') ? 'admin' : 'customer',
+      };
+      await setDoc(doc(db, 'profiles', res.user.uid), newProf, { merge: true });
+      setProfile(newProf);
+      return { error: null, hasSession: true };
+    } catch (err: any) {
+      return { error: friendlyAuthError(err.code || err.message), hasSession: false };
+    }
   };
 
   const signIn: AuthContextValue['signIn'] = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? friendlyAuthError(error.message) : null };
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return { error: null };
+    } catch (err: any) {
+      return { error: friendlyAuthError(err.code || err.message) };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await fbSignOut(auth);
   };
 
   return (

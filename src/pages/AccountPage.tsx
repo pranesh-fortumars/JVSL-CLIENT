@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarClock, LogOut, Loader2, Package, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { navigate, PATHS } from '@/lib/router';
-import { supabase, type OrderRow } from '@/lib/supabase';
+import { fetchOrders, type OrderRow } from '@/lib/firestoreService';
 
 const STATUS_LABEL: Record<OrderRow['status'], string> = {
   new: 'Received',
@@ -26,15 +26,18 @@ export function AccountPage() {
     let active = true;
     setOrdersLoading(true);
     setOrdersError(false);
-    supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
+    fetchOrders(user.uid)
+      .then((data) => {
         if (!active) return;
-        if (error) setOrdersError(true);
-        else setOrders((data as OrderRow[]) ?? []);
+        setOrders(data);
         setOrdersLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (active) {
+          setOrdersError(true);
+          setOrdersLoading(false);
+        }
       });
     return () => {
       active = false;

@@ -9,7 +9,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
-import { supabase, type Enquiry } from '@/lib/supabase';
+import { submitEnquiry, type Enquiry } from '@/lib/firestoreService';
 
 const SUBJECTS = [
   'General enquiry',
@@ -64,14 +64,13 @@ export function ContactPage() {
     setSubmitting(true);
     setStatus('idle');
     try {
-      const { error } = await supabase.from('enquiries').insert({
+      await submitEnquiry({
         name: form.name.trim(),
-        email: form.email?.trim() || null,
+        email: form.email?.trim() || undefined,
         phone: form.phone.trim(),
         subject: form.subject,
         message: form.message.trim(),
       });
-      if (error) throw error;
       setStatus('success');
       setForm({ name: '', email: '', phone: '', subject: SUBJECTS[0], message: '' });
     } catch (err) {

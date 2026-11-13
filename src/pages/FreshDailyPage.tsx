@@ -12,7 +12,12 @@ import {
   CalendarClock,
   Loader2,
 } from 'lucide-react';
-import { supabase, type Product, type SelectionItem } from '@/lib/supabase';
+import {
+  fetchProducts,
+  submitSurvey,
+  type Product,
+  type SelectionItem
+} from '@/lib/firestoreService';
 
 type Freq = SelectionItem['frequency'];
 const FREQS: { value: Freq; label: string }[] = [
@@ -55,13 +60,9 @@ export function FreshDailyPage() {
     let active = true;
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('id,name,category,image_url,unit,available_today,display_order')
-          .order('display_order', { ascending: true });
+        const data = await fetchProducts();
         if (!active) return;
-        if (error) throw error;
-        setProducts((data ?? []) as Product[]);
+        setProducts(data);
       } catch (e) {
         console.error(e);
         setLoadError('We could not load the product list. Please refresh the page.');
@@ -143,16 +144,15 @@ export function FreshDailyPage() {
     setSubmitting(true);
     setStatus('idle');
     try {
-      const { error } = await supabase.from('survey_submissions').insert({
+      await submitSurvey({
         customer_name: info.customer_name.trim(),
         mobile: info.mobile.trim(),
         address: info.address.trim(),
         family_members: Number(info.family_members),
         delivery_preference: info.delivery_preference,
         selections: items,
-        notes: info.notes.trim() || null,
+        notes: info.notes.trim() || undefined,
       });
-      if (error) throw error;
       setStatus('success');
       setInfo(EMPTY);
       setSelections({});

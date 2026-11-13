@@ -18,7 +18,13 @@ import {
   MapPin,
   Lock,
 } from 'lucide-react';
-import { supabase, type Product, type OrderMode, type OrderItem } from '@/lib/supabase';
+import {
+  fetchProducts,
+  createOrder,
+  type Product,
+  type OrderMode,
+  type OrderItem
+} from '@/lib/firestoreService';
 import { useAuth } from '@/lib/auth';
 
 type Cart = Record<string, number>; // productId -> quantity
@@ -54,13 +60,9 @@ export function OrderPage() {
     let active = true;
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('id,name,category,image_url,unit,available_today,display_order')
-          .order('display_order', { ascending: true });
+        const data = await fetchProducts();
         if (!active) return;
-        if (error) throw error;
-        setProducts((data ?? []) as Product[]);
+        setProducts(data);
       } catch (e) {
         console.error(e);
         setLoadError('We could not load the product catalogue. Please refresh the page.');
@@ -555,17 +557,16 @@ function Checkout({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const { error } = await supabase.from('orders').insert({
+      await createOrder({
         customer_name: info.customer_name.trim(),
         mobile: info.mobile.trim(),
         address: info.address.trim(),
         mode,
         items: cartItems,
         expected_delivery: deliveryDate,
-        notes: info.notes.trim() || null,
-        user_id: user?.id ?? null,
+        notes: info.notes.trim() || undefined,
+        user_id: user?.id ?? undefined,
       });
-      if (error) throw error;
       onPlaced();
     } catch (err) {
       console.error(err);
