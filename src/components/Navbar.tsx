@@ -123,16 +123,18 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="lg:hidden border-t border-ink-100 bg-white shadow-lift animate-fade-in">
-          <ul className="container-page flex flex-col py-4">
+        <div className="lg:hidden border-t border-ink-100 bg-white/95 backdrop-blur-xl shadow-lift animate-fade-in">
+          <ul className="container-page flex flex-col py-4 gap-1">
             {NAV.map((item) => {
               const active = route.name === item.route;
               return (
                 <li key={item.route}>
                   <button
                     onClick={() => go(item.path)}
-                    className={`block w-full rounded-xl px-4 py-3 text-left text-base font-semibold ${
-                      active ? 'bg-brand-50 text-brand-800' : 'text-ink-800 hover:bg-ink-50'
+                    className={`flex items-center w-full min-h-[48px] rounded-2xl px-4 py-3 text-left text-base font-semibold transition-all ${
+                      active
+                        ? 'bg-brand-50 text-brand-800 shadow-sm'
+                        : 'text-ink-800 hover:bg-ink-50 active:scale-[0.99]'
                     }`}
                     aria-current={active ? 'page' : undefined}
                   >
@@ -141,17 +143,18 @@ export function Navbar() {
                 </li>
               );
             })}
-            <li>
+            <li className="pt-2">
               <button
                 onClick={() => go(accountPath)}
-                className="block w-full rounded-xl px-4 py-3 text-left text-base font-semibold text-ink-800 hover:bg-ink-50"
+                className="flex items-center gap-2 w-full min-h-[48px] rounded-2xl px-4 py-3 text-left text-base font-semibold text-ink-800 hover:bg-ink-50"
               >
+                <UserRound className="h-5 w-5 text-brand-700" />
                 {accountLabel}
               </button>
             </li>
-            <li className="mt-2">
-              <button onClick={() => go(PATHS.order)} className="btn-primary w-full">
-                <ShoppingBasket className="h-4 w-4" /> Order Fresh Daily
+            <li className="mt-2 pt-2 border-t border-ink-100">
+              <button onClick={() => go(PATHS.order)} className="btn-primary w-full min-h-[48px] text-base">
+                <ShoppingBasket className="h-5 w-5" /> Order Fresh Daily
               </button>
             </li>
           </ul>
