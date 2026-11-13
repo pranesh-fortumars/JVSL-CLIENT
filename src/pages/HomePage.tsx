@@ -84,7 +84,7 @@ export function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-t from-ink-950/40 via-transparent to-transparent" />
             </div>
             {/* Floating card */}
-            <div className="absolute -bottom-6 -left-4 sm:-left-8 w-60 rounded-2xl border border-ink-100 bg-white p-4 shadow-lift">
+            <div className="absolute -bottom-6 -left-4 sm:-left-8 w-60 rounded-2xl border border-ink-100 bg-white p-4 shadow-lift animate-float">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
                   <Leaf className="h-5 w-5" />
@@ -95,7 +95,7 @@ export function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="absolute -top-5 right-4 hidden rounded-2xl border border-ink-100 bg-white p-4 shadow-lift sm:block">
+            <div className="absolute -top-5 right-4 hidden rounded-2xl border border-ink-100 bg-white p-4 shadow-lift sm:block animate-float [animation-delay:2s]">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-100 text-gold-700">
                   <Star className="h-5 w-5 fill-gold-500 text-gold-500" />

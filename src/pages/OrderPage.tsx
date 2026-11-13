@@ -17,6 +17,9 @@ import {
   Tag,
   MapPin,
   Lock,
+  ZoomIn,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import {
   fetchProducts,
@@ -55,6 +58,7 @@ export function OrderPage() {
   const [mode, setMode] = useState<OrderMode>('next_day');
   const [cart, setCart] = useState<Cart>({});
   const [step, setStep] = useState<'browse' | 'checkout' | 'done'>('browse');
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -205,6 +209,7 @@ export function OrderPage() {
                         onStep={stepQty}
                         onSet={setQty}
                         isSelectable={isSelectable}
+                        onPreview={setPreviewProduct}
                       />
                       <CategoryGroup
                         icon={Apple}
@@ -215,6 +220,7 @@ export function OrderPage() {
                         onStep={stepQty}
                         onSet={setQty}
                         isSelectable={isSelectable}
+                        onPreview={setPreviewProduct}
                       />
                       <CategoryGroup
                         icon={Milk}
@@ -225,8 +231,69 @@ export function OrderPage() {
                         onStep={stepQty}
                         onSet={setQty}
                         isSelectable={isSelectable}
+                        onPreview={setPreviewProduct}
                       />
                     </div>
+
+                    {/* Enlarged Product Image Lightbox Modal */}
+                    {previewProduct && (
+                      <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/70 p-4 backdrop-blur-sm animate-fade-in"
+                        onClick={() => setPreviewProduct(null)}
+                      >
+                        <div
+                          className="relative max-w-md w-full overflow-hidden rounded-3xl bg-white shadow-lift animate-scale-in"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setPreviewProduct(null)}
+                            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-ink-700 shadow-md backdrop-blur-md transition-all hover:bg-white hover:scale-105"
+                            aria-label="Close preview"
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                          <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-ink-100">
+                            {previewProduct.image_url ? (
+                              <img
+                                src={previewProduct.image_url}
+                                alt={previewProduct.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-ink-300">
+                                <ShoppingBasket className="h-16 w-16" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-6">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-display text-xl font-bold text-ink-950">
+                                {previewProduct.name}
+                              </h3>
+                              <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">
+                                {previewProduct.category}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-ink-600">
+                              Selected unit: <span className="font-semibold text-ink-900">{previewProduct.unit}</span>
+                              {previewProduct.price && (
+                                <> · Base price: <span className="font-semibold text-brand-700">₹{previewProduct.price}</span></>
+                              )}
+                            </p>
+                            <div className="mt-6 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewProduct(null)}
+                                className="btn-primary px-6 py-2 text-sm"
+                              >
+                                Close preview
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -395,6 +462,7 @@ function CategoryGroup({
   onStep,
   onSet,
   isSelectable,
+  onPreview,
 }: {
   icon: React.ElementType;
   title: string;
@@ -404,6 +472,7 @@ function CategoryGroup({
   onStep: (id: string, delta: number, unit: string) => void;
   onSet: (id: string, qty: number) => void;
   isSelectable: (p: Product) => boolean;
+  onPreview: (p: Product) => void;
 }) {
   if (products.length === 0) return null;
   return (
@@ -418,22 +487,26 @@ function CategoryGroup({
           return (
             <div
               key={p.id}
-              className={`group overflow-hidden rounded-2xl border bg-white transition-all ${
+              className={`group overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:shadow-card hover:-translate-y-0.5 ${
                 selectable
                   ? qty > 0
-                    ? 'border-brand-400 shadow-card'
+                    ? 'border-brand-400 shadow-soft'
                     : 'border-ink-100 hover:border-brand-200'
                   : 'border-ink-100 opacity-60'
               }`}
               aria-disabled={!selectable}
             >
-              <div className="relative h-32 w-full overflow-hidden bg-ink-50">
+              <div
+                className="relative h-32 w-full overflow-hidden bg-ink-50 cursor-pointer"
+                onClick={() => onPreview(p)}
+                title="Click to view large preview"
+              >
                 {p.image_url ? (
                   <img
                     src={p.image_url}
                     alt={p.name}
-                    className={`h-full w-full object-cover transition-transform duration-500 ${
-                      selectable ? 'group-hover:scale-105' : 'grayscale'
+                    className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 ${
+                      selectable ? '' : 'grayscale'
                     }`}
                     loading="lazy"
                   />
@@ -442,6 +515,10 @@ function CategoryGroup({
                     <Icon className="h-8 w-8" />
                   </div>
                 )}
+                {/* Zoom indicator pill on hover */}
+                <span className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-full bg-ink-950/70 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 backdrop-blur-sm">
+                  <ZoomIn className="h-3 w-3" /> Preview
+                </span>
                 {!selectable && (
                   <span className="absolute inset-0 flex items-center justify-center bg-white/40">
                     <span className="rounded-full bg-ink-900/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
@@ -565,7 +642,7 @@ function Checkout({
         items: cartItems,
         expected_delivery: deliveryDate,
         notes: info.notes.trim() || undefined,
-        user_id: user?.id ?? undefined,
+        user_id: user?.uid ?? undefined,
       });
       onPlaced();
     } catch (err) {

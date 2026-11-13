@@ -56,7 +56,16 @@
     @apply btn text-ink-700 hover:bg-ink-100;
   }
   .card {
-    @apply rounded-3xl border border-ink-100 bg-white shadow-card;
+    @apply rounded-3xl border border-ink-100 bg-white shadow-card transition-all duration-300 hover:shadow-lift hover:-translate-y-1;
+  }
+  .glass-card {
+    @apply rounded-3xl border border-white/20 bg-white/70 backdrop-blur-md shadow-soft transition-all duration-300 hover:bg-white/90 hover:shadow-lift;
+  }
+  .glow-gold {
+    box-shadow: 0 0 25px -5px rgba(217, 143, 30, 0.35);
+  }
+  .glow-brand {
+    box-shadow: 0 0 25px -5px rgba(31, 124, 74, 0.35);
   }
   .eyebrow {
     @apply inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand-700;
