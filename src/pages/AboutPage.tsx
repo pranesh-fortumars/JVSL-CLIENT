@@ -39,22 +39,54 @@ export function AboutPage() {
   return (
     <div className="pt-[calc(var(--header-h)+2rem)]">
       {/* Hero */}
-      <section className="relative overflow-hidden pb-16 sm:pb-20">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-sage-50 via-mint-50/40 to-transparent" />
-        <div className="container-page">
-          <Reveal className="max-w-3xl">
+      <section className="relative overflow-hidden pb-16 sm:pb-24">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-sage-100/60 via-mint-50/30 to-transparent" />
+        <div className="absolute -right-24 -top-24 -z-10 h-96 w-96 rounded-full bg-emerald-200/30 blur-3xl" aria-hidden />
+        <div className="absolute left-10 top-1/2 -z-10 h-72 w-72 rounded-full bg-gold-200/25 blur-3xl" aria-hidden />
+        
+        <div className="container-page grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <Reveal className="max-w-2xl">
             <span className="eyebrow text-forest-800">
               <Sprout className="h-3.5 w-3.5 text-brand-600" /> About JVLSD
             </span>
-            <h1 className="mt-5 font-display text-4xl font-extrabold leading-tight text-ink-950 sm:text-5xl">
+            <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.08] text-ink-950 sm:text-5xl lg:text-6xl">
               Building a trusted house of everyday essentials.
             </h1>
-            <p className="mt-6 text-lg leading-relaxed text-ink-700">
+            <p className="mt-6 text-lg sm:text-xl leading-relaxed text-ink-700">
               Jagatpati Vigneshwara LSD LLP (JVLSD) is the parent organisation behind a
               growing family of business activities. We are starting with Shakhwala and the
               JVLSD-FD Fresh Daily direct delivery service — and the structure is designed to
               welcome new divisions over time.
             </p>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <button onClick={() => navigate(PATHS.order)} className="btn-primary px-6 py-3 text-base">
+                Explore Fresh Daily <ArrowRight className="h-4 w-4" />
+              </button>
+              <button onClick={() => navigate(PATHS.contact)} className="btn-outline px-6 py-3 text-base">
+                Get in Touch
+              </button>
+            </div>
+          </Reveal>
+
+          <Reveal delay={120} className="relative">
+            <div className="relative overflow-hidden rounded-3xl shadow-lift ring-1 ring-black/5 group">
+              <img
+                src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80"
+                alt="Fresh farm produce and vegetables"
+                className="h-80 sm:h-96 w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                loading="eager"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink-950/60 via-transparent to-transparent" />
+              <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between text-white">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-gold-300 font-semibold">Direct Source</p>
+                  <p className="font-display text-lg font-bold">Planned Procurement &amp; Trust</p>
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white">
+                  <Leaf className="h-5 w-5 text-gold-300" />
+                </span>
+              </div>
+            </div>
           </Reveal>
         </div>
       </section>
