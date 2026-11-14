@@ -1,27 +1,35 @@
-export function Logo({ className = 'h-11 w-auto' }: { className?: string }) {
+export function Logo({ className = 'h-12 w-12' }: { className?: string }) {
   return (
-    <img
-      src="/JVLSD_Standalone_Option_A_Approved_Master_Font_Refinement.png"
-      alt="JVLSD - Jagatpati Vigneshwara LSD LLP (Trust • Quality • Fairness)"
-      className={`shrink-0 object-contain transition-transform hover:scale-105 ${className}`}
-    />
+    <div className={`relative overflow-hidden rounded-2xl shadow-soft ring-1 ring-gold-400/25 bg-brand-950 shrink-0 ${className}`}>
+      <img
+        src="/jvlsd-celestial-square.jpg"
+        alt="JVLSD - Jagatpati Vigneshwara LSD LLP (Trust • Quality • Fairness)"
+        className="h-full w-full object-cover object-center"
+      />
+    </div>
   );
 }
 
 export function Wordmark() {
   return (
     <div className="flex items-center gap-3">
-      <img
-        src="/JVLSD_Standalone_Option_A_Approved_Master_Font_Refinement.png"
-        alt="JVLSD"
-        className="h-10 sm:h-11 w-auto object-contain shrink-0"
-      />
-      <div className="hidden sm:flex flex-col text-left leading-none">
-        <span className="font-display text-sm font-bold tracking-tight text-ink-950">
+      {/* Blended Rounded Square Celestial Logo Badge */}
+      <div className="relative h-12 w-12 sm:h-13 sm:w-13 overflow-hidden rounded-2xl shadow-card ring-1 ring-gold-400/30 bg-[#0a2016] shrink-0 transition-transform duration-300 hover:scale-105">
+        <img
+          src="/jvlsd-celestial-square.jpg"
+          alt="JVLSD - Jagatpati Vigneshwara LSD LLP"
+          className="h-full w-full object-cover object-center"
+        />
+        {/* Subtle luminous inner highlight */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
+      </div>
+
+      <div className="flex flex-col text-left justify-center">
+        <span className="font-display text-base sm:text-lg font-extrabold tracking-tight text-ink-950 leading-none">
           JVLSD-FD
         </span>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-700 mt-0.5">
-          Franchisee of Shakhwala
+        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-brand-700 mt-1">
+          FRANCHISEE OF SHAKHWALA
         </span>
       </div>
     </div>
