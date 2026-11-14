@@ -113,6 +113,9 @@ export function AdminLoginPage() {
             <button type="submit" className="btn-gold w-full py-3" disabled={submitting}>
               {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing in…</> : 'Sign in to dashboard'}
             </button>
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-brand-200">
+              <span className="font-semibold text-gold-300">Staff Access:</span> Accounts with an <code className="rounded bg-black/20 px-1 py-0.5 text-white">admin@jvlsd...</code> email address are automatically granted Admin rights. You can create an admin or customer account on the <button type="button" onClick={() => navigate(PATHS.login)} className="underline text-gold-300 hover:text-white">Sign In / Register</button> page.
+            </div>
           </form>
         )}
       </div>
