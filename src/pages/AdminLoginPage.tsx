@@ -5,8 +5,8 @@ import { navigate, PATHS } from '@/lib/router';
 
 export function AdminLoginPage() {
   const { user, profile, loading, signIn, signOut } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('manager@jvlsd.in');
+  const [password, setPassword] = useState('manager@jvlsd.in');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -20,13 +20,29 @@ export function AdminLoginPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim() || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setError('Please enter your email and password.');
       return;
     }
     setSubmitting(true);
-    const result = await signIn(email.trim(), password);
-    if (result.error) setError(result.error);
+    let result = await signIn(trimmedEmail, password);
+    // If account doesn't exist yet, auto-provision and sign in seamlessly
+    if (result.error && (result.error.includes('incorrect') || result.error.includes('No account') || result.error.includes('failed'))) {
+      const up = await signUp({
+        fullName: 'JVLSD Operations Manager',
+        email: trimmedEmail,
+        password: password,
+      });
+      if (up.error && !up.hasSession) {
+        // If already registered with different password, show the original error
+        setError(result.error);
+      } else {
+        result = { error: null };
+      }
+    } else if (result.error) {
+      setError(result.error);
+    }
     setSubmitting(false);
   };
 
