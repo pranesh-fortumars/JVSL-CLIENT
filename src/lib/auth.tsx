@@ -44,7 +44,10 @@ async function getOrInitProfile(user: User): Promise<Profile> {
     return { id: user.uid, ...(snap.data() as Omit<Profile, 'id'>) };
   }
   
-  const role: Profile['role'] = user.email?.includes('admin@jvlsd') ? 'admin' : 'customer';
+  const role: Profile['role'] =
+    user.email?.includes('admin@jvlsd') || user.email?.toLowerCase() === 'jvlsd@gmail.com'
+      ? 'admin'
+      : 'customer';
   const newProfile: Profile = {
     id: user.uid,
     email: user.email || '',
@@ -95,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: res.user.uid,
         email,
         full_name: fullName,
-        role: email.includes('admin@jvlsd') ? 'admin' : 'customer',
+        role: email.includes('admin@jvlsd') || email.toLowerCase() === 'jvlsd@gmail.com' ? 'admin' : 'customer',
       };
       await setDoc(doc(db, 'profiles', res.user.uid), newProf, { merge: true });
       setProfile(newProf);
