@@ -40,14 +40,22 @@ function friendlyAuthError(codeOrMessage: string) {
 async function getOrInitProfile(user: User): Promise<Profile> {
   const ref = doc(db, 'profiles', user.uid);
   const snap = await getDoc(ref);
+  const isAdmin =
+    user.email?.toLowerCase().includes('jvlsd') ||
+    user.email?.toLowerCase() === 'jvlsd@gmail.com' ||
+    user.email?.toLowerCase().includes('admin');
+
   if (snap.exists()) {
-    return { id: user.uid, ...(snap.data() as Omit<Profile, 'id'>) };
+    const existing = snap.data() as Omit<Profile, 'id'>;
+    // If the account should be an admin but was saved as customer, upgrade it immediately
+    if (isAdmin && existing.role !== 'admin') {
+      await setDoc(ref, { role: 'admin' }, { merge: true });
+      return { id: user.uid, ...existing, role: 'admin' };
+    }
+    return { id: user.uid, ...existing };
   }
   
-  const role: Profile['role'] =
-    user.email?.includes('jvlsd') || user.email?.toLowerCase() === 'jvlsd@gmail.com'
-      ? 'admin'
-      : 'customer';
+  const role: Profile['role'] = isAdmin ? 'admin' : 'customer';
   const newProfile: Profile = {
     id: user.uid,
     email: user.email || '',

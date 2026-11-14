@@ -79,14 +79,16 @@ export function AdminLoginPage() {
           <div className="mt-8 space-y-5">
             <p className="flex items-start gap-2 rounded-xl bg-red-500/15 px-4 py-3 text-sm text-red-100" role="alert">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-              This account does not have admin access.
+              Signed in as <strong className="text-white">{user?.email}</strong>. This account does not have admin rights.
             </p>
-            <button
-              onClick={() => { void signOut(); }}
-              className="btn-outline w-full border-white/20 py-3 text-white hover:bg-white/10"
-            >
-              Sign out
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { void signOut(); }}
+                className="btn-gold flex-1 py-3 text-ink-950"
+              >
+                Sign out and switch account
+              </button>
+            </div>
           </div>
         )}
 
