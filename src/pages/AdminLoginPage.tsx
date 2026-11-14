@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { navigate, PATHS } from '@/lib/router';
 
 export function AdminLoginPage() {
-  const { user, profile, loading, signIn, signOut } = useAuth();
+  const { user, profile, loading, signIn, signUp, signOut } = useAuth();
   const [email, setEmail] = useState('manager@jvlsd.in');
   const [password, setPassword] = useState('manager@jvlsd.in');
   const [error, setError] = useState<string | null>(null);
