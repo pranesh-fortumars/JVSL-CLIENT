@@ -80,11 +80,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(p);
         } catch (err) {
           console.warn('Could not retrieve profile from firestore:', err);
+          const emailLower = (nextUser.email || '').toLowerCase();
+          const role: Profile['role'] =
+            emailLower.includes('jvlsd') || emailLower === 'jvlsd@gmail.com' || emailLower.includes('admin')
+              ? 'admin'
+              : 'customer';
           setProfile({
             id: nextUser.uid,
             email: nextUser.email || '',
             full_name: nextUser.displayName || null,
-            role: nextUser.email?.includes('admin@jvlsd') ? 'admin' : 'customer',
+            role,
           });
         }
       } else {

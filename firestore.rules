@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Products: readable by everyone, modifiable by authenticated staff
+    match /products/{document} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Profiles: users can read/write their own profile
+    match /profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+    }
+
+    // Orders: public can create orders, users and staff can read
+    match /orders/{document} {
+      allow create: if true;
+      allow read, update: if request.auth != null;
+    }
+
+    // Survey Submissions: public can submit, staff can read
+    match /survey_submissions/{document} {
+      allow create: if true;
+      allow read, update: if request.auth != null;
+    }
+
+    // Enquiries: public can submit, staff can read
+    match /enquiries/{document} {
+      allow create: if true;
+      allow read, update: if request.auth != null;
+    }
+  }
+}
+
