@@ -506,6 +506,24 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
 }
 
 /**
+ * Super Admin: Update user role
+ */
+export async function updateUserRole(userId: string, role: Profile['role']): Promise<void> {
+  const ref = doc(db, 'profiles', userId);
+  try {
+    await setDoc(ref, { role }, { merge: true });
+  } catch (e) {
+    console.warn('updateUserRole error:', e);
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from('profiles').update({ role }).eq('id', userId);
+    } catch (e) {}
+  }
+}
+
+/**
  * Super Admin: Permanently delete a user profile and all their associated orders/submissions from the database
  */
 export async function deleteUserCompletely(userId: string, email?: string): Promise<void> {
