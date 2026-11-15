@@ -605,37 +605,98 @@ function CategoryGroup({
                 </div>
 
                 {selectable ? (
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="flex items-center rounded-lg border border-ink-200 bg-white">
-                      <button
-                        type="button"
-                        onClick={() => onStep(p.id, -1, p.unit)}
-                        className="flex h-9 w-9 items-center justify-center text-ink-600 hover:bg-ink-50 rounded-l-lg"
-                        aria-label={`Decrease ${p.name}`}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.5"
-                        inputMode="decimal"
-                        className="h-9 w-14 border-x border-ink-200 text-center text-sm font-semibold text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                        value={qty || ''}
-                        placeholder="0"
-                        onChange={(e) => onSet(p.id, Number(e.target.value) || 0)}
-                        aria-label={`${p.name} quantity in ${p.unit}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => onStep(p.id, 1, p.unit)}
-                        className="flex h-9 w-9 items-center justify-center text-ink-600 hover:bg-ink-50 rounded-r-lg"
-                        aria-label={`Increase ${p.name}`}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
+                  <div className="mt-3 space-y-2">
+                    {/* Weight Stepper */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center rounded-lg border border-ink-200 bg-white">
+                        <button
+                          type="button"
+                          onClick={() => onStep(p.id, p.unit === 'kg' ? -0.25 : -1, p.unit)}
+                          className="flex h-8 w-8 items-center justify-center text-ink-600 hover:bg-ink-50 rounded-l-lg"
+                          aria-label={`Decrease ${p.name}`}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min={0}
+                          step={p.unit === 'kg' ? '0.25' : '1'}
+                          inputMode="decimal"
+                          className="h-8 w-14 border-x border-ink-200 text-center text-xs font-semibold text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                          value={qty || ''}
+                          placeholder="0"
+                          onChange={(e) => onSet(p.id, Number(e.target.value) || 0)}
+                          aria-label={`${p.name} quantity in ${p.unit}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => onStep(p.id, p.unit === 'kg' ? 0.25 : 1, p.unit)}
+                          className="flex h-8 w-8 items-center justify-center text-ink-600 hover:bg-ink-50 rounded-r-lg"
+                          aria-label={`Increase ${p.name}`}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <span className="text-xs font-medium text-ink-500">{p.unit}</span>
                     </div>
-                    <span className="text-xs text-ink-500">{p.unit}</span>
+
+                    {/* Quick unit chips for flexible weights */}
+                    {p.unit === 'kg' && (
+                      <div className="flex flex-wrap gap-1">
+                        {[
+                          { label: '250g', val: 0.25 },
+                          { label: '500g', val: 0.5 },
+                          { label: '750g', val: 0.75 },
+                          { label: '1kg', val: 1.0 },
+                        ].map((chip) => (
+                          <button
+                            key={chip.label}
+                            type="button"
+                            onClick={() => onSet(p.id, chip.val)}
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                              qty === chip.val
+                                ? 'bg-brand-700 text-white'
+                                : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                            }`}
+                          >
+                            {chip.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Amount-Based Calculator ("Buy by ₹") */}
+                    {p.price && (
+                      <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50/80 px-2 py-1 text-[11px] border border-emerald-200/60">
+                        <span className="font-semibold text-emerald-800">Buy by ₹:</span>
+                        <input
+                          type="number"
+                          placeholder={`₹${p.price}`}
+                          className="w-14 rounded border border-emerald-300 bg-white px-1.5 py-0.5 text-[11px] font-bold text-ink-900 focus:outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const amt = Number(e.currentTarget.value);
+                              if (amt > 0 && p.price) {
+                                const calcQty = Math.round((amt / p.price) * 100) / 100;
+                                // Enforce minimum weight (e.g. 0.25kg min)
+                                const minWeight = p.unit === 'kg' ? 0.25 : 1;
+                                onSet(p.id, Math.max(minWeight, calcQty));
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const amt = Number(e.target.value);
+                            if (amt > 0 && p.price) {
+                              const calcQty = Math.round((amt / p.price) * 100) / 100;
+                              const minWeight = p.unit === 'kg' ? 0.25 : 1;
+                              onSet(p.id, Math.max(minWeight, calcQty));
+                            }
+                          }}
+                        />
+                        <span className="text-[10px] text-emerald-700 font-medium">auto-calc</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   mode === 'same_day' ? (
@@ -673,29 +734,39 @@ function Checkout({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { user } = useAuth();
 
   const deliveryDate = mode === 'next_day' ? tomorrowISO() : todayISO();
 
   const update = (k: keyof typeof info, v: string) => {
-    setInfo((f) => ({ ...f, [k]: v }));
+    // Requirements: All Customer profile details capture strictly in CAPITAL LETTERS
+    const sanitized = k === 'notes' ? v : v.toUpperCase();
+    setInfo((f) => ({ ...f, [k]: sanitized }));
     if (errors[k]) setErrors((e) => ({ ...e, [k]: '' }));
   };
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!info.customer_name.trim()) e.customer_name = 'Please enter your name.';
-    if (!info.mobile.trim()) e.mobile = 'Please enter your mobile number.';
-    else if (!/^[+\d][\d\s-]{7,15}$/.test(info.mobile.trim())) e.mobile = 'Please enter a valid mobile number.';
-    if (!info.address.trim()) e.address = 'Please enter your delivery address.';
+    if (!info.customer_name.trim()) e.customer_name = 'Please enter your name in CAPITAL LETTERS.';
+    if (!info.mobile.trim()) e.mobile = 'Please enter your 10-digit mobile number.';
+    else if (!/^[6-9]\d{9}$/.test(info.mobile.trim().replace(/\D/g, ''))) {
+      e.mobile = 'Mobile number strictly 10 digits (India).';
+    }
+    if (!info.address.trim()) e.address = 'Please enter your delivery address with DIGIPIN/PIN.';
     return e;
   };
 
-  const placeOrder = async (ev: React.FormEvent) => {
+  const handlePreConfirm = (ev: React.FormEvent) => {
     ev.preventDefault();
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) return;
+    // Open mandatory Address Confirmation Modal before submission
+    setShowConfirmModal(true);
+  };
+
+  const placeOrder = async () => {
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -709,6 +780,7 @@ function Checkout({
         notes: info.notes.trim() || undefined,
         user_id: user?.uid ?? undefined,
       });
+      setShowConfirmModal(false);
       onPlaced();
     } catch (err) {
       console.error(err);
@@ -719,7 +791,7 @@ function Checkout({
   };
 
   return (
-    <form onSubmit={placeOrder} noValidate>
+    <form onSubmit={handlePreConfirm} noValidate>
       <button
         type="button"
         onClick={onBack}
@@ -743,6 +815,28 @@ function Checkout({
           ))}
         </ul>
 
+        {/* Financial & Automated Checkout Breakdown */}
+        <div className="mt-5 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-brand-50/40 p-4">
+          <div className="flex items-center justify-between text-xs font-semibold text-emerald-900">
+            <span>Monthly Subscription Active (₹1,000 Plan)</span>
+            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] text-white">LSD Privilege</span>
+          </div>
+          <div className="mt-3 space-y-1.5 text-xs text-ink-700">
+            <div className="flex justify-between">
+              <span>LSD ₹300 Promotional Discount (₹50 order cap)</span>
+              <span className="font-semibold text-brand-700">-₹50.00</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Prepaid Wallet Balance Applied</span>
+              <span className="font-semibold text-brand-700">Eligible</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Loyalty Points Earning (1 pt = ₹1)</span>
+              <span className="font-semibold text-gold-700">+5 pts earned</span>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-brand-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">Ordering mode</p>
@@ -763,7 +857,7 @@ function Checkout({
       </div>
 
       <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-5">
-        <h2 className="font-display text-base font-bold text-ink-900">Delivery details</h2>
+        <h2 className="font-display text-base font-bold text-ink-900">Delivery details (Capital Letters)</h2>
         {submitError && (
           <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {submitError}
@@ -771,48 +865,50 @@ function Checkout({
         )}
         <div className="mt-4 grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="label" htmlFor="co-name">Full name <span className="text-red-600" aria-hidden>*</span></label>
+            <label className="label" htmlFor="co-name">Full name (CAPITAL LETTERS) <span className="text-red-600" aria-hidden>*</span></label>
             <input
               id="co-name"
-              className="input-field"
+              className="input-field uppercase tracking-wide font-medium"
               value={info.customer_name}
               onChange={(e) => update('customer_name', e.target.value)}
               aria-required="true"
               aria-invalid={!!errors.customer_name}
               autoComplete="name"
+              placeholder="E.G. SURESH SHAH"
             />
             {errors.customer_name && <p className="field-error" role="alert">{errors.customer_name}</p>}
           </div>
           <div>
-            <label className="label" htmlFor="co-mobile">Mobile number <span className="text-red-600" aria-hidden>*</span></label>
+            <label className="label" htmlFor="co-mobile">Mobile number (10 Digits) <span className="text-red-600" aria-hidden>*</span></label>
             <input
               id="co-mobile"
               type="tel"
-              className="input-field"
+              className="input-field font-mono"
               value={info.mobile}
               onChange={(e) => update('mobile', e.target.value)}
               aria-required="true"
               aria-invalid={!!errors.mobile}
               autoComplete="tel"
-              placeholder="+91 90000 00000"
+              placeholder="98250 12345"
+              maxLength={14}
             />
             {errors.mobile && <p className="field-error" role="alert">{errors.mobile}</p>}
           </div>
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="co-address">Delivery address <span className="text-red-600" aria-hidden>*</span></label>
+            <label className="label" htmlFor="co-address">Delivery address &amp; DIGIPIN <span className="text-red-600" aria-hidden>*</span></label>
             <textarea
               id="co-address"
               rows={2}
-              className="input-field resize-y"
+              className="input-field uppercase tracking-wide font-medium resize-y"
               value={info.address}
               onChange={(e) => update('address', e.target.value)}
               aria-required="true"
               aria-invalid={!!errors.address}
-              placeholder="House / flat, street, landmark, city, PIN"
+              placeholder="FLAT / HOUSE NO, STREET, CITY, PIN CODE, DIGIPIN"
             />
             {errors.address && <p className="field-error" role="alert">{errors.address}</p>}
             <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-500">
-              <MapPin className="h-3.5 w-3.5" /> Same-day delivery is available within 3 km.
+              <MapPin className="h-3.5 w-3.5" /> Structured postal mapping replaces inaccurate third-party map drops.
             </p>
           </div>
           <div className="sm:col-span-2">
@@ -823,7 +919,7 @@ function Checkout({
               className="input-field resize-y"
               value={info.notes}
               onChange={(e) => update('notes', e.target.value)}
-              placeholder="Any instructions for our delivery team"
+              placeholder="Any specific delivery instructions"
             />
           </div>
         </div>
@@ -834,13 +930,66 @@ function Checkout({
           By placing this order you agree to be contacted for delivery coordination.
         </p>
         <button type="submit" className="btn-primary px-6 py-3" disabled={submitting}>
-          {submitting ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Placing order…</>
-          ) : (
-            <>Confirm order <ArrowRight className="h-4 w-4" /></>
-          )}
+          Review &amp; Confirm Address <ArrowRight className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Mandatory Address Re-Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl animate-fade-up border border-gold-300">
+            <div className="flex items-center gap-3 text-brand-800">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-ink-950">Address Re-Confirmation</h3>
+                <p className="text-xs text-ink-500">Please verify your doorstep dispatch location before final submission.</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-amber-50/60 p-4 border border-amber-200/80">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-900 mb-1">
+                Recipient Details:
+              </p>
+              <p className="font-display font-extrabold italic text-ink-900 text-base">
+                {info.customer_name}
+              </p>
+              <p className="font-mono text-xs text-ink-600 mt-0.5">{info.mobile}</p>
+              <div className="mt-3 border-t border-amber-200/60 pt-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-900 mb-1">
+                  Registered Delivery Destination:
+                </p>
+                <p className="font-serif font-black italic text-ink-950 text-sm leading-relaxed tracking-wide">
+                  "{info.address}"
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="rounded-xl border border-ink-200 px-4 py-2.5 text-xs font-bold text-ink-700 hover:bg-ink-50"
+              >
+                Modify Address
+              </button>
+              <button
+                type="button"
+                onClick={placeOrder}
+                disabled={submitting}
+                className="btn-primary px-5 py-2.5 text-xs"
+              >
+                {submitting ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Submitting…</>
+                ) : (
+                  <>Confirmed &amp; Submit Order <CheckCircle2 className="h-4 w-4" /></>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

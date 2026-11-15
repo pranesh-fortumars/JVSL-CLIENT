@@ -11,6 +11,11 @@ import {
   Truck,
   CalendarClock,
   Loader2,
+  HeartPulse,
+  AlertTriangle,
+  Info,
+  Users,
+  Compass,
 } from 'lucide-react';
 import {
   fetchProducts,
@@ -18,6 +23,7 @@ import {
   type Product,
   type SelectionItem
 } from '@/lib/firestoreService';
+import { SEASONAL_CATALOGUE, type Season, type SeasonalProduce } from '@/data/seasonalProduce';
 
 type Freq = SelectionItem['frequency'];
 const FREQS: { value: Freq; label: string }[] = [
@@ -30,7 +36,12 @@ const FREQS: { value: Freq; label: string }[] = [
 type CustomerInfo = {
   customer_name: string;
   mobile: string;
-  address: string;
+  address_line: string;
+  city: string;
+  state: string;
+  country: string;
+  postal_code: string;
+  digipin: string;
   family_members: string;
   delivery_preference: string;
   notes: string;
@@ -39,7 +50,12 @@ type CustomerInfo = {
 const EMPTY: CustomerInfo = {
   customer_name: '',
   mobile: '',
-  address: '',
+  address_line: '',
+  city: 'AHMEDABAD',
+  state: 'GUJARAT',
+  country: 'INDIA',
+  postal_code: '',
+  digipin: '',
   family_members: '1',
   delivery_preference: 'Morning (7–9 AM)',
   notes: '',
@@ -103,19 +119,26 @@ export function FreshDailyPage() {
     setQty(id, next === 0 ? '' : String(next));
   };
 
+  const [selectedSeason, setSelectedSeason] = useState<Season | 'all'>('all');
+
   const updateInfo = (field: keyof CustomerInfo, value: string) => {
-    setInfo((f) => ({ ...f, [field]: value }));
+    // Requirements: All Customer profile details capture strictly in CAPITAL LETTERS
+    const sanitized = field === 'delivery_preference' || field === 'notes' ? value : value.toUpperCase();
+    setInfo((f) => ({ ...f, [field]: sanitized }));
     if (errors[field]) setErrors((e) => ({ ...e, [field]: '' }));
   };
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!info.customer_name.trim()) e.customer_name = 'Please enter your name.';
-    if (!info.mobile.trim()) e.mobile = 'Please enter your mobile number.';
-    else if (!/^[+\d][\d\s-]{7,15}$/.test(info.mobile.trim())) e.mobile = 'Please enter a valid mobile number.';
-    if (!info.address.trim()) e.address = 'Please enter your delivery address.';
+    if (!info.customer_name.trim()) e.customer_name = 'Please enter your full name (CAPITAL LETTERS).';
+    if (!info.mobile.trim()) e.mobile = 'Please enter your 10-digit mobile number.';
+    else if (!/^[6-9]\d{9}$/.test(info.mobile.trim().replace(/\D/g, ''))) {
+      e.mobile = 'Mobile number strictly 10 digits (India).';
+    }
+    if (!info.address_line.trim()) e.address_line = 'Please enter your street address / apartment.';
+    if (!info.postal_code.trim()) e.postal_code = 'Enter 6-digit PIN code.';
     const fam = Number(info.family_members);
-    if (!info.family_members || isNaN(fam) || fam < 1) e.family_members = 'Enter at least 1.';
+    if (!info.family_members || isNaN(fam) || fam < 1) e.family_members = 'Enter at least 1 family member.';
     if (selectedCount === 0) e.selections = 'Select at least one product with a quantity.';
     return e;
   };
@@ -141,13 +164,15 @@ export function FreshDailyPage() {
         frequency: selections[p.id].frequency,
       }));
 
+    const fullStructuredAddress = `${info.address_line.trim()}, ${info.city.trim()}, ${info.state.trim()}, ${info.country.trim()} - PIN: ${info.postal_code.trim()}${info.digipin.trim() ? ` [DIGIPIN: ${info.digipin.trim()}]` : ''}`;
+
     setSubmitting(true);
     setStatus('idle');
     try {
       await submitSurvey({
         customer_name: info.customer_name.trim(),
         mobile: info.mobile.trim(),
-        address: info.address.trim(),
+        address: fullStructuredAddress,
         family_members: Number(info.family_members),
         delivery_preference: info.delivery_preference,
         selections: items,
@@ -236,21 +261,22 @@ export function FreshDailyPage() {
               {/* Customer information */}
               <Section
                 step="1"
-                title="Your information"
-                desc="So we know where to deliver and how to plan for your household."
+                title="Your Information & Family Profile"
+                desc="Structured address & DIGIPIN capture (saved in capital letters as required for business billing and route planning)."
               >
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="Full name" required error={errors.customer_name}>
+                  <Field label="Full Name (Capital Letters)" required error={errors.customer_name}>
                     <input
-                      className="input-field"
+                      className="input-field font-medium uppercase tracking-wide"
                       value={info.customer_name}
                       onChange={(e) => updateInfo('customer_name', e.target.value)}
                       aria-required="true"
                       aria-invalid={!!errors.customer_name}
                       autoComplete="name"
+                      placeholder="E.G. RAMESH PATEL"
                     />
                   </Field>
-                  <Field label="Mobile number" required error={errors.mobile}>
+                  <Field label="Mobile Number (10 Digits India)" required error={errors.mobile}>
                     <input
                       type="tel"
                       className="input-field"
@@ -259,21 +285,76 @@ export function FreshDailyPage() {
                       aria-required="true"
                       aria-invalid={!!errors.mobile}
                       autoComplete="tel"
-                      placeholder="+91 90000 00000"
+                      placeholder="98250 12345"
+                      maxLength={14}
                     />
                   </Field>
-                  <Field label="Delivery address" required error={errors.address} className="sm:col-span-2">
-                    <textarea
-                      rows={2}
-                      className="input-field resize-y"
-                      value={info.address}
-                      onChange={(e) => updateInfo('address', e.target.value)}
+
+                  <Field label="Street / House / Society Address" required error={errors.address_line} className="sm:col-span-2">
+                    <input
+                      type="text"
+                      className="input-field uppercase tracking-wide"
+                      value={info.address_line}
+                      onChange={(e) => updateInfo('address_line', e.target.value)}
                       aria-required="true"
-                      aria-invalid={!!errors.address}
-                      placeholder="House / flat, street, landmark, city, PIN"
+                      aria-invalid={!!errors.address_line}
+                      placeholder="B-402, SHIVAM RESIDENCY, SATELLITE ROAD"
                     />
                   </Field>
-                  <Field label="Number of family members" required error={errors.family_members}>
+
+                  <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:grid-cols-4">
+                    <Field label="City" required>
+                      <input
+                        type="text"
+                        className="input-field uppercase tracking-wide"
+                        value={info.city}
+                        onChange={(e) => updateInfo('city', e.target.value)}
+                      />
+                    </Field>
+                    <Field label="State" required>
+                      <input
+                        type="text"
+                        className="input-field uppercase tracking-wide"
+                        value={info.state}
+                        onChange={(e) => updateInfo('state', e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Country" required>
+                      <input
+                        type="text"
+                        className="input-field uppercase tracking-wide"
+                        value={info.country}
+                        onChange={(e) => updateInfo('country', e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Postal PIN Code" required error={errors.postal_code}>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        className="input-field uppercase tracking-wide font-mono"
+                        value={info.postal_code}
+                        onChange={(e) => updateInfo('postal_code', e.target.value)}
+                        placeholder="380015"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="DIGIPIN / Postal Geo-Code (Default Capture)" className="sm:col-span-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="input-field uppercase tracking-wide font-mono"
+                        value={info.digipin}
+                        onChange={(e) => updateInfo('digipin', e.target.value)}
+                        placeholder="E.G. 380-015-GJ-04"
+                      />
+                      <span className="mt-1 block text-[11px] text-ink-500">
+                        Postal DIGIPIN ensures doorstep delivery accuracy without inaccurate third-party map pins.
+                      </span>
+                    </div>
+                  </Field>
+
+                  <Field label="Number of Family Members" required error={errors.family_members}>
                     <input
                       type="number"
                       min={1}
@@ -284,7 +365,7 @@ export function FreshDailyPage() {
                       aria-invalid={!!errors.family_members}
                     />
                   </Field>
-                  <Field label="Delivery preference">
+                  <Field label="Delivery Preference">
                     <select
                       className="input-field"
                       value={info.delivery_preference}
@@ -298,6 +379,45 @@ export function FreshDailyPage() {
                   </Field>
                 </div>
               </Section>
+
+              {/* Seasonal Produces & Health Guidance Selection */}
+              <div className="mt-10 rounded-3xl border border-gold-400/30 bg-gradient-to-r from-emerald-950 via-[#0e3321] to-[#071f14] p-5 text-white shadow-soft">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gold-300">
+                      <HeartPulse className="h-3.5 w-3.5" /> Seasonal Health &amp; Botanical Guidance
+                    </span>
+                    <h2 className="mt-2 font-display text-lg sm:text-xl font-bold">
+                      Ayurvedic &amp; Seasonal Schedule Breakdown
+                    </h2>
+                    <p className="mt-1 text-xs sm:text-sm text-emerald-100/80">
+                      Filter produce curated specifically for climate adaptation, nutritional balance, and dietary medical advisories.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: 'all', label: 'All Items' },
+                      { id: 'all_year', label: 'બારેમાસ (12 Months)' },
+                      { id: 'winter', label: 'શિયાળો (Winter)' },
+                      { id: 'summer', label: 'ઉનાળો (Summer)' },
+                      { id: 'monsoon', label: 'ચોમાસું (Monsoon)' },
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedSeason(s.id as Season | 'all')}
+                        className={`rounded-full px-3 py-1 text-xs font-bold transition-all ${
+                          selectedSeason === s.id
+                            ? 'bg-gold-500 text-ink-950 shadow-soft'
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               {/* Vegetables */}
               <ProductSection
@@ -475,50 +595,83 @@ function ProductSection({
           const qty = selections[p.id]?.quantity || '';
           const freq = selections[p.id]?.frequency ?? 'weekly';
           const active = Number(qty) > 0;
+          // Find matching seasonal produce metadata if available
+          const seasonalMatch = SEASONAL_CATALOGUE.find(
+            (sp) => sp.name.toLowerCase().includes(p.name.toLowerCase().split(' ')[0]) ||
+                    p.name.toLowerCase().includes(sp.name.toLowerCase().split(' ')[0])
+          );
+
           return (
             <div
               key={p.id}
-              className={`overflow-hidden rounded-2xl border bg-white transition-all ${
+              className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white transition-all ${
                 active
                   ? 'border-brand-400 shadow-card'
                   : 'border-ink-100 hover:border-brand-200'
               }`}
             >
-              <div className="relative h-32 w-full overflow-hidden bg-ink-50">
-                {p.image_url ? (
-                  <img
-                    src={p.image_url}
-                    alt={p.name}
-                    className={`h-full w-full object-cover transition-transform duration-500 ${
-                      active ? 'scale-105' : 'group-hover:scale-105'
-                    }`}
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.onerror = null;
-                      target.src = 'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=600&q=80';
-                    }}
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-ink-300">
-                    <Icon className="h-8 w-8" />
-                  </div>
-                )}
-                {active && (
-                  <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-white shadow-soft">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </span>
-                )}
-              </div>
-
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-display text-sm font-bold text-ink-900">{p.name}</h3>
-                  <span className="text-[11px] font-medium text-ink-500">per {p.unit}</span>
+              <div>
+                <div className="relative h-32 w-full overflow-hidden bg-ink-50">
+                  {p.image_url ? (
+                    <img
+                      src={p.image_url}
+                      alt={p.name}
+                      className={`h-full w-full object-cover transition-transform duration-500 ${
+                        active ? 'scale-105' : 'hover:scale-105'
+                      }`}
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.onerror = null;
+                        target.src = 'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=600&q=80';
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-ink-300">
+                      <Icon className="h-8 w-8" />
+                    </div>
+                  )}
+                  {active && (
+                    <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-white shadow-soft">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                  )}
+                  {seasonalMatch?.seasonLabel && (
+                    <span className="absolute bottom-2 left-2 rounded-full bg-emerald-950/80 px-2.5 py-0.5 text-[10px] font-bold text-gold-300 backdrop-blur-sm">
+                      {seasonalMatch.seasonLabel}
+                    </span>
+                  )}
                 </div>
 
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-ink-900">{p.name}</h3>
+                      {seasonalMatch?.vernacularName && (
+                        <p className="text-[11px] font-medium text-brand-700">{seasonalMatch.vernacularName}</p>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-medium text-ink-500">per {p.unit}</span>
+                  </div>
+
+                  {/* Clinical & Health Nutritional Advisories */}
+                  {seasonalMatch?.medicalAdvisory && (
+                    <div className="mt-2.5 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-[11px] leading-tight text-amber-800 border border-amber-200">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
+                      <span>{seasonalMatch.medicalAdvisory}</span>
+                    </div>
+                  )}
+                  {seasonalMatch?.nutritionalNotes && !seasonalMatch?.medicalAdvisory && (
+                    <p className="mt-2 text-[11px] leading-tight text-ink-500 italic">
+                      "{seasonalMatch.nutritionalNotes}"
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 pt-0">
                 {/* Quantity stepper */}
-                <div className="mt-3 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <div className="flex items-center rounded-lg border border-ink-200 bg-white">
                     <button
                       type="button"
