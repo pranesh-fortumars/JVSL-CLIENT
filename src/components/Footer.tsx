@@ -8,8 +8,8 @@ export function Footer() {
       <div className="container-page py-16">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="lg:col-span-1">
-            <div className="rounded-xl bg-white/5 p-3 inline-block">
-              <Wordmark />
+            <div className="rounded-2xl bg-white/[0.08] p-3 inline-block border border-white/10 backdrop-blur-sm shadow-soft">
+              <Wordmark dark />
             </div>
             <p className="mt-5 text-sm leading-relaxed text-ink-300 max-w-xs">
               Jagatpati Vigneshwara LSD LLP — building a trusted network of fresh,
