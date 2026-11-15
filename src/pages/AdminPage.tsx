@@ -28,19 +28,24 @@ import {
   fetchOrders,
   fetchSurveys,
   fetchEnquiries,
+  fetchAllProfiles,
+  updateUserRole,
+  createManagedUser,
   updateOrderStatus as syncUpdateOrderStatus,
   updateSurveyStatus as syncUpdateSurveyStatus,
   updateEnquiryStatus as syncUpdateEnquiryStatus,
   type OrderRow,
   type SurveyRow,
-  type EnquiryRow
+  type EnquiryRow,
+  type Profile,
 } from '@/lib/firestoreService';
 import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { Wordmark } from '@/components/Logo';
+import { ShieldCheck, UserPlus, Key } from 'lucide-react';
 
-type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries';
+type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
 
 export function AdminPage() {
   const { user, profile, loading, signOut } = useAuth();
@@ -53,14 +58,14 @@ export function AdminPage() {
     );
   }
 
-  if (!user || profile?.role !== 'admin') {
+  if (!user || (profile?.role !== 'admin' && profile?.role !== 'superadmin')) {
     return <AdminLoginPage />;
   }
 
-  return <Dashboard onSignOut={() => { void signOut(); }} />;
+  return <Dashboard onSignOut={() => { void signOut(); }} isSuperAdmin={profile?.role === 'superadmin'} />;
 }
 
-function Dashboard({ onSignOut }: { onSignOut: () => void }) {
+function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuperAdmin: boolean }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [surveys, setSurveys] = useState<SurveyRow[]>([]);
@@ -147,6 +152,9 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
     { id: 'orders', label: 'Orders', icon: ShoppingBasket, badge: stats.newOrders },
     { id: 'surveys', label: 'Surveys', icon: ClipboardList, badge: stats.newSurveys },
     { id: 'enquiries', label: 'Enquiries', icon: MessageSquare, badge: stats.newEnquiries },
+    ...(isSuperAdmin
+      ? [{ id: 'superadmin' as Tab, label: 'Access & Role Manager (Owner)', icon: ShieldCheck }]
+      : []),
   ];
 
   return (
@@ -233,6 +241,9 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
             )}
             {tab === 'enquiries' && (
               <EnquiriesPanel enquiries={enquiries} onUpdate={updateEnquiryStatus} />
+            )}
+            {tab === 'superadmin' && isSuperAdmin && (
+              <SuperAdminAccessPanel />
             )}
           </>
         )}
@@ -943,4 +954,226 @@ function InfoTile({ icon: Icon, label, value }: { icon: React.ElementType; label
 function fmtDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/* ---------- Super Admin Access & Role Manager ---------- */
+
+function SuperAdminAccessPanel() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Form to create / provision new admin or user
+  const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newRole, setNewRole] = useState<'admin' | 'customer' | 'superadmin'>('admin');
+  const [creating, setCreating] = useState(false);
+
+  const loadProfiles = useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = await fetchAllProfiles();
+      setProfiles(p);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
+
+  const handleRoleChange = async (userId: string, targetRole: Profile['role']) => {
+    try {
+      await updateUserRole(userId, targetRole);
+      setProfiles((prev) => prev.map((pr) => (pr.id === userId ? { ...pr, role: targetRole } : pr)));
+      setMsg({ text: `Role updated to ${targetRole} successfully.`, type: 'success' });
+    } catch (e) {
+      setMsg({ text: 'Could not update role.', type: 'error' });
+    }
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail.trim() || !newName.trim()) {
+      setMsg({ text: 'Please provide full name and email.', type: 'error' });
+      return;
+    }
+    setCreating(true);
+    setMsg(null);
+    try {
+      await createManagedUser({
+        email: newEmail.trim().toLowerCase(),
+        full_name: newName.trim(),
+        role: newRole,
+      });
+      setMsg({ text: `Account for ${newEmail} provisioned as ${newRole}. They can now sign in using the login/admin page.`, type: 'success' });
+      setNewEmail('');
+      setNewName('');
+      loadProfiles();
+    } catch (err) {
+      console.error(err);
+      setMsg({ text: 'Failed to provision account.', type: 'error' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-up">
+      {/* Super Admin Notice */}
+      <div className="rounded-3xl border border-gold-400/40 bg-gradient-to-r from-ink-950 via-[#0a2016] to-ink-950 p-6 text-white shadow-soft">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-500/20 text-gold-300">
+            <Key className="h-6 w-6" />
+          </div>
+          <div>
+            <span className="rounded-full bg-gold-500/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-gold-300">
+              Master Super Admin Privileges
+            </span>
+            <h2 className="mt-1 font-display text-xl font-bold">Confidential User &amp; Role Manager</h2>
+            <p className="mt-0.5 text-xs text-emerald-100/80">
+              Only visible to Master Super Admin. Create staff accounts, grant Admin access, or manage customer roles.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {msg && (
+        <div
+          className={`flex items-center gap-2 rounded-2xl p-4 text-sm font-semibold ${
+            msg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
+          {msg.text}
+        </div>
+      )}
+
+      {/* Provision new account form */}
+      <div className="rounded-3xl border border-ink-100 bg-white p-6 shadow-soft">
+        <h3 className="flex items-center gap-2 font-display text-base font-bold text-ink-900">
+          <UserPlus className="h-4 w-4 text-brand-600" /> Provision New Role Account
+        </h3>
+        <p className="mt-1 text-xs text-ink-500">
+          Create an Admin, Super Admin, or Customer identity to hand over to team members or managers.
+        </p>
+
+        <form onSubmit={handleCreateAccount} className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="label">Full Name</label>
+            <input
+              type="text"
+              required
+              className="input-field"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="E.g. Rajesh Shah"
+            />
+          </div>
+          <div>
+            <label className="label">Email Address</label>
+            <input
+              type="email"
+              required
+              className="input-field"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="staff@jvlsd.in"
+            />
+          </div>
+          <div>
+            <label className="label">Assign Role</label>
+            <div className="flex gap-2">
+              <select
+                className="input-field"
+                value={newRole}
+                onChange={(e) => setNewRole(e.target.value as any)}
+              >
+                <option value="admin">Admin (Staff / Operations)</option>
+                <option value="superadmin">Super Admin (Full Platform Owner)</option>
+                <option value="customer">Customer</option>
+              </select>
+              <button
+                type="submit"
+                disabled={creating}
+                className="btn-primary shrink-0 px-4 text-xs"
+              >
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Provision'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* Existing accounts table */}
+      <div className="rounded-3xl border border-ink-100 bg-white p-6 shadow-soft">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-display text-base font-bold text-ink-900">System Accounts &amp; Permissions</h3>
+            <p className="mt-0.5 text-xs text-ink-500">All registered users and assigned access levels.</p>
+          </div>
+          <button
+            type="button"
+            onClick={loadProfiles}
+            className="text-xs font-semibold text-brand-700 hover:underline"
+          >
+            Refresh
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-brand-600" />
+          </div>
+        ) : (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-ink-100 text-ink-400 font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-3">Name</th>
+                  <th className="py-3 px-3">Email</th>
+                  <th className="py-3 px-3">Current Role</th>
+                  <th className="py-3 px-3 text-right">Change Role</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-100">
+                {profiles.map((p) => (
+                  <tr key={p.id} className="hover:bg-ink-50/60">
+                    <td className="py-3 px-3 font-semibold text-ink-900">{p.full_name || '—'}</td>
+                    <td className="py-3 px-3 font-mono text-ink-600">{p.email}</td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                          p.role === 'superadmin'
+                            ? 'bg-gold-100 text-gold-900 border border-gold-300'
+                            : p.role === 'admin'
+                            ? 'bg-brand-100 text-brand-900'
+                            : 'bg-ink-100 text-ink-700'
+                        }`}
+                      >
+                        {p.role}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <select
+                        className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-700"
+                        value={p.role}
+                        onChange={(e) => handleRoleChange(p.id, e.target.value as Profile['role'])}
+                      >
+                        <option value="customer">Customer</option>
+                        <option value="admin">Admin</option>
+                        <option value="superadmin">Super Admin</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

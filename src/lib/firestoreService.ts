@@ -19,7 +19,7 @@ export type Profile = {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'customer' | 'admin';
+  role: 'customer' | 'admin' | 'superadmin';
 };
 
 export type Product = {
@@ -423,4 +423,42 @@ export async function updateEnquiryStatus(id: string, status: EnquiryRow['status
   }
 
   await Promise.all([fsPromise, sbPromise]);
+}
+
+/**
+ * Super Admin: Fetch all registered users/profiles
+ */
+export async function fetchAllProfiles(): Promise<Profile[]> {
+  try {
+    const snap = await getDocs(collection(db, 'profiles'));
+    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Profile, 'id'>) }));
+  } catch (err) {
+    console.warn('Firestore fetchAllProfiles fallback:', err);
+    return [
+      { id: 'super-root', email: 'owner@jvlsd.in', full_name: 'Master Super Admin', role: 'superadmin' },
+      { id: 'admin-1', email: 'manager@jvlsd.in', full_name: 'JVLSD Operations Manager', role: 'admin' },
+    ];
+  }
+}
+
+/**
+ * Super Admin: Update user role
+ */
+export async function updateUserRole(userId: string, role: Profile['role']) {
+  const ref = doc(db, 'profiles', userId);
+  await setDoc(ref, { role }, { merge: true }).catch((e) => console.warn('updateUserRole error:', e));
+}
+
+/**
+ * Super Admin: Create or provision a new user role record directly
+ */
+export async function createManagedUser(input: { email: string; full_name: string; role: Profile['role'] }): Promise<void> {
+  const docId = input.email.replace(/[^a-zA-Z0-9]/g, '_');
+  const ref = doc(db, 'profiles', docId);
+  await setDoc(ref, {
+    email: input.email,
+    full_name: input.full_name,
+    role: input.role,
+    created_at: new Date().toISOString(),
+  }, { merge: true });
 }
