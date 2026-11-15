@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   TrendingUp,
   AlertTriangle,
+  RotateCw,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { navigate, PATHS } from '@/lib/router';
@@ -269,14 +270,38 @@ export function AccountPage() {
                       <p className="font-semibold text-ink-900">
                         {order.mode === 'same_day' ? 'Same-day order' : 'Next-day pre-order'}
                       </p>
-                      <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
-                        {STATUS_LABEL[order.status]}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
+                          {STATUS_LABEL[order.status]}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const repeatCart: Record<string, number> = {};
+                            order.items.forEach((it) => {
+                              repeatCart[it.id] = it.quantity;
+                            });
+                            localStorage.setItem('jvlsd_reorder_cart', JSON.stringify(repeatCart));
+                            navigate(PATHS.order);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-xl bg-gold-500/15 border border-gold-400/40 px-3 py-1 text-xs font-bold text-gold-900 hover:bg-gold-500/25 transition-colors shadow-soft"
+                          title="Load this basket into your Order page with one click"
+                        >
+                          <RotateCw className="h-3.5 w-3.5 text-gold-700" /> Re-order This Basket
+                        </button>
+                      </div>
                     </div>
                     <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-600">
                       <CalendarClock className="h-4 w-4" />
                       Delivery {formatDate(order.expected_delivery)} · {order.items.length} item{order.items.length === 1 ? '' : 's'}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5 pt-2 border-t border-ink-100 text-xs text-ink-600">
+                      {order.items.map((it, idx) => (
+                        <span key={idx} className="rounded-lg bg-ink-50 px-2 py-0.5">
+                          {it.name} ({it.quantity} {it.unit})
+                        </span>
+                      ))}
+                    </div>
                   </li>
                 ))}
               </ul>

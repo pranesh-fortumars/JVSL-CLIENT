@@ -44,7 +44,7 @@ import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { Wordmark } from '@/components/Logo';
-import { ShieldCheck, UserPlus, Key, Trash2 } from 'lucide-react';
+import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet } from 'lucide-react';
 
 type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
 
@@ -400,6 +400,35 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
     });
   }, [orders, query, filter]);
 
+  const exportProcurementCSV = () => {
+    // Aggregate total kilograms and counts across all active/new orders
+    const summary: Record<string, { qty: number; unit: string }> = {};
+    orders.forEach((o) => {
+      if (o.status !== 'cancelled') {
+        o.items.forEach((it) => {
+          if (!summary[it.name]) {
+            summary[it.name] = { qty: 0, unit: it.unit };
+          }
+          summary[it.name].qty = Math.round((summary[it.name].qty + it.quantity) * 100) / 100;
+        });
+      }
+    });
+
+    const rows = [
+      ['Produce Item', 'Required Quantity', 'Unit'],
+      ...Object.entries(summary).map(([name, data]) => [name, String(data.qty), data.unit]),
+    ];
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `JVLSD_Morning_Procurement_Sheet_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <PanelShell
       title="Orders"
@@ -419,6 +448,16 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
       empty="No orders match your filters."
       filteredCount={filtered.length}
     >
+      <div className="mb-4 flex justify-end px-4">
+        <button
+          type="button"
+          onClick={exportProcurementCSV}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-brand-200 bg-brand-50 px-3.5 py-1.5 text-xs font-bold text-brand-800 hover:bg-brand-100 transition-colors shadow-soft"
+          title="Export total quantities required for morning dispatch"
+        >
+          <FileSpreadsheet className="h-4 w-4 text-brand-600" /> Export Morning Packing Sheet (CSV)
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>

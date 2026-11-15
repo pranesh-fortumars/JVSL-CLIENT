@@ -31,6 +31,8 @@ import {
   type OrderItem
 } from '@/lib/firestoreService';
 import { useAuth } from '@/lib/auth';
+import { SEASONAL_CATALOGUE, type SeasonalProduce } from '@/data/seasonalProduce';
+import { HeartPulse, BookOpen, AlertTriangle } from 'lucide-react';
 
 type Cart = Record<string, number>; // productId -> quantity
 
@@ -63,6 +65,21 @@ export function OrderPage() {
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'vegetable' | 'fruit' | 'milk'>('all');
+  const [healthTipProduce, setHealthTipProduce] = useState<any | null>(null);
+
+  // Check for pre-loaded re-order basket from AccountPage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('jvlsd_reorder_cart');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          setCart(parsed);
+          localStorage.removeItem('jvlsd_reorder_cart');
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -269,6 +286,7 @@ export function OrderPage() {
                         onSet={setQty}
                         isSelectable={isSelectable}
                         onPreview={setPreviewProduct}
+                        onTip={setHealthTipProduce}
                       />
                       <CategoryGroup
                         icon={Apple}
@@ -280,6 +298,7 @@ export function OrderPage() {
                         onSet={setQty}
                         isSelectable={isSelectable}
                         onPreview={setPreviewProduct}
+                        onTip={setHealthTipProduce}
                       />
                       <CategoryGroup
                         icon={Milk}
@@ -291,6 +310,7 @@ export function OrderPage() {
                         onSet={setQty}
                         isSelectable={isSelectable}
                         onPreview={setPreviewProduct}
+                        onTip={setHealthTipProduce}
                       />
                     </div>
 
@@ -349,6 +369,82 @@ export function OrderPage() {
                                 Close preview
                               </button>
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ayurvedic Seasonal Health & Kitchen Storage Tips Drawer Modal */}
+                    {healthTipProduce && (
+                      <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/70 p-4 backdrop-blur-sm animate-fade-in"
+                        onClick={() => setHealthTipProduce(null)}
+                      >
+                        <div
+                          className="relative max-w-lg w-full overflow-hidden rounded-3xl bg-white p-6 sm:p-8 shadow-2xl animate-scale-in border border-emerald-300"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-between pb-4 border-b border-ink-100">
+                            <div className="flex items-center gap-2.5">
+                              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
+                                <HeartPulse className="h-5 w-5" />
+                              </span>
+                              <div>
+                                <h3 className="font-display text-lg font-bold text-ink-950">
+                                  {healthTipProduce.name}
+                                </h3>
+                                <p className="text-xs text-brand-700 font-semibold">{healthTipProduce.vernacularName || healthTipProduce.seasonLabel}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setHealthTipProduce(null)}
+                              className="rounded-full p-1.5 text-ink-400 hover:bg-ink-100"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
+
+                          <div className="mt-5 space-y-4 text-xs sm:text-sm">
+                            {healthTipProduce.medicalAdvisory && (
+                              <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 p-3.5 text-amber-900 border border-amber-200">
+                                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                                <div>
+                                  <p className="font-bold">Medical / Clinical Advisory</p>
+                                  <p className="mt-0.5 leading-relaxed">{healthTipProduce.medicalAdvisory}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {healthTipProduce.nutritionalNotes && (
+                              <div className="rounded-xl bg-emerald-50/70 p-3.5 text-emerald-950 border border-emerald-200">
+                                <p className="font-bold flex items-center gap-1.5 text-emerald-900">
+                                  <BookOpen className="h-4 w-4 text-emerald-700" /> Ayurvedic &amp; Nutritional Value
+                                </p>
+                                <p className="mt-1 leading-relaxed text-ink-800">{healthTipProduce.nutritionalNotes}</p>
+                              </div>
+                            )}
+
+                            {healthTipProduce.benefits && (
+                              <div>
+                                <p className="font-bold text-ink-900 mb-1.5">Household &amp; Kitchen Benefits:</p>
+                                <ul className="list-disc list-inside space-y-1 text-ink-700">
+                                  {healthTipProduce.benefits.map((b: string, i: number) => (
+                                    <li key={i}>{b}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-6 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setHealthTipProduce(null)}
+                              className="btn-primary px-5 py-2 text-xs"
+                            >
+                              Done
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -522,6 +618,7 @@ function CategoryGroup({
   onSet,
   isSelectable,
   onPreview,
+  onTip,
 }: {
   icon: React.ElementType;
   title: string;
@@ -532,6 +629,7 @@ function CategoryGroup({
   onSet: (id: string, qty: number) => void;
   isSelectable: (p: Product) => boolean;
   onPreview: (p: Product) => void;
+  onTip: (match: SeasonalProduce) => void;
 }) {
   if (products.length === 0) return null;
   return (
@@ -543,6 +641,11 @@ function CategoryGroup({
         {products.map((p) => {
           const selectable = isSelectable(p);
           const qty = cart[p.id] ?? 0;
+          const seasonalMatch = SEASONAL_CATALOGUE.find(
+            (sp) => sp.name.toLowerCase().includes(p.name.toLowerCase().split(' ')[0]) ||
+                    p.name.toLowerCase().includes(sp.name.toLowerCase().split(' ')[0])
+          );
+
           return (
             <div
               key={p.id}
@@ -569,7 +672,6 @@ function CategoryGroup({
                     }`}
                     loading="lazy"
                     onError={(e) => {
-                      // Fallback to high-reliability image if external source fails
                       const target = e.currentTarget;
                       target.onerror = null;
                       target.src = 'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=600&q=80';
@@ -580,7 +682,6 @@ function CategoryGroup({
                     <Icon className="h-8 w-8" />
                   </div>
                 )}
-                {/* Zoom indicator pill on hover */}
                 <span className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-full bg-ink-950/70 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 backdrop-blur-sm">
                   <ZoomIn className="h-3 w-3" /> Preview
                 </span>
@@ -600,7 +701,19 @@ function CategoryGroup({
 
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-display text-sm font-bold text-ink-900">{p.name}</h3>
+                  <div>
+                    <h3 className="font-display text-sm font-bold text-ink-900">{p.name}</h3>
+                    {seasonalMatch && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onTip(seasonalMatch); }}
+                        className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200/60 hover:bg-emerald-100 transition-colors"
+                        title="View Ayurvedic nutritional guidance & kitchen storage tips"
+                      >
+                        <HeartPulse className="h-3 w-3 text-emerald-600" /> Ayurvedic &amp; Storage Tip
+                      </button>
+                    )}
+                  </div>
                   <span className="text-[11px] font-medium text-ink-500">per {p.unit}</span>
                 </div>
 
