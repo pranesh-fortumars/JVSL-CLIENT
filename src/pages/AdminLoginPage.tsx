@@ -10,12 +10,12 @@ export function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const isAdmin = profile?.role === 'admin';
-  const signedInWithoutAccess = !loading && !!user && !isAdmin;
+  const isStaffOrOwner = profile?.role === 'admin' || profile?.role === 'superadmin';
+  const signedInWithoutAccess = !loading && !!user && !isStaffOrOwner;
 
   useEffect(() => {
-    if (!loading && isAdmin) navigate(PATHS.admin);
-  }, [loading, isAdmin]);
+    if (!loading && isStaffOrOwner) navigate(PATHS.admin);
+  }, [loading, isStaffOrOwner]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
