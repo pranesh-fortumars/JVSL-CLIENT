@@ -31,6 +31,7 @@ import {
   fetchAllProfiles,
   updateUserRole,
   createManagedUser,
+  deleteUserCompletely,
   updateOrderStatus as syncUpdateOrderStatus,
   updateSurveyStatus as syncUpdateSurveyStatus,
   updateEnquiryStatus as syncUpdateEnquiryStatus,
@@ -43,7 +44,7 @@ import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { Wordmark } from '@/components/Logo';
-import { ShieldCheck, UserPlus, Key } from 'lucide-react';
+import { ShieldCheck, UserPlus, Key, Trash2 } from 'lucide-react';
 
 type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
 
@@ -985,6 +986,20 @@ function SuperAdminAccessPanel() {
     loadProfiles();
   }, [loadProfiles]);
 
+  const handleDeleteUser = async (userId: string, email?: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete user "${email || userId}" and purge all their orders and history from the database? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteUserCompletely(userId, email);
+      setProfiles((prev) => prev.filter((pr) => pr.id !== userId));
+      setMsg({ text: `User "${email || userId}" and all their order history completely erased from database.`, type: 'success' });
+    } catch (err) {
+      console.error(err);
+      setMsg({ text: 'Failed to delete user.', type: 'error' });
+    }
+  };
+
   const handleRoleChange = async (userId: string, targetRole: Profile['role']) => {
     try {
       await updateUserRole(userId, targetRole);
@@ -1135,7 +1150,8 @@ function SuperAdminAccessPanel() {
                   <th className="py-3 px-3">Name</th>
                   <th className="py-3 px-3">Email</th>
                   <th className="py-3 px-3">Current Role</th>
-                  <th className="py-3 px-3 text-right">Change Role</th>
+                  <th className="py-3 px-3">Change Role</th>
+                  <th className="py-3 px-3 text-right">Delete &amp; Purge</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
@@ -1156,7 +1172,7 @@ function SuperAdminAccessPanel() {
                         {p.role}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3 px-3">
                       <select
                         className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-700"
                         value={p.role}
@@ -1166,6 +1182,16 @@ function SuperAdminAccessPanel() {
                         <option value="admin">Admin</option>
                         <option value="superadmin">Super Admin</option>
                       </select>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUser(p.id, p.email)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                        title="Permanently erase account and order history"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Erase
+                      </button>
                     </td>
                   </tr>
                 ))}

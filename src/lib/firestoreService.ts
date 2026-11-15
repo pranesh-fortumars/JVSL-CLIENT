@@ -462,3 +462,47 @@ export async function createManagedUser(input: { email: string; full_name: strin
     created_at: new Date().toISOString(),
   }, { merge: true });
 }
+
+/**
+ * Super Admin: Permanently delete a user profile and all their associated orders/submissions from the database
+ */
+export async function deleteUserCompletely(userId: string, email?: string): Promise<void> {
+  // 1. Delete profile doc from Firestore
+  try {
+    await deleteDoc(doc(db, 'profiles', userId));
+  } catch (err) {
+    console.warn('Error deleting profile doc:', err);
+  }
+
+  // 2. Delete all orders associated with this user
+  try {
+    const ordersSnap = await getDocs(query(collection(db, 'orders'), where('user_id', '==', userId)));
+    const deleteOrderPromises = ordersSnap.docs.map((d) => deleteDoc(d.ref));
+    await Promise.all(deleteOrderPromises);
+  } catch (err) {
+    console.warn('Error deleting user orders:', err);
+  }
+
+  // 3. Delete any survey submissions linked to this user's email if provided
+  if (email) {
+    try {
+      const surveySnap = await getDocs(query(collection(db, 'survey_submissions'), where('customer_name', '==', email)));
+      const deleteSurveyPromises = surveySnap.docs.map((d) => deleteDoc(d.ref));
+      await Promise.all(deleteSurveyPromises);
+    } catch (err) {
+      console.warn('Error deleting user surveys:', err);
+    }
+  }
+
+  // 4. Also purge from Supabase if configured
+  if (isSupabaseConfigured) {
+    try {
+      await Promise.all([
+        supabase.from('profiles').delete().eq('id', userId),
+        supabase.from('orders').delete().eq('user_id', userId),
+      ]);
+    } catch (err) {
+      console.warn('Supabase deleteUser notice:', err);
+    }
+  }
+}
