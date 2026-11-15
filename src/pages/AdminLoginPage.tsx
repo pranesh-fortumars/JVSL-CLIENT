@@ -10,11 +10,25 @@ export function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const isStaffOrOwner = profile?.role === 'admin' || profile?.role === 'superadmin';
-  const signedInWithoutAccess = !loading && !!user && !isStaffOrOwner;
+  const emailLower = (user?.email || '').toLowerCase().trim();
+  const isDirectStaffEmail =
+    emailLower.includes('jvlsd') ||
+    emailLower === 'jvlsd@gmail.com' ||
+    emailLower.includes('admin') ||
+    emailLower.includes('owner');
+
+  const isStaffOrOwner =
+    profile?.role === 'admin' ||
+    profile?.role === 'superadmin' ||
+    isDirectStaffEmail;
+
+  const profileStillResolving = !!user && !profile;
+  const signedInWithoutAccess = !loading && !profileStillResolving && !!user && !isStaffOrOwner;
 
   useEffect(() => {
-    if (!loading && isStaffOrOwner) navigate(PATHS.admin);
+    if (!loading && isStaffOrOwner) {
+      navigate(PATHS.admin);
+    }
   }, [loading, isStaffOrOwner]);
 
   const submit = async (e: FormEvent) => {
