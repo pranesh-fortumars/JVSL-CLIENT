@@ -61,15 +61,15 @@ export function AdminPage() {
 
   const emailLower = (user?.email || '').toLowerCase().trim();
   const isDirectStaff =
-    emailLower.includes('jvlsd') ||
+    emailLower === 'manager@jvlsd.in' ||
+    emailLower === 'admin@jvlsd.in' ||
     emailLower === 'jvlsd@gmail.com' ||
-    emailLower.includes('admin') ||
     emailLower.includes('owner');
 
   const hasAdminAccess =
     profile?.role === 'admin' ||
     profile?.role === 'superadmin' ||
-    isDirectStaff;
+    (isDirectStaff && profile?.role !== 'customer');
 
   if (!user || !hasAdminAccess) {
     return <AdminLoginPage />;

@@ -50,24 +50,33 @@ export function isSuperAdminEmail(email?: string | null): boolean {
   return SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
 }
 
+export const ADMIN_EMAILS = [
+  'manager@jvlsd.in',
+  'admin@jvlsd.in',
+  'jvlsd@gmail.com',
+];
+
+export function isStaffAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const e = email.toLowerCase().trim();
+  return isSuperAdminEmail(e) || ADMIN_EMAILS.includes(e) || (e.endsWith('@jvlsd.in') && !e.startsWith('customer'));
+}
+
 async function getOrInitProfile(user: User): Promise<Profile> {
   const ref = doc(db, 'profiles', user.uid);
   const snap = await getDoc(ref);
   const emailLower = (user.email || '').toLowerCase().trim();
   const isSuper = isSuperAdminEmail(emailLower);
-  const isAdmin =
-    isSuper ||
-    emailLower.includes('jvlsd') ||
-    emailLower === 'jvlsd@gmail.com' ||
-    emailLower.includes('admin');
+  const isAdmin = isStaffAdminEmail(emailLower);
 
-  const expectedRole: Profile['role'] = isSuper ? 'superadmin' : (isAdmin ? 'admin' : 'customer');
+  const defaultRole: Profile['role'] = isSuper ? 'superadmin' : (isAdmin ? 'admin' : 'customer');
 
   if (snap.exists()) {
     const existing = snap.data() as Omit<Profile, 'id'>;
-    if (existing.role !== expectedRole && (isSuper || isAdmin)) {
-      await setDoc(ref, { role: expectedRole }, { merge: true });
-      return { id: user.uid, ...existing, role: expectedRole };
+    // Explicitly preserve saved roles unless an owner/admin email needs an upgrade
+    if (isSuper && existing.role !== 'superadmin') {
+      await setDoc(ref, { role: 'superadmin' }, { merge: true });
+      return { id: user.uid, ...existing, role: 'superadmin' };
     }
     return { id: user.uid, ...existing };
   }
@@ -76,7 +85,7 @@ async function getOrInitProfile(user: User): Promise<Profile> {
     id: user.uid,
     email: user.email || '',
     full_name: user.displayName || (isSuper ? 'Master Super Admin' : null),
-    role: expectedRole,
+    role: defaultRole,
   };
   await setDoc(ref, newProfile, { merge: true });
   return newProfile;
@@ -96,10 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(p);
         } catch (err) {
           console.warn('Could not retrieve profile from firestore:', err);
-          const emailLower = (nextUser.email || '').toLowerCase();
+          const emailLower = (nextUser.email || '').toLowerCase().trim();
           const role: Profile['role'] = isSuperAdminEmail(emailLower)
             ? 'superadmin'
-            : emailLower.includes('jvlsd') || emailLower === 'jvlsd@gmail.com' || emailLower.includes('admin')
+            : isStaffAdminEmail(emailLower)
             ? 'admin'
             : 'customer';
           setProfile({
