@@ -143,42 +143,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithEmailAndPassword(auth, email, password);
       return { error: null };
     } catch (err: any) {
-      const code = err.code || err.message;
-      // If user was provisioned by Super Admin or hasn't had an Auth record created yet,
-      // create it seamlessly on first sign in
-      if (
-        code === 'auth/user-not-found' ||
-        code === 'auth/invalid-credential' ||
-        code?.includes('INVALID_LOGIN_CREDENTIALS')
-      ) {
-        try {
-          const res = await createUserWithEmailAndPassword(auth, email, password);
-          const emailLower = email.toLowerCase().trim();
-          const role = isSuperAdminEmail(emailLower)
-            ? 'superadmin'
-            : emailLower.includes('jvlsd') || emailLower === 'jvlsd@gmail.com' || emailLower.includes('admin')
-            ? 'admin'
-            : 'customer';
-          
-          await setDoc(
-            doc(db, 'profiles', res.user.uid),
-            {
-              id: res.user.uid,
-              email: email,
-              role: role,
-            },
-            { merge: true }
-          );
-          return { error: null };
-        } catch (signupErr: any) {
-          // If already registered with a different password, show the original error
-          if (signupErr.code === 'auth/email-already-in-use') {
-            return { error: 'Incorrect password for this account. Please verify and try again.' };
-          }
-          return { error: friendlyAuthError(code) };
+      // Any error during signIn (whether user not found, invalid credential, or wrong password on a provisioned user)
+      // will attempt an automatic first-time onboarding so provisioned emails can log in directly
+      try {
+        const res = await createUserWithEmailAndPassword(auth, email, password);
+        const emailLower = email.toLowerCase().trim();
+        const role = isSuperAdminEmail(emailLower)
+          ? 'superadmin'
+          : emailLower.includes('jvlsd') || emailLower === 'jvlsd@gmail.com' || emailLower.includes('admin')
+          ? 'admin'
+          : 'customer';
+        
+        await setDoc(
+          doc(db, 'profiles', res.user.uid),
+          {
+            id: res.user.uid,
+            email: email,
+            role: role,
+          },
+          { merge: true }
+        );
+        return { error: null };
+      } catch (signupErr: any) {
+        if (signupErr.code === 'auth/email-already-in-use') {
+          return { error: 'Incorrect password for this account. Please check and try again.' };
         }
+        if (signupErr.code === 'auth/weak-password') {
+          return { error: 'Password should be at least 6 characters.' };
+        }
+        return { error: friendlyAuthError(err.code || err.message) };
       }
-      return { error: friendlyAuthError(code) };
     }
   };
 
