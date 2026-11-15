@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: res.user.uid,
         email,
         full_name: fullName,
-        role: email.includes('jvlsd') || email.toLowerCase() === 'jvlsd@gmail.com' ? 'admin' : 'customer',
+        role: isSuperAdminEmail(email) ? 'superadmin' : isStaffAdminEmail(email) ? 'admin' : 'customer',
       };
       await setDoc(doc(db, 'profiles', res.user.uid), newProf, { merge: true });
       setProfile(newProf);
@@ -157,9 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const res = await createUserWithEmailAndPassword(auth, email, password);
         const emailLower = email.toLowerCase().trim();
-        const role = isSuperAdminEmail(emailLower)
+        const role: Profile['role'] = isSuperAdminEmail(emailLower)
           ? 'superadmin'
-          : emailLower.includes('jvlsd') || emailLower === 'jvlsd@gmail.com' || emailLower.includes('admin')
+          : isStaffAdminEmail(emailLower)
           ? 'admin'
           : 'customer';
         
