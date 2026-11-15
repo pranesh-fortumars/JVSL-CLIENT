@@ -435,8 +435,9 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
   } catch (err) {
     console.warn('Firestore fetchAllProfiles fallback:', err);
     return [
-      { id: 'super-root', email: 'owner@jvlsd.in', full_name: 'Master Super Admin', role: 'superadmin' },
+      { id: 'super-root', email: 'owner@jvlsd.in', full_name: 'Master Super Admin (Owner)', role: 'superadmin' },
       { id: 'admin-1', email: 'manager@jvlsd.in', full_name: 'JVLSD Operations Manager', role: 'admin' },
+      { id: 'customer-1', email: 'customer@jvlsd.in', full_name: 'Verified JVLSD Customer', role: 'customer' },
     ];
   }
 }

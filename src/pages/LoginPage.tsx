@@ -6,7 +6,7 @@ import { navigate, PATHS } from '@/lib/router';
 type Mode = 'signin' | 'signup';
 
 export function LoginPage() {
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, profile, loading, signIn, signUp } = useAuth();
   const [mode, setMode] = useState<Mode>('signin');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -16,8 +16,14 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate(PATHS.account);
-  }, [loading, user]);
+    if (!loading && user && profile) {
+      if (profile.role === 'admin' || profile.role === 'superadmin') {
+        navigate(PATHS.admin);
+      } else {
+        navigate(PATHS.account);
+      }
+    }
+  }, [loading, user, profile]);
 
   const switchMode = (next: Mode) => {
     setMode(next);
