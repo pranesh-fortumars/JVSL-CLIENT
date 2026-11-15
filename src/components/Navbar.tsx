@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Menu, X, ShoppingBasket, Phone, UserRound } from 'lucide-react';
+import { Menu, X, ShoppingBasket, Phone, UserRound, Shield } from 'lucide-react';
 import { Wordmark } from './Logo';
 import { navigate, useRoute, PATHS, type Route } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
@@ -15,10 +15,13 @@ const NAV: { label: string; route: Route['name']; path: string }[] = [
 
 export function Navbar() {
   const route = useRoute();
-  const { user } = useAuth();
-  const accountPath = user ? PATHS.account : PATHS.login;
-  const accountLabel = user ? 'My account' : 'Sign in';
-  const accountActive = route.name === 'account' || route.name === 'login';
+  const { user, profile } = useAuth();
+  const isStaffOrSuper = profile?.role === 'admin' || profile?.role === 'superadmin';
+
+  // If user is admin/superadmin, clicking account goes directly to the Admin Dashboard
+  const accountPath = user ? (isStaffOrSuper ? PATHS.admin : PATHS.account) : PATHS.login;
+  const accountLabel = user ? (isStaffOrSuper ? 'Admin Dashboard' : 'My account') : 'Sign in';
+  const accountActive = route.name === 'account' || route.name === 'admin' || route.name === 'login';
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 

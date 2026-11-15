@@ -89,16 +89,37 @@ export function AccountPage() {
         {/* Header with User Info & Sign Out */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="eyebrow">Customer Hub &amp; Family Dashboard</p>
+            <div className="flex items-center gap-3">
+              <p className="eyebrow">Customer Hub &amp; Family Dashboard</p>
+              {(profile?.role === 'admin' || profile?.role === 'superadmin') && (
+                <button
+                  type="button"
+                  onClick={() => navigate(PATHS.admin)}
+                  className="rounded-full bg-gold-500/20 px-3 py-0.5 text-xs font-bold text-gold-800 border border-gold-300 hover:bg-gold-500/30 transition-colors"
+                >
+                  Go to Admin Dashboard →
+                </button>
+              )}
+            </div>
             <h1 className="section-title mt-3 uppercase tracking-wide">Hello, {displayName}</h1>
             <p className="mt-2 text-ink-600 font-mono text-sm">{user.email}</p>
           </div>
-          <button
-            onClick={() => { void signOut(); }}
-            className="btn-outline self-start px-5 py-2.5"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
+          <div className="flex gap-2 self-start">
+            {(profile?.role === 'admin' || profile?.role === 'superadmin') && (
+              <button
+                onClick={() => navigate(PATHS.admin)}
+                className="btn-primary px-4 py-2 text-xs"
+              >
+                Admin Panel
+              </button>
+            )}
+            <button
+              onClick={() => { void signOut(); }}
+              className="btn-outline px-5 py-2.5"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs */}
