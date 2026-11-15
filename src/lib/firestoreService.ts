@@ -269,15 +269,22 @@ export async function createOrder(order: Order) {
 export async function fetchOrders(userId?: string): Promise<OrderRow[]> {
   try {
     const colRef = collection(db, 'orders');
-    let q = query(colRef, orderBy('created_at', 'desc'));
+    let q;
     if (userId) {
-      q = query(colRef, where('user_id', '==', userId), orderBy('created_at', 'desc'));
+      // Query without multi-field composite index ordering to avoid index creation error
+      q = query(colRef, where('user_id', '==', userId));
+    } else {
+      q = query(colRef, orderBy('created_at', 'desc'));
     }
+
     const snap = await getDocs(q);
     const fsOrders = snap.docs.map((d) => ({
       id: d.id,
       ...(d.data() as Omit<OrderRow, 'id'>),
     }));
+
+    // In-memory sort by created_at descending (no Firestore composite index required)
+    fsOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     if (fsOrders.length > 0) return fsOrders;
 
