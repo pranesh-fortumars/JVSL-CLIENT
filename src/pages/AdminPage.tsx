@@ -286,7 +286,14 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
         ) : (
           <>
             {tab === 'overview' && (
-              <Overview stats={stats} orders={orders} surveys={surveys} enquiries={enquiries} onJump={setTab} />
+              <Overview
+                stats={stats}
+                orders={orders}
+                surveys={surveys}
+                enquiries={enquiries}
+                onJump={setTab}
+                onSelectOrder={(order) => setActiveDetail({ type: 'order', data: order })}
+              />
             )}
             {tab === 'orders' && (
               <OrdersPanel
@@ -369,6 +376,7 @@ function Overview({
   surveys,
   enquiries,
   onJump,
+  onSelectOrder,
 }: {
   stats: {
     totalOrders: number; newOrders: number;
@@ -380,6 +388,7 @@ function Overview({
   surveys: SurveyRow[];
   enquiries: EnquiryRow[];
   onJump: (t: Tab) => void;
+  onSelectOrder: (order: OrderRow) => void;
 }) {
   const [timelineScope, setTimelineScope] = useState<'all' | 'today' | 'this_month' | 'this_year'>('all');
 
@@ -512,6 +521,12 @@ function Overview({
                     {fmtDate(o.expected_delivery)}
                   </span>
                   <StatusBadge status={o.status} />
+                  <button
+                    onClick={() => onSelectOrder(o)}
+                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50"
+                  >
+                    Details
+                  </button>
                 </div>
               </li>
             ))}
