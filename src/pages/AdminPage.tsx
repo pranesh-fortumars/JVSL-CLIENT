@@ -629,41 +629,73 @@ function OrderDetail({ order, onUpdate }: { order: OrderRow; onUpdate: (s: Order
   const statuses: OrderRow['status'][] = ['new', 'confirmed', 'delivered', 'cancelled'];
   return (
     <div className="space-y-6">
-      <InfoRow icon={Users} label="Customer" value={order.customer_name} />
-      <InfoRow icon={Phone} label="Mobile" value={order.mobile} href={`tel:${order.mobile}`} />
-      <InfoRow icon={MapPin} label="Address" value={order.address} />
-      <div className="grid grid-cols-2 gap-4">
-        <InfoTile icon={order.mode === 'next_day' ? CalendarClock : Truck} label="Mode" value={order.mode === 'next_day' ? 'Next-day pre-order' : 'Same-day order'} />
-        <InfoTile icon={Sun} label="Expected delivery" value={fmtDate(order.expected_delivery)} />
+      {/* Order Header Summary Card */}
+      <div className="rounded-2xl border border-brand-100 bg-brand-50/50 p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-brand-700 bg-brand-100/70 px-2 py-0.5 rounded-md">
+              Order #{order.id.slice(-6)}
+            </span>
+            <h4 className="mt-1 font-display text-xl font-bold text-ink-950">{order.customer_name}</h4>
+            <p className="mt-0.5 text-xs text-ink-600 font-mono">Mobile: {order.mobile}</p>
+          </div>
+          <div>
+            <StatusBadge status={order.status} />
+          </div>
+        </div>
       </div>
-      {order.notes && <InfoRow icon={MessageSquare} label="Notes" value={order.notes} />}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+          <InfoRow icon={Phone} label="Mobile" value={order.mobile} href={`tel:${order.mobile}`} />
+        </div>
+        <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+          <InfoRow icon={MapPin} label="Delivery Address" value={order.address} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <InfoTile icon={order.mode === 'next_day' ? CalendarClock : Truck} label="Fulfillment Pipeline" value={order.mode === 'next_day' ? 'Next-day pre-order (100% Availability)' : 'Same-day order (3km radius)'} />
+        <InfoTile icon={Sun} label="Delivery Schedule" value={fmtDate(order.expected_delivery)} />
+      </div>
+
+      {order.notes && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+            <MessageSquare className="h-4 w-4" /> Customer Packing Instructions
+          </p>
+          <p className="mt-1 text-xs sm:text-sm text-ink-800 leading-relaxed italic">"{order.notes}"</p>
+        </div>
+      )}
 
       <div>
-        <h4 className="label">Items</h4>
-        <ul className="divide-y divide-ink-100 rounded-xl border border-ink-100">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Morning Delivery Basket Items ({order.items.length})</h4>
+        <ul className="divide-y divide-ink-100 rounded-2xl border border-ink-100 bg-white shadow-soft overflow-hidden">
           {order.items.map((it) => (
-            <li key={it.id} className="flex items-center justify-between px-4 py-3 text-sm">
+            <li key={it.id} className="flex items-center justify-between px-4 py-3 text-xs sm:text-sm">
               <span className="font-semibold text-ink-900">{it.name}</span>
-              <span className="text-ink-600">{it.quantity} {it.unit}</span>
+              <span className="text-brand-800 font-bold bg-brand-50 px-2.5 py-1 rounded-lg">
+                {it.quantity} {it.unit}
+              </span>
             </li>
           ))}
         </ul>
       </div>
 
-      <div>
-        <h4 className="label">Update status</h4>
+      <div className="pt-2 border-t border-ink-100">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Update Order Status</h4>
         <div className="flex flex-wrap gap-2">
           {statuses.map((s) => (
             <button
               key={s}
               onClick={() => onUpdate(s)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-colors ${
+              className={`rounded-xl px-4 py-2 text-xs font-bold capitalize transition-all shadow-soft ${
                 order.status === s
-                  ? 'bg-brand-700 text-white'
+                  ? 'bg-brand-700 text-white ring-2 ring-brand-300'
                   : 'bg-ink-100 text-ink-700 hover:bg-ink-200'
               }`}
             >
-              {s}
+              Mark as {s}
             </button>
           ))}
         </div>
@@ -795,33 +827,63 @@ function SurveyDetail({ survey, onUpdate }: { survey: SurveyRow; onUpdate: (s: S
 
   return (
     <div className="space-y-6">
-      <InfoRow icon={Users} label="Customer" value={survey.customer_name} />
-      <InfoRow icon={Phone} label="Mobile" value={survey.mobile} href={`tel:${survey.mobile}`} />
-      <InfoRow icon={MapPin} label="Address" value={survey.address} />
+      {/* Customer Header Summary Card */}
+      <div className="rounded-2xl border border-brand-100 bg-brand-50/50 p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-brand-700 bg-brand-100/70 px-2 py-0.5 rounded-md">
+              Survey Submission #{survey.id.slice(-6)}
+            </span>
+            <h4 className="mt-1 font-display text-xl font-bold text-ink-950">{survey.customer_name}</h4>
+            <p className="mt-0.5 text-xs text-ink-600 font-mono">Mobile: {survey.mobile}</p>
+          </div>
+          <div>
+            <StatusBadge status={survey.status} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+          <InfoRow icon={Phone} label="Mobile" value={survey.mobile} href={`tel:${survey.mobile}`} />
+        </div>
+        <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+          <InfoRow icon={MapPin} label="Delivery Address" value={survey.address} />
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <InfoTile icon={Users} label="Family members" value={String(survey.family_members)} />
         <InfoTile icon={CalendarClock} label="Delivery preference" value={survey.delivery_preference} />
       </div>
-      {survey.notes && <InfoRow icon={MessageSquare} label="Notes" value={survey.notes} />}
+
+      {survey.notes && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+            <MessageSquare className="h-4 w-4" /> Customer Nutritional &amp; Delivery Notes
+          </p>
+          <p className="mt-1 text-xs sm:text-sm text-ink-800 leading-relaxed italic">"{survey.notes}"</p>
+        </div>
+      )}
 
       <div>
-        <h4 className="label">Product preferences</h4>
-        <div className="space-y-4">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Preferred Fresh Daily Produce Baskets</h4>
+        <div className="grid gap-3 sm:grid-cols-2">
           {(['vegetable', 'fruit', 'milk'] as const).map((cat) => {
             const items = byCategory[cat];
             if (!items || items.length === 0) return null;
             const Icon = catIcon(cat);
             return (
-              <div key={cat} className="rounded-xl border border-ink-100">
-                <p className="flex items-center gap-2 border-b border-ink-100 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                  <Icon className="h-3.5 w-3.5 text-brand-600" /> {cat}s
+              <div key={cat} className="rounded-2xl border border-ink-100 bg-white shadow-soft overflow-hidden">
+                <p className="flex items-center gap-2 border-b border-ink-100 bg-ink-50/60 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink-600">
+                  <Icon className="h-4 w-4 text-brand-600" /> {cat}s ({items.length})
                 </p>
                 <ul className="divide-y divide-ink-50">
                   {items.map((it) => (
-                    <li key={it.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                    <li key={it.id} className="flex items-center justify-between px-4 py-2.5 text-xs sm:text-sm">
                       <span className="font-semibold text-ink-900">{it.name}</span>
-                      <span className="text-ink-600">
-                        {it.quantity} {it.unit} · <span className="capitalize">{it.frequency}</span>
+                      <span className="text-ink-600 font-medium">
+                        {it.quantity} {it.unit} · <span className="capitalize text-brand-700 font-bold">{it.frequency}</span>
                       </span>
                     </li>
                   ))}
@@ -832,20 +894,20 @@ function SurveyDetail({ survey, onUpdate }: { survey: SurveyRow; onUpdate: (s: S
         </div>
       </div>
 
-      <div>
-        <h4 className="label">Update status</h4>
+      <div className="pt-2 border-t border-ink-100">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Update Operational Status</h4>
         <div className="flex flex-wrap gap-2">
           {(['new', 'reviewed'] as SurveyRow['status'][]).map((s) => (
             <button
               key={s}
               onClick={() => onUpdate(s)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-colors ${
+              className={`rounded-xl px-4 py-2 text-xs font-bold capitalize transition-all shadow-soft ${
                 survey.status === s
-                  ? 'bg-brand-700 text-white'
+                  ? 'bg-brand-700 text-white ring-2 ring-brand-300'
                   : 'bg-ink-100 text-ink-700 hover:bg-ink-200'
               }`}
             >
-              {s}
+              Mark as {s}
             </button>
           ))}
         </div>
@@ -969,31 +1031,56 @@ function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUp
 function EnquiryDetail({ enquiry, onUpdate }: { enquiry: EnquiryRow; onUpdate: (s: EnquiryRow['status']) => void }) {
   return (
     <div className="space-y-6">
-      <InfoRow icon={Users} label="Name" value={enquiry.name} />
-      <InfoRow icon={Phone} label="Phone" value={enquiry.phone} href={`tel:${enquiry.phone}`} />
-      {enquiry.email && <InfoRow icon={Mail} label="Email" value={enquiry.email} href={`mailto:${enquiry.email}`} />}
-      <InfoRow icon={MessageSquare} label="Subject" value={enquiry.subject} />
-      <div>
-        <h4 className="label">Message</h4>
-        <p className="rounded-xl border border-ink-100 bg-ink-50/50 p-4 text-sm leading-relaxed text-ink-800">
-          {enquiry.message}
-        </p>
+      {/* Enquiry Header Summary Card */}
+      <div className="rounded-2xl border border-brand-100 bg-brand-50/50 p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-brand-700 bg-brand-100/70 px-2 py-0.5 rounded-md">
+              Enquiry #{enquiry.id.slice(-6)}
+            </span>
+            <h4 className="mt-1 font-display text-xl font-bold text-ink-950">{enquiry.name}</h4>
+            <p className="mt-0.5 text-xs text-ink-600 font-mono">Mobile: {enquiry.phone}</p>
+          </div>
+          <div>
+            <StatusBadge status={enquiry.status} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+          <InfoRow icon={Phone} label="Phone" value={enquiry.phone} href={`tel:${enquiry.phone}`} />
+        </div>
+        <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+          <InfoRow icon={Mail} label="Email" value={enquiry.email || '—'} href={enquiry.email ? `mailto:${enquiry.email}` : undefined} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+        <InfoRow icon={MessageSquare} label="Subject" value={enquiry.subject} />
       </div>
 
       <div>
-        <h4 className="label">Update status</h4>
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Message Content</h4>
+        <div className="rounded-2xl border border-ink-100 bg-ink-50/60 p-4 text-sm leading-relaxed text-ink-900 shadow-soft">
+          {enquiry.message}
+        </div>
+      </div>
+
+      <div className="pt-2 border-t border-ink-100">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Update Enquiry Status</h4>
         <div className="flex flex-wrap gap-2">
           {(['new', 'resolved'] as EnquiryRow['status'][]).map((s) => (
             <button
               key={s}
               onClick={() => onUpdate(s)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-colors ${
+              className={`rounded-xl px-4 py-2 text-xs font-bold capitalize transition-all shadow-soft ${
                 enquiry.status === s
-                  ? 'bg-brand-700 text-white'
+                  ? 'bg-brand-700 text-white ring-2 ring-brand-300'
                   : 'bg-ink-100 text-ink-700 hover:bg-ink-200'
               }`}
             >
-              {s}
+              Mark as {s}
             </button>
           ))}
         </div>
@@ -1211,20 +1298,23 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 bg-ink-950/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative h-full w-full max-w-md overflow-y-auto bg-white shadow-lift animate-fade-up">
-        <div className="sticky top-0 flex items-center justify-between border-b border-ink-100 bg-white/95 px-5 py-4 backdrop-blur">
-          <h3 className="font-display text-base font-bold text-ink-950">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
+      {/* Dimmed backdrop */}
+      <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      
+      {/* Centered Modal Card with wide responsive width */}
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-lift animate-fade-up overflow-hidden">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white/95 px-6 py-4 backdrop-blur">
+          <h3 className="font-display text-lg font-bold text-ink-950">{title}</h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-ink-500 hover:bg-ink-100"
+            className="rounded-xl p-2 text-ink-500 hover:bg-ink-100 transition-colors"
             aria-label="Close details"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</div>
       </div>
     </div>
   );

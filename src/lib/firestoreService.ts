@@ -395,6 +395,10 @@ export async function fetchEnquiries(): Promise<EnquiryRow[]> {
  * Update order status across both databases
  */
 export async function updateOrderStatus(id: string, status: OrderRow['status']) {
+  if (id.startsWith('MOCK-')) {
+    // In mock simulation mode, resolve immediately without throwing document not found
+    return;
+  }
   const fsPromise = updateDoc(doc(db, 'orders', id), { status }).catch((e) =>
     console.warn('Firestore updateOrderStatus notice:', e)
   );
@@ -413,6 +417,10 @@ export async function updateOrderStatus(id: string, status: OrderRow['status']) 
  * Update survey status across both databases
  */
 export async function updateSurveyStatus(id: string, status: SurveyRow['status']) {
+  if (id.startsWith('MOCK-')) {
+    // In mock simulation mode, resolve immediately without throwing document not found
+    return;
+  }
   const fsPromise = updateDoc(doc(db, 'survey_submissions', id), { status }).catch((e) =>
     console.warn('Firestore updateSurveyStatus notice:', e)
   );
