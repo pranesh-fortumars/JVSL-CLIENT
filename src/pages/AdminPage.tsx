@@ -1312,7 +1312,6 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    // Lock scrolling cleanly
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -1323,24 +1322,24 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 sm:py-8"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       {/* Dimmed backdrop - click outside closes the detail modal cleanly */}
       <div
-        className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-ink-950/70 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Centered Modal Window with responsive sizing */}
-      <div className="relative z-10 flex max-h-[88vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-2xl overflow-hidden animate-fade-up">
+      {/* Centered Modal Window without animation collision */}
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-2xl overflow-hidden">
         {/* Modal Header */}
-        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-ink-100 bg-white/95 px-6 py-4 backdrop-blur">
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-ink-100 bg-white/95 px-5 sm:px-6 py-4 backdrop-blur">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-brand-600" />
+            <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />
             <h3 className="font-display text-lg font-bold text-ink-950">{title}</h3>
           </div>
           <button
@@ -1353,8 +1352,8 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
           </button>
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 overscroll-contain">
+        {/* Modal Scrollable Body with smooth custom styling */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-7 overscroll-contain">
           {children}
         </div>
       </div>
