@@ -44,7 +44,7 @@ import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { Wordmark } from '@/components/Logo';
-import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet, Sparkles, ToggleLeft, ToggleRight } from 'lucide-react';
+import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet, Sparkles, ToggleLeft, ToggleRight, Calendar, Filter, RotateCcw } from 'lucide-react';
 import { isMockModeActive, setMockModeActive } from '@/lib/mockData';
 
 type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
@@ -316,9 +316,28 @@ function Overview({
   enquiries: EnquiryRow[];
   onJump: (t: Tab) => void;
 }) {
-  const recentOrders = orders.slice(0, 5);
+  const [timelineScope, setTimelineScope] = useState<'all' | 'today' | 'this_month' | 'this_year'>('all');
+
+  const filteredOrders = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const thisMonthStr = new Date().toISOString().slice(0, 7);
+    const thisYearStr = String(new Date().getFullYear());
+
+    if (timelineScope === 'today') {
+      return orders.filter((o) => (o.expected_delivery || o.created_at)?.startsWith(todayStr));
+    }
+    if (timelineScope === 'this_month') {
+      return orders.filter((o) => (o.expected_delivery || o.created_at)?.startsWith(thisMonthStr));
+    }
+    if (timelineScope === 'this_year') {
+      return orders.filter((o) => (o.expected_delivery || o.created_at)?.startsWith(thisYearStr));
+    }
+    return orders;
+  }, [orders, timelineScope]);
+
+  const recentOrders = filteredOrders.slice(0, 6);
   const cards = [
-    { label: 'Total orders', value: stats.totalOrders, sub: `${stats.newOrders} new`, icon: ShoppingBasket, tab: 'orders' as Tab, tone: 'brand' },
+    { label: 'Total orders', value: filteredOrders.length, sub: `${filteredOrders.filter((o) => o.status === 'new').length} new`, icon: ShoppingBasket, tab: 'orders' as Tab, tone: 'brand' },
     { label: 'Survey responses', value: stats.totalSurveys, sub: `${stats.newSurveys} new`, icon: ClipboardList, tab: 'surveys' as Tab, tone: 'gold' },
     { label: 'Enquiries', value: stats.totalEnquiries, sub: `${stats.newEnquiries} new`, icon: MessageSquare, tab: 'enquiries' as Tab, tone: 'accent' },
     { label: 'Deliveries today', value: stats.todayDeliveries, sub: `${stats.delivered} delivered all-time`, icon: Truck, tab: 'orders' as Tab, tone: 'brand' },
@@ -326,6 +345,36 @@ function Overview({
 
   return (
     <div className="space-y-8">
+      {/* Quick Timeline Selector for Overview Analytics */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-brand-700" />
+          <span className="font-display text-sm font-bold text-ink-950">Analytics Horizon:</span>
+          <span className="text-xs text-ink-500">Filter key metrics by specific periods</span>
+        </div>
+        <div className="inline-flex rounded-xl bg-ink-100 p-1">
+          {[
+            { id: 'all', label: 'All-Time' },
+            { id: 'today', label: 'Today' },
+            { id: 'this_month', label: 'This Month' },
+            { id: 'this_year', label: 'This Year' },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTimelineScope(t.id as any)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                timelineScope === t.id
+                  ? 'bg-white text-brand-800 shadow-soft'
+                  : 'text-ink-600 hover:text-ink-900'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pending banner */}
       {/* Pending banner */}
       {stats.pending > 0 && (
         <div className="flex items-center gap-4 rounded-2xl border border-accent-200 bg-accent-50 p-5">
@@ -415,9 +464,26 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
   const [filter, setFilter] = useState<'all' | OrderRow['status']>('all');
   const [selected, setSelected] = useState<OrderRow | null>(null);
 
+  // Advanced Date / Month / Year Filters
+  const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [selectedYear, setSelectedYear] = useState<string>(() => String(new Date().getFullYear()));
+
   const filtered = useMemo(() => {
     return orders.filter((o) => {
       if (filter !== 'all' && o.status !== filter) return false;
+
+      // Date / Month / Year filtering against expected_delivery or created_at
+      const targetDate = o.expected_delivery || o.created_at?.slice(0, 10) || '';
+      if (dateFilterType === 'specific_date' && selectedDate) {
+        if (!targetDate.startsWith(selectedDate)) return false;
+      } else if (dateFilterType === 'month' && selectedMonth) {
+        if (!targetDate.startsWith(selectedMonth)) return false;
+      } else if (dateFilterType === 'year' && selectedYear) {
+        if (!targetDate.startsWith(selectedYear)) return false;
+      }
+
       if (query) {
         const q = query.toLowerCase();
         return (
@@ -428,12 +494,16 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
       }
       return true;
     });
-  }, [orders, query, filter]);
+  }, [orders, query, filter, dateFilterType, selectedDate, selectedMonth, selectedYear]);
+
+  const handleResetDateFilters = () => {
+    setDateFilterType('all');
+  };
 
   const exportProcurementCSV = () => {
-    // Aggregate total kilograms and counts across all active/new orders
+    // Aggregate total kilograms and counts across all active/new filtered orders
     const summary: Record<string, { qty: number; unit: string }> = {};
-    orders.forEach((o) => {
+    filtered.forEach((o) => {
       if (o.status !== 'cancelled') {
         o.items.forEach((it) => {
           if (!summary[it.name]) {
@@ -453,7 +523,8 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `JVLSD_Morning_Procurement_Sheet_${new Date().toISOString().slice(0, 10)}.csv`);
+    const filterSuffix = dateFilterType === 'specific_date' ? selectedDate : dateFilterType === 'month' ? selectedMonth : dateFilterType === 'year' ? selectedYear : 'All';
+    link.setAttribute('download', `JVLSD_Morning_Procurement_${filterSuffix}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -468,12 +539,21 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
       filter={filter}
       setFilter={setFilter}
       filterOptions={[
-        { value: 'all', label: 'All' },
+        { value: 'all', label: 'All Statuses' },
         { value: 'new', label: 'New' },
         { value: 'confirmed', label: 'Confirmed' },
         { value: 'delivered', label: 'Delivered' },
         { value: 'cancelled', label: 'Cancelled' },
       ]}
+      dateFilterType={dateFilterType}
+      setDateFilterType={setDateFilterType}
+      selectedDate={selectedDate}
+      setSelectedDate={setSelectedDate}
+      selectedMonth={selectedMonth}
+      setSelectedMonth={setSelectedMonth}
+      selectedYear={selectedYear}
+      setSelectedYear={setSelectedYear}
+      onResetDateFilters={handleResetDateFilters}
       icon={ShoppingBasket}
       empty="No orders match your filters."
       filteredCount={filtered.length}
@@ -599,9 +679,25 @@ function SurveysPanel({ surveys, onUpdate }: { surveys: SurveyRow[]; onUpdate: (
   const [filter, setFilter] = useState<'all' | SurveyRow['status']>('all');
   const [selected, setSelected] = useState<SurveyRow | null>(null);
 
+  // Time filters for surveys
+  const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [selectedYear, setSelectedYear] = useState<string>(() => String(new Date().getFullYear()));
+
   const filtered = useMemo(() => {
     return surveys.filter((s) => {
       if (filter !== 'all' && s.status !== filter) return false;
+
+      const targetDate = s.created_at?.slice(0, 10) || '';
+      if (dateFilterType === 'specific_date' && selectedDate) {
+        if (!targetDate.startsWith(selectedDate)) return false;
+      } else if (dateFilterType === 'month' && selectedMonth) {
+        if (!targetDate.startsWith(selectedMonth)) return false;
+      } else if (dateFilterType === 'year' && selectedYear) {
+        if (!targetDate.startsWith(selectedYear)) return false;
+      }
+
       if (query) {
         const q = query.toLowerCase();
         return (
@@ -612,7 +708,7 @@ function SurveysPanel({ surveys, onUpdate }: { surveys: SurveyRow[]; onUpdate: (
       }
       return true;
     });
-  }, [surveys, query, filter]);
+  }, [surveys, query, filter, dateFilterType, selectedDate, selectedMonth, selectedYear]);
 
   return (
     <PanelShell
@@ -623,10 +719,19 @@ function SurveysPanel({ surveys, onUpdate }: { surveys: SurveyRow[]; onUpdate: (
       filter={filter}
       setFilter={setFilter}
       filterOptions={[
-        { value: 'all', label: 'All' },
+        { value: 'all', label: 'All Statuses' },
         { value: 'new', label: 'New' },
         { value: 'reviewed', label: 'Reviewed' },
       ]}
+      dateFilterType={dateFilterType}
+      setDateFilterType={setDateFilterType}
+      selectedDate={selectedDate}
+      setSelectedDate={setSelectedDate}
+      selectedMonth={selectedMonth}
+      setSelectedMonth={setSelectedMonth}
+      selectedYear={selectedYear}
+      setSelectedYear={setSelectedYear}
+      onResetDateFilters={() => setDateFilterType('all')}
       icon={ClipboardList}
       empty="No survey responses match your filters."
       filteredCount={filtered.length}
@@ -756,9 +861,25 @@ function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUp
   const [filter, setFilter] = useState<'all' | EnquiryRow['status']>('all');
   const [selected, setSelected] = useState<EnquiryRow | null>(null);
 
+  // Time filters for enquiries
+  const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [selectedYear, setSelectedYear] = useState<string>(() => String(new Date().getFullYear()));
+
   const filtered = useMemo(() => {
     return enquiries.filter((e) => {
       if (filter !== 'all' && e.status !== filter) return false;
+
+      const targetDate = e.created_at?.slice(0, 10) || '';
+      if (dateFilterType === 'specific_date' && selectedDate) {
+        if (!targetDate.startsWith(selectedDate)) return false;
+      } else if (dateFilterType === 'month' && selectedMonth) {
+        if (!targetDate.startsWith(selectedMonth)) return false;
+      } else if (dateFilterType === 'year' && selectedYear) {
+        if (!targetDate.startsWith(selectedYear)) return false;
+      }
+
       if (query) {
         const q = query.toLowerCase();
         return (
@@ -770,7 +891,7 @@ function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUp
       }
       return true;
     });
-  }, [enquiries, query, filter]);
+  }, [enquiries, query, filter, dateFilterType, selectedDate, selectedMonth, selectedYear]);
 
   return (
     <PanelShell
@@ -781,10 +902,19 @@ function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUp
       filter={filter}
       setFilter={setFilter}
       filterOptions={[
-        { value: 'all', label: 'All' },
+        { value: 'all', label: 'All Statuses' },
         { value: 'new', label: 'New' },
         { value: 'resolved', label: 'Resolved' },
       ]}
+      dateFilterType={dateFilterType}
+      setDateFilterType={setDateFilterType}
+      selectedDate={selectedDate}
+      setSelectedDate={setSelectedDate}
+      selectedMonth={selectedMonth}
+      setSelectedMonth={setSelectedMonth}
+      selectedYear={selectedYear}
+      setSelectedYear={setSelectedYear}
+      onResetDateFilters={() => setDateFilterType('all')}
       icon={MessageSquare}
       empty="No enquiries match your filters."
       filteredCount={filtered.length}
@@ -885,6 +1015,15 @@ function PanelShell({
   icon: Icon,
   empty,
   filteredCount,
+  dateFilterType,
+  setDateFilterType,
+  selectedDate,
+  setSelectedDate,
+  selectedMonth,
+  setSelectedMonth,
+  selectedYear,
+  setSelectedYear,
+  onResetDateFilters,
   children,
 }: {
   title: string;
@@ -897,6 +1036,15 @@ function PanelShell({
   icon: React.ElementType;
   empty: string;
   filteredCount: number;
+  dateFilterType?: 'all' | 'specific_date' | 'month' | 'year';
+  setDateFilterType?: (v: 'all' | 'specific_date' | 'month' | 'year') => void;
+  selectedDate?: string;
+  setSelectedDate?: (v: string) => void;
+  selectedMonth?: string;
+  setSelectedMonth?: (v: string) => void;
+  selectedYear?: string;
+  setSelectedYear?: (v: string) => void;
+  onResetDateFilters?: () => void;
   children: React.ReactNode;
 }) {
   const isEmpty = filteredCount === 0;
@@ -909,7 +1057,7 @@ function PanelShell({
           </span>
           <div>
             <h2 className="font-display text-lg font-bold text-ink-950">{title}</h2>
-            <p className="text-xs text-ink-500">{count} total</p>
+            <p className="text-xs text-ink-500">{count} total (matching filters: {filteredCount})</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -936,6 +1084,83 @@ function PanelShell({
           </select>
         </div>
       </div>
+
+      {/* Advanced Datewise / Monthwise / Yearwise Filter Bar */}
+      {setDateFilterType && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-brand-50/40 px-5 py-3 border-b border-ink-100 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-brand-900 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-brand-700" /> Time Filter:
+            </span>
+
+            {/* Mode selection buttons */}
+            <div className="inline-flex rounded-lg bg-ink-200/60 p-0.5">
+              {(
+                [
+                  { id: 'all', label: 'All History' },
+                  { id: 'specific_date', label: 'By Date' },
+                  { id: 'month', label: 'By Month' },
+                  { id: 'year', label: 'By Year' },
+                ] as const
+              ).map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setDateFilterType(mode.id)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                    dateFilterType === mode.id
+                      ? 'bg-white text-brand-800 shadow-soft'
+                      : 'text-ink-600 hover:text-ink-950'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Inputs based on selected mode */}
+            {dateFilterType === 'specific_date' && setSelectedDate && (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-800 focus:border-brand-600 focus:outline-none"
+              />
+            )}
+
+            {dateFilterType === 'month' && setSelectedMonth && (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-800 focus:border-brand-600 focus:outline-none"
+              />
+            )}
+
+            {dateFilterType === 'year' && setSelectedYear && (
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-800 focus:border-brand-600 focus:outline-none"
+              >
+                {[2027, 2026, 2025, 2024].map((yr) => (
+                  <option key={yr} value={String(yr)}>{yr}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {dateFilterType !== 'all' && onResetDateFilters && (
+            <button
+              type="button"
+              onClick={onResetDateFilters}
+              className="inline-flex items-center gap-1 rounded-lg border border-ink-200 bg-white px-2 py-1 text-[11px] font-semibold text-ink-600 hover:bg-ink-100 hover:text-ink-900"
+            >
+              <RotateCcw className="h-3 w-3" /> Clear Time Filter
+            </button>
+          )}
+        </div>
+      )}
 
       {isEmpty ? (
         <EmptyState icon={Icon} message={empty} />
@@ -1052,6 +1277,10 @@ function SuperAdminAccessPanel() {
   const [newRole, setNewRole] = useState<'admin' | 'customer' | 'superadmin'>('admin');
   const [creating, setCreating] = useState(false);
 
+  // Search & Role filtering for Super Admin user list
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | Profile['role']>('all');
+
   const loadProfiles = useCallback(async () => {
     setLoading(true);
     try {
@@ -1067,6 +1296,17 @@ function SuperAdminAccessPanel() {
   useEffect(() => {
     loadProfiles();
   }, [loadProfiles]);
+
+  const filteredProfiles = useMemo(() => {
+    return profiles.filter((p) => {
+      if (roleFilter !== 'all' && p.role !== roleFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase().trim();
+        return (p.full_name || '').toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [profiles, roleFilter, searchQuery]);
 
   const handleDeleteUser = async (userId: string, email?: string) => {
     if (!window.confirm(`Are you sure you want to permanently delete user "${email || userId}" and purge all their orders and history from the database? This cannot be undone.`)) {
@@ -1236,18 +1476,37 @@ function SuperAdminAccessPanel() {
 
       {/* Existing accounts table */}
       <div className="rounded-3xl border border-ink-100 bg-white p-6 shadow-soft">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-base font-bold text-ink-900">System Accounts &amp; Permissions</h3>
-            <p className="mt-0.5 text-xs text-ink-500">All registered users and assigned access levels.</p>
+            <p className="mt-0.5 text-xs text-ink-500">All registered users and assigned access levels ({filteredProfiles.length} of {profiles.length}).</p>
           </div>
-          <button
-            type="button"
-            onClick={loadProfiles}
-            className="text-xs font-semibold text-brand-700 hover:underline"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Filter user / email…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-xl border border-ink-200 bg-white px-3 py-1.5 text-xs focus:border-brand-500 focus:outline-none"
+            />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as any)}
+              className="rounded-xl border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-700 focus:border-brand-500 focus:outline-none"
+            >
+              <option value="all">All Roles</option>
+              <option value="superadmin">Super Admin</option>
+              <option value="admin">Admin</option>
+              <option value="customer">Customer</option>
+            </select>
+            <button
+              type="button"
+              onClick={loadProfiles}
+              className="text-xs font-semibold text-brand-700 hover:underline px-1"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -1267,7 +1526,7 @@ function SuperAdminAccessPanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
-                {profiles.map((p) => (
+                {filteredProfiles.map((p) => (
                   <tr key={p.id} className="hover:bg-ink-50/60">
                     <td className="py-3 px-3 font-semibold text-ink-900">{p.full_name || '—'}</td>
                     <td className="py-3 px-3 font-mono text-ink-600">{p.email}</td>

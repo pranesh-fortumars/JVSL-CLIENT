@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   CalendarClock,
   LogOut,
@@ -22,6 +22,7 @@ import {
   MessageCircle,
   HelpCircle,
   Calendar,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { navigate, PATHS } from '@/lib/router';
@@ -44,6 +45,12 @@ export function AccountPage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'family' | 'finance'>('overview');
+
+  // Customer order history datewise / monthwise / yearwise filter
+  const [historyScope, setHistoryScope] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
+  const [filterDate, setFilterDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [filterMonth, setFilterMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [filterYear, setFilterYear] = useState<string>(() => String(new Date().getFullYear()));
 
   useEffect(() => {
     if (!user) return;
@@ -246,7 +253,79 @@ export function AccountPage() {
         {/* Tab 2: Orders */}
         {activeTab === 'orders' && (
           <div className="mt-8">
-            <h2 className="text-lg font-bold text-ink-900">Your orders</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-ink-900">Your Fresh Daily Orders</h2>
+                <p className="text-xs text-ink-500">Filter past grocery &amp; milk morning delivery baskets by date, month, or year.</p>
+              </div>
+
+              {/* Date / Month / Year Filters for Orders */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-lg bg-ink-100 p-0.5 text-xs">
+                  {(
+                    [
+                      { id: 'all', label: 'All Orders' },
+                      { id: 'specific_date', label: 'Date' },
+                      { id: 'month', label: 'Month' },
+                      { id: 'year', label: 'Year' },
+                    ] as const
+                  ).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setHistoryScope(m.id)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                        historyScope === m.id
+                          ? 'bg-white text-brand-800 shadow-soft'
+                          : 'text-ink-600 hover:text-ink-900'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                {historyScope === 'specific_date' && (
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-800"
+                  />
+                )}
+
+                {historyScope === 'month' && (
+                  <input
+                    type="month"
+                    value={filterMonth}
+                    onChange={(e) => setFilterMonth(e.target.value)}
+                    className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-800"
+                  />
+                )}
+
+                {historyScope === 'year' && (
+                  <select
+                    value={filterYear}
+                    onChange={(e) => setFilterYear(e.target.value)}
+                    className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-800"
+                  >
+                    {[2027, 2026, 2025, 2024].map((yr) => (
+                      <option key={yr} value={String(yr)}>{yr}</option>
+                    ))}
+                  </select>
+                )}
+
+                {historyScope !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setHistoryScope('all')}
+                    className="inline-flex items-center gap-1 rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-600 hover:bg-ink-100"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Reset
+                  </button>
+                )}
+              </div>
+            </div>
 
             {ordersLoading && (
               <div className="mt-6 flex items-center gap-2 text-ink-600">
@@ -271,50 +350,81 @@ export function AccountPage() {
               </div>
             )}
 
-            {!ordersLoading && !ordersError && orders.length > 0 && (
-              <ul className="mt-6 space-y-4">
-                {orders.map((order) => (
-                  <li key={order.id} className="card p-5 sm:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="font-semibold text-ink-900">
-                        {order.mode === 'same_day' ? 'Same-day order' : 'Next-day pre-order'}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
-                          {STATUS_LABEL[order.status]}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const repeatCart: Record<string, number> = {};
-                            order.items.forEach((it) => {
-                              repeatCart[it.id] = it.quantity;
-                            });
-                            localStorage.setItem('jvlsd_reorder_cart', JSON.stringify(repeatCart));
-                            navigate(PATHS.order);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-xl bg-gold-500/15 border border-gold-400/40 px-3 py-1 text-xs font-bold text-gold-900 hover:bg-gold-500/25 transition-colors shadow-soft"
-                          title="Load this basket into your Order page with one click"
-                        >
-                          <RotateCw className="h-3.5 w-3.5 text-gold-700" /> Re-order This Basket
-                        </button>
+            {!ordersLoading && !ordersError && orders.length > 0 && (() => {
+              const displayOrders = orders.filter((o) => {
+                const target = o.expected_delivery || o.created_at?.slice(0, 10) || '';
+                if (historyScope === 'specific_date' && filterDate) {
+                  return target.startsWith(filterDate);
+                }
+                if (historyScope === 'month' && filterMonth) {
+                  return target.startsWith(filterMonth);
+                }
+                if (historyScope === 'year' && filterYear) {
+                  return target.startsWith(filterYear);
+                }
+                return true;
+              });
+
+              if (displayOrders.length === 0) {
+                return (
+                  <div className="card mt-6 p-8 text-center text-ink-500">
+                    <p className="text-sm">No orders found for the selected time period.</p>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryScope('all')}
+                      className="mt-3 text-xs font-bold text-brand-700 underline"
+                    >
+                      Show all orders
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <ul className="mt-6 space-y-4">
+                  {displayOrders.map((order) => (
+                    <li key={order.id} className="card p-5 sm:p-6">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="font-semibold text-ink-900">
+                          {order.mode === 'same_day' ? 'Same-day order' : 'Next-day pre-order'}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
+                            {STATUS_LABEL[order.status]}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const repeatCart: Record<string, number> = {};
+                              order.items.forEach((it) => {
+                                repeatCart[it.id] = it.quantity;
+                              });
+                              localStorage.setItem('jvlsd_reorder_cart', JSON.stringify(repeatCart));
+                              navigate(PATHS.order);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-xl bg-gold-500/15 border border-gold-400/40 px-3 py-1 text-xs font-bold text-gold-900 hover:bg-gold-500/25 transition-colors shadow-soft"
+                            title="Load this basket into your Order page with one click"
+                          >
+                            <RotateCw className="h-3.5 w-3.5 text-gold-700" /> Re-order This Basket
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-600">
-                      <CalendarClock className="h-4 w-4" />
-                      Delivery {formatDate(order.expected_delivery)} · {order.items.length} item{order.items.length === 1 ? '' : 's'}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-1.5 pt-2 border-t border-ink-100 text-xs text-ink-600">
-                      {order.items.map((it, idx) => (
-                        <span key={idx} className="rounded-lg bg-ink-50 px-2 py-0.5">
-                          {it.name} ({it.quantity} {it.unit})
-                        </span>
-                      ))}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-600">
+                        <CalendarClock className="h-4 w-4" />
+                        Delivery {formatDate(order.expected_delivery)} · {order.items.length} item{order.items.length === 1 ? '' : 's'}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-1.5 pt-2 border-t border-ink-100 text-xs text-ink-600">
+                        {order.items.map((it, idx) => (
+                          <span key={idx} className="rounded-lg bg-ink-50 px-2 py-0.5">
+                            {it.name} ({it.quantity} {it.unit})
+                          </span>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
           </div>
         )}
 
