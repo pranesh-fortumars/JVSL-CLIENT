@@ -49,6 +49,12 @@ import { isMockModeActive, setMockModeActive } from '@/lib/mockData';
 
 type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
 
+type ActiveDetail =
+  | { type: 'order'; data: OrderRow }
+  | { type: 'survey'; data: SurveyRow }
+  | { type: 'enquiry'; data: EnquiryRow }
+  | null;
+
 export function AdminPage() {
   const { user, profile, loading, signOut } = useAuth();
 
@@ -88,6 +94,7 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mockActive, setMockActive] = useState<boolean>(() => isMockModeActive());
+  const [activeDetail, setActiveDetail] = useState<ActiveDetail>(null);
 
   const handleToggleMock = (enable: boolean) => {
     setMockModeActive(enable);
@@ -282,13 +289,25 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
               <Overview stats={stats} orders={orders} surveys={surveys} enquiries={enquiries} onJump={setTab} />
             )}
             {tab === 'orders' && (
-              <OrdersPanel orders={orders} onUpdate={updateOrderStatus} />
+              <OrdersPanel
+                orders={orders}
+                onUpdate={updateOrderStatus}
+                onSelectOrder={(order) => setActiveDetail({ type: 'order', data: order })}
+              />
             )}
             {tab === 'surveys' && (
-              <SurveysPanel surveys={surveys} onUpdate={updateSurveyStatus} />
+              <SurveysPanel
+                surveys={surveys}
+                onUpdate={updateSurveyStatus}
+                onSelectSurvey={(survey) => setActiveDetail({ type: 'survey', data: survey })}
+              />
             )}
             {tab === 'enquiries' && (
-              <EnquiriesPanel enquiries={enquiries} onUpdate={updateEnquiryStatus} />
+              <EnquiriesPanel
+                enquiries={enquiries}
+                onUpdate={updateEnquiryStatus}
+                onSelectEnquiry={(enquiry) => setActiveDetail({ type: 'enquiry', data: enquiry })}
+              />
             )}
             {tab === 'superadmin' && isSuperAdmin && (
               <SuperAdminAccessPanel />
@@ -296,6 +315,48 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
           </>
         )}
       </div>
+
+      {/* Global Root Detail Drawer Modal */}
+      {activeDetail && (
+        <DetailDrawer
+          title={
+            activeDetail.type === 'order'
+              ? 'Order details'
+              : activeDetail.type === 'survey'
+              ? 'Survey response'
+              : 'Enquiry details'
+          }
+          onClose={() => setActiveDetail(null)}
+        >
+          {activeDetail.type === 'order' && (
+            <OrderDetail
+              order={activeDetail.data}
+              onUpdate={(s) => {
+                updateOrderStatus(activeDetail.data.id, s);
+                setActiveDetail({ type: 'order', data: { ...activeDetail.data, status: s } });
+              }}
+            />
+          )}
+          {activeDetail.type === 'survey' && (
+            <SurveyDetail
+              survey={activeDetail.data}
+              onUpdate={(s) => {
+                updateSurveyStatus(activeDetail.data.id, s);
+                setActiveDetail({ type: 'survey', data: { ...activeDetail.data, status: s } });
+              }}
+            />
+          )}
+          {activeDetail.type === 'enquiry' && (
+            <EnquiryDetail
+              enquiry={activeDetail.data}
+              onUpdate={(s) => {
+                updateEnquiryStatus(activeDetail.data.id, s);
+                setActiveDetail({ type: 'enquiry', data: { ...activeDetail.data, status: s } });
+              }}
+            />
+          )}
+        </DetailDrawer>
+      )}
     </div>
   );
 }
@@ -463,16 +524,17 @@ function Overview({
 
 /* ---------- Orders panel ---------- */
 
-function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: string, s: OrderRow['status']) => void }) {
+function OrdersPanel({
+  orders,
+  onUpdate: _onUpdate,
+  onSelectOrder,
+}: {
+  orders: OrderRow[];
+  onUpdate: (id: string, s: OrderRow['status']) => void;
+  onSelectOrder: (order: OrderRow) => void;
+}) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | OrderRow['status']>('all');
-  const [selected, setSelected] = useState<OrderRow | null>(null);
-
-  useEffect(() => {
-    const handleClose = () => setSelected(null);
-    window.addEventListener('jvlsd:close_details', handleClose);
-    return () => window.removeEventListener('jvlsd:close_details', handleClose);
-  }, []);
 
   // Advanced Date / Month / Year Filters
   const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
@@ -614,7 +676,7 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
                 <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
                 <td className="px-4 py-3 text-right">
                   <button
-                    onClick={() => setSelected(o)}
+                    onClick={() => onSelectOrder(o)}
                     className="rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50"
                   >
                     Details
@@ -625,12 +687,6 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
           </tbody>
         </table>
       </div>
-
-      {selected && (
-        <DetailDrawer title="Order details" onClose={() => setSelected(null)}>
-          <OrderDetail order={selected} onUpdate={(s) => { onUpdate(selected.id, s); setSelected({ ...selected, status: s }); }} />
-        </DetailDrawer>
-      )}
     </PanelShell>
   );
 }
@@ -716,16 +772,17 @@ function OrderDetail({ order, onUpdate }: { order: OrderRow; onUpdate: (s: Order
 
 /* ---------- Surveys panel ---------- */
 
-function SurveysPanel({ surveys, onUpdate }: { surveys: SurveyRow[]; onUpdate: (id: string, s: SurveyRow['status']) => void }) {
+function SurveysPanel({
+  surveys,
+  onUpdate: _onUpdate,
+  onSelectSurvey,
+}: {
+  surveys: SurveyRow[];
+  onUpdate: (id: string, s: SurveyRow['status']) => void;
+  onSelectSurvey: (survey: SurveyRow) => void;
+}) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | SurveyRow['status']>('all');
-  const [selected, setSelected] = useState<SurveyRow | null>(null);
-
-  useEffect(() => {
-    const handleClose = () => setSelected(null);
-    window.addEventListener('jvlsd:close_details', handleClose);
-    return () => window.removeEventListener('jvlsd:close_details', handleClose);
-  }, []);
 
   // Time filters for surveys
   const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
@@ -809,7 +866,7 @@ function SurveysPanel({ surveys, onUpdate }: { surveys: SurveyRow[]; onUpdate: (
                 <td className="px-4 py-3"><StatusBadge status={s.status} /></td>
                 <td className="px-4 py-3 text-right">
                   <button
-                    onClick={() => setSelected(s)}
+                    onClick={() => onSelectSurvey(s)}
                     className="rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50"
                   >
                     Details
@@ -820,12 +877,6 @@ function SurveysPanel({ surveys, onUpdate }: { surveys: SurveyRow[]; onUpdate: (
           </tbody>
         </table>
       </div>
-
-      {selected && (
-        <DetailDrawer title="Survey response" onClose={() => setSelected(null)}>
-          <SurveyDetail survey={selected} onUpdate={(s) => { onUpdate(selected.id, s); setSelected({ ...selected, status: s }); }} />
-        </DetailDrawer>
-      )}
     </PanelShell>
   );
 }
@@ -934,16 +985,17 @@ function SurveyDetail({ survey, onUpdate }: { survey: SurveyRow; onUpdate: (s: S
 
 /* ---------- Enquiries panel ---------- */
 
-function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUpdate: (id: string, s: EnquiryRow['status']) => void }) {
+function EnquiriesPanel({
+  enquiries,
+  onUpdate: _onUpdate,
+  onSelectEnquiry,
+}: {
+  enquiries: EnquiryRow[];
+  onUpdate: (id: string, s: EnquiryRow['status']) => void;
+  onSelectEnquiry: (enquiry: EnquiryRow) => void;
+}) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | EnquiryRow['status']>('all');
-  const [selected, setSelected] = useState<EnquiryRow | null>(null);
-
-  useEffect(() => {
-    const handleClose = () => setSelected(null);
-    window.addEventListener('jvlsd:close_details', handleClose);
-    return () => window.removeEventListener('jvlsd:close_details', handleClose);
-  }, []);
 
   // Time filters for enquiries
   const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
@@ -1029,7 +1081,7 @@ function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUp
                 <td className="px-4 py-3"><StatusBadge status={e.status} /></td>
                 <td className="px-4 py-3 text-right">
                   <button
-                    onClick={() => setSelected(e)}
+                    onClick={() => onSelectEnquiry(e)}
                     className="rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50"
                   >
                     Details
@@ -1040,12 +1092,6 @@ function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUp
           </tbody>
         </table>
       </div>
-
-      {selected && (
-        <DetailDrawer title="Enquiry details" onClose={() => setSelected(null)}>
-          <EnquiryDetail enquiry={selected} onUpdate={(s) => { onUpdate(selected.id, s); setSelected({ ...selected, status: s }); }} />
-        </DetailDrawer>
-      )}
     </PanelShell>
   );
 }
@@ -1334,10 +1380,13 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
         aria-hidden="true"
       />
 
-      {/* Centered Modal Window without animation collision */}
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-2xl overflow-hidden">
+      {/* Centered Modal Window with click containment */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 flex max-h-[88vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-2xl overflow-hidden"
+      >
         {/* Modal Header */}
-        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-ink-100 bg-white/95 px-5 sm:px-6 py-4 backdrop-blur">
+        <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-ink-100 bg-white/95 px-5 sm:px-6 py-4 backdrop-blur">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />
             <h3 className="font-display text-lg font-bold text-ink-950">{title}</h3>
