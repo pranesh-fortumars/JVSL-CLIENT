@@ -238,7 +238,11 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
             return (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  setTab(t.id);
+                  // Ensure any open detail drawer from another tab is dismissed
+                  window.dispatchEvent(new CustomEvent('jvlsd:close_details'));
+                }}
                 className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
                   active ? 'bg-brand-700 text-white shadow-soft' : 'text-ink-600 hover:bg-ink-50'
                 }`}
@@ -463,6 +467,12 @@ function OrdersPanel({ orders, onUpdate }: { orders: OrderRow[]; onUpdate: (id: 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | OrderRow['status']>('all');
   const [selected, setSelected] = useState<OrderRow | null>(null);
+
+  useEffect(() => {
+    const handleClose = () => setSelected(null);
+    window.addEventListener('jvlsd:close_details', handleClose);
+    return () => window.removeEventListener('jvlsd:close_details', handleClose);
+  }, []);
 
   // Advanced Date / Month / Year Filters
   const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
@@ -711,6 +721,12 @@ function SurveysPanel({ surveys, onUpdate }: { surveys: SurveyRow[]; onUpdate: (
   const [filter, setFilter] = useState<'all' | SurveyRow['status']>('all');
   const [selected, setSelected] = useState<SurveyRow | null>(null);
 
+  useEffect(() => {
+    const handleClose = () => setSelected(null);
+    window.addEventListener('jvlsd:close_details', handleClose);
+    return () => window.removeEventListener('jvlsd:close_details', handleClose);
+  }, []);
+
   // Time filters for surveys
   const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -922,6 +938,12 @@ function EnquiriesPanel({ enquiries, onUpdate }: { enquiries: EnquiryRow[]; onUp
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | EnquiryRow['status']>('all');
   const [selected, setSelected] = useState<EnquiryRow | null>(null);
+
+  useEffect(() => {
+    const handleClose = () => setSelected(null);
+    window.addEventListener('jvlsd:close_details', handleClose);
+    return () => window.removeEventListener('jvlsd:close_details', handleClose);
+  }, []);
 
   // Time filters for enquiries
   const [dateFilterType, setDateFilterType] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
@@ -1290,31 +1312,51 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
+    // Lock scrolling cleanly
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      document.body.style.overflow = prevOverflow;
     };
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
-      {/* Dimmed backdrop */}
-      <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      
-      {/* Centered Modal Card with wide responsive width */}
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-lift animate-fade-up overflow-hidden">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white/95 px-6 py-4 backdrop-blur">
-          <h3 className="font-display text-lg font-bold text-ink-950">{title}</h3>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 sm:py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      {/* Dimmed backdrop - click outside closes the detail modal cleanly */}
+      <div
+        className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Centered Modal Window with responsive sizing */}
+      <div className="relative z-10 flex max-h-[88vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-2xl overflow-hidden animate-fade-up">
+        {/* Modal Header */}
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-ink-100 bg-white/95 px-6 py-4 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-brand-600" />
+            <h3 className="font-display text-lg font-bold text-ink-950">{title}</h3>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-ink-500 hover:bg-ink-100 transition-colors"
-            aria-label="Close details"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink-100 text-ink-600 hover:bg-ink-200 hover:text-ink-900 transition-colors"
+            aria-label="Close details dialog"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</div>
+
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 overscroll-contain">
+          {children}
+        </div>
       </div>
     </div>
   );
