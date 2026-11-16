@@ -756,7 +756,3 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
     </div>
   );
 }
-      </div>
-    </section>
-  );
-}
