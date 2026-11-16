@@ -559,6 +559,12 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
   const [newMember, setNewMember] = useState('Spouse');
   const [newNote, setNewNote] = useState('');
 
+  // Family Consensus Filter by Category, Member, Status, and Anticipated Month
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [memberFilter, setMemberFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [anticipatedMonthFilter, setAnticipatedMonthFilter] = useState<string>('all');
+
   const saveIncome = (val: number) => {
     setMonthlyIncome(val);
     try {
@@ -610,22 +616,22 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
       <div className="rounded-3xl border border-gold-300/40 bg-gradient-to-br from-emerald-950 via-[#0e3321] to-ink-950 p-6 sm:p-8 text-white shadow-soft">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gold-300 border border-gold-400/30">
-              <HeartHandshake className="h-4 w-4" /> Family Financial Harmony &amp; Dialogue
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-400/25 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-gold-300 border border-gold-400/50 shadow-sm">
+              <HeartHandshake className="h-4 w-4 text-gold-300" /> Family Financial Harmony &amp; Dialogue
             </span>
-            <h2 className="mt-3 font-display text-2xl sm:text-3xl font-extrabold leading-tight">
+            <h2 className="mt-3.5 font-display text-2xl sm:text-3xl font-black leading-tight text-white drop-shadow-sm">
               Sort Household Income &amp; Anticipated Expenses Together
             </h2>
-            <p className="mt-2 max-w-2xl text-xs sm:text-sm text-emerald-100/85 leading-relaxed">
+            <p className="mt-2.5 max-w-2xl text-xs sm:text-sm font-medium text-emerald-50 leading-relaxed">
               Bringing the whole family together to discuss anticipated expenses, express thoughts, share agreements or gentle requests for denial—building an atmosphere of mutual understanding, care, and respect.
             </p>
           </div>
-          <div className="rounded-2xl bg-white/10 p-4 border border-white/15 backdrop-blur-md text-center min-w-[12rem]">
-            <p className="text-[11px] uppercase tracking-wider text-gold-300 font-semibold">Net Family Surplus</p>
-            <p className={`mt-1 font-display text-2xl font-black ${netSurplus >= 0 ? 'text-white' : 'text-rose-300'}`}>
+          <div className="rounded-2xl bg-white/15 p-4 border border-white/20 backdrop-blur-md text-center min-w-[12rem] shadow-soft">
+            <p className="text-[11px] uppercase tracking-wider text-gold-300 font-extrabold">Net Family Surplus</p>
+            <p className={`mt-1 font-display text-2xl sm:text-3xl font-black ${netSurplus >= 0 ? 'text-white' : 'text-rose-300'}`}>
               ₹{netSurplus.toLocaleString('en-IN')}
             </p>
-            <p className="text-[10px] text-emerald-200 mt-0.5">After all agreed expenses</p>
+            <p className="text-[10px] text-emerald-100 font-semibold mt-0.5">After all agreed expenses</p>
           </div>
         </div>
       </div>
@@ -770,98 +776,159 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
 
       {/* Anticipated Expense Heads Table & Mutual Agreement Matrix */}
       <div className="rounded-3xl border border-ink-100 bg-white p-6 sm:p-8 shadow-soft">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-ink-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-ink-100">
           <div>
             <h3 className="font-display text-base font-bold text-ink-950">Family Consensus Board</h3>
             <p className="mt-0.5 text-xs text-ink-500">
               Review, request denial or postpone, or agree collectively to balance the monthly budget.
             </p>
           </div>
-          <span className="text-xs font-semibold text-brand-700">
-            {expenses.length} Scheduled Expense Head{expenses.length === 1 ? '' : 's'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-xl border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-700 focus:border-brand-500 focus:outline-none"
+            >
+              <option value="all">All Statuses</option>
+              <option value="agreed">Agreed / Scheduled</option>
+              <option value="under_discussion">Under Discussion</option>
+              <option value="denied">Postponed / Denied</option>
+            </select>
+
+            <select
+              value={memberFilter}
+              onChange={(e) => setMemberFilter(e.target.value)}
+              className="rounded-xl border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-700 focus:border-brand-500 focus:outline-none"
+            >
+              <option value="all">All Family Members</option>
+              <option value="Primary Account Holder">Primary Account Holder</option>
+              <option value="Spouse">Spouse</option>
+              <option value="Children">Children</option>
+              <option value="Elders">Elders (Parents)</option>
+            </select>
+
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="rounded-xl border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-700 focus:border-brand-500 focus:outline-none"
+            >
+              <option value="all">All Heads / Categories</option>
+              <option value="Fresh Groceries">Groceries &amp; Milk</option>
+              <option value="Children Education">Education &amp; Books</option>
+              <option value="Healthcare">Healthcare &amp; Medicine</option>
+              <option value="Utilities">Utilities &amp; Repairs</option>
+              <option value="Clothing">Clothing</option>
+              <option value="Emergency">Savings / Emergency</option>
+            </select>
+          </div>
         </div>
 
-        <div className="mt-4 divide-y divide-ink-100">
-          {expenses.map((head) => (
-            <div key={head.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-ink-50/50 rounded-2xl px-2 transition-colors">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
-                    {head.category}
-                  </span>
-                  <span className="text-xs text-ink-500 font-medium">
-                    Requested by <strong className="text-ink-900">{head.requestedBy}</strong>
-                  </span>
-                  <span className="text-xs text-ink-500 flex items-center gap-1 font-mono">
-                    <Calendar className="h-3 w-3 text-gold-600" /> Due: {head.anticipatedDate}
-                  </span>
-                </div>
-                <p className="mt-1.5 font-bold text-ink-950 text-sm">{head.description}</p>
-                <p className="mt-0.5 text-xs text-ink-600 italic">"{head.familyNote}"</p>
-              </div>
+        {(() => {
+          const filteredExpenses = expenses.filter((h) => {
+            if (statusFilter !== 'all' && h.status !== statusFilter) return false;
+            if (memberFilter !== 'all' && !h.requestedBy.toLowerCase().includes(memberFilter.toLowerCase())) return false;
+            if (categoryFilter !== 'all' && !h.category.toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+            return true;
+          });
 
-              <div className="flex items-center gap-4 shrink-0">
-                <div className="text-right">
-                  <p className="font-display font-extrabold text-ink-950 text-lg">
-                    ₹{head.proposedAmount.toLocaleString('en-IN')}
-                  </p>
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      head.status === 'agreed'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : head.status === 'denied'
-                        ? 'bg-rose-100 text-rose-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {head.status === 'agreed' ? 'Agreed / Scheduled' : head.status === 'denied' ? 'Postponed / Denied' : 'Under Discussion'}
-                  </span>
-                </div>
-
-                {/* Consensus Action Buttons: Agree / Deny / Re-open */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus(head.id, 'agreed')}
-                    className={`p-2 rounded-xl transition-all ${
-                      head.status === 'agreed'
-                        ? 'bg-emerald-600 text-white shadow-soft'
-                        : 'text-ink-400 hover:bg-emerald-50 hover:text-emerald-700'
-                    }`}
-                    title="Family Agrees: Proceed with this expense"
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus(head.id, 'denied')}
-                    className={`p-2 rounded-xl transition-all ${
-                      head.status === 'denied'
-                        ? 'bg-rose-600 text-white shadow-soft'
-                        : 'text-ink-400 hover:bg-rose-50 hover:text-rose-700'
-                    }`}
-                    title="Request Denial / Postpone to next month"
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus(head.id, 'under_discussion')}
-                    className={`p-2 rounded-xl transition-all ${
-                      head.status === 'under_discussion'
-                        ? 'bg-amber-500 text-white shadow-soft'
-                        : 'text-ink-400 hover:bg-amber-50 hover:text-amber-700'
-                    }`}
-                    title="Keep open for further family talk"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </button>
-                </div>
+          if (filteredExpenses.length === 0) {
+            return (
+              <div className="py-12 text-center text-ink-500">
+                <p className="text-sm font-semibold">No expense heads match your filter criteria.</p>
+                <button
+                  type="button"
+                  onClick={() => { setStatusFilter('all'); setMemberFilter('all'); setCategoryFilter('all'); }}
+                  className="mt-2 text-xs font-bold text-brand-700 underline"
+                >
+                  Reset all dialogue filters
+                </button>
               </div>
+            );
+          }
+
+          return (
+            <div className="mt-4 divide-y divide-ink-100">
+              {filteredExpenses.map((head) => (
+                <div key={head.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-ink-50/50 rounded-2xl px-2 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
+                        {head.category}
+                      </span>
+                      <span className="text-xs text-ink-500 font-medium">
+                        Requested by <strong className="text-ink-900">{head.requestedBy}</strong>
+                      </span>
+                      <span className="text-xs text-ink-500 flex items-center gap-1 font-mono">
+                        <Calendar className="h-3 w-3 text-gold-600" /> Due: {head.anticipatedDate}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 font-bold text-ink-950 text-sm">{head.description}</p>
+                    <p className="mt-0.5 text-xs text-ink-600 italic">"{head.familyNote}"</p>
+                  </div>
+
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right">
+                      <p className="font-display font-extrabold text-ink-950 text-lg">
+                        ₹{head.proposedAmount.toLocaleString('en-IN')}
+                      </p>
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          head.status === 'agreed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : head.status === 'denied'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {head.status === 'agreed' ? 'Agreed / Scheduled' : head.status === 'denied' ? 'Postponed / Denied' : 'Under Discussion'}
+                      </span>
+                    </div>
+
+                    {/* Consensus Action Buttons: Agree / Deny / Re-open */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus(head.id, 'agreed')}
+                        className={`p-2 rounded-xl transition-all ${
+                          head.status === 'agreed'
+                            ? 'bg-emerald-600 text-white shadow-soft'
+                            : 'text-ink-400 hover:bg-emerald-50 hover:text-emerald-700'
+                        }`}
+                        title="Family Agrees: Proceed with this expense"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus(head.id, 'denied')}
+                        className={`p-2 rounded-xl transition-all ${
+                          head.status === 'denied'
+                            ? 'bg-rose-600 text-white shadow-soft'
+                            : 'text-ink-400 hover:bg-rose-50 hover:text-rose-700'
+                        }`}
+                        title="Request Denial / Postpone to next month"
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus(head.id, 'under_discussion')}
+                        className={`p-2 rounded-xl transition-all ${
+                          head.status === 'under_discussion'
+                            ? 'bg-amber-500 text-white shadow-soft'
+                            : 'text-ink-400 hover:bg-amber-50 hover:text-amber-700'
+                        }`}
+                        title="Keep open for further family talk"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
       </div>
     </div>
   );
