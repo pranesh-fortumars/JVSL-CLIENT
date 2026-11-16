@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { isMockModeActive, MOCK_ORDERS, MOCK_SURVEYS, MOCK_ENQUIRIES, MOCK_PROFILES } from './mockData';
 
 export type Profile = {
   id: string;
@@ -267,6 +268,12 @@ export async function createOrder(order: Order) {
  * Fetch orders combining Firestore and Supabase if active
  */
 export async function fetchOrders(userId?: string): Promise<OrderRow[]> {
+  if (isMockModeActive()) {
+    if (userId) {
+      return MOCK_ORDERS.filter((o) => o.user_id === userId || o.user_id === 'mock-user-1');
+    }
+    return MOCK_ORDERS;
+  }
   try {
     const colRef = collection(db, 'orders');
     let q;
@@ -314,6 +321,9 @@ export async function fetchOrders(userId?: string): Promise<OrderRow[]> {
  * Fetch surveys combining Firestore and Supabase if active
  */
 export async function fetchSurveys(): Promise<SurveyRow[]> {
+  if (isMockModeActive()) {
+    return MOCK_SURVEYS;
+  }
   try {
     const colRef = collection(db, 'survey_submissions');
     const q = query(colRef, orderBy('created_at', 'desc'));
@@ -348,6 +358,9 @@ export async function fetchSurveys(): Promise<SurveyRow[]> {
  * Fetch enquiries combining Firestore and Supabase if active
  */
 export async function fetchEnquiries(): Promise<EnquiryRow[]> {
+  if (isMockModeActive()) {
+    return MOCK_ENQUIRIES;
+  }
   try {
     const colRef = collection(db, 'enquiries');
     const q = query(colRef, orderBy('created_at', 'desc'));
@@ -482,6 +495,9 @@ export async function createManagedUser(input: { email: string; full_name: strin
  * Super Admin: Fetch all registered users/profiles
  */
 export async function fetchAllProfiles(): Promise<Profile[]> {
+  if (isMockModeActive()) {
+    return MOCK_PROFILES;
+  }
   let list: Profile[] = [];
   try {
     const snap = await getDocs(collection(db, 'profiles'));

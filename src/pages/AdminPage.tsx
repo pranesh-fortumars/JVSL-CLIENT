@@ -44,7 +44,8 @@ import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { Wordmark } from '@/components/Logo';
-import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet } from 'lucide-react';
+import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet, Sparkles, ToggleLeft, ToggleRight } from 'lucide-react';
+import { isMockModeActive, setMockModeActive } from '@/lib/mockData';
 
 type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
 
@@ -86,6 +87,16 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
   const [enquiries, setEnquiries] = useState<EnquiryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [mockActive, setMockActive] = useState<boolean>(() => isMockModeActive());
+
+  const handleToggleMock = (enable: boolean) => {
+    setMockModeActive(enable);
+    setMockActive(enable);
+    // Reload all data with/without mock simulation
+    setTimeout(() => {
+      loadAll();
+    }, 50);
+  };
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -186,6 +197,25 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Super Admin / Staff Feature Visualizer Mode Toggle */}
+            <button
+              onClick={() => handleToggleMock(!mockActive)}
+              className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
+                mockActive
+                  ? 'bg-amber-50 text-amber-900 border-amber-300 shadow-sm'
+                  : 'bg-white text-ink-600 border-ink-200 hover:bg-ink-50'
+              }`}
+              title="Toggle to populate all sections with rich mock data to visualize and experience full website functionality"
+            >
+              <Sparkles className={`h-4 w-4 ${mockActive ? 'text-amber-600 animate-spin' : 'text-ink-400'}`} />
+              <span className="hidden md:inline">Feature Experience Mode:</span>
+              <span className={`px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider font-extrabold ${
+                mockActive ? 'bg-amber-600 text-white' : 'bg-ink-100 text-ink-600'
+              }`}>
+                {mockActive ? 'Active (Populated)' : 'Off (Live DB)'}
+              </span>
+            </button>
+
             <button
               onClick={loadAll}
               className="btn-ghost text-sm"
@@ -1092,18 +1122,48 @@ function SuperAdminAccessPanel() {
     <div className="space-y-8 animate-fade-up">
       {/* Super Admin Notice */}
       <div className="rounded-3xl border border-gold-400/40 bg-gradient-to-r from-ink-950 via-[#0a2016] to-ink-950 p-6 text-white shadow-soft">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-500/20 text-gold-300">
-            <Key className="h-6 w-6" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-500/20 text-gold-300 shrink-0">
+              <Key className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="rounded-full bg-gold-500/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-gold-300">
+                Master Super Admin Privileges
+              </span>
+              <h2 className="mt-1 font-display text-xl font-bold">Confidential User &amp; Role Manager</h2>
+              <p className="mt-0.5 text-xs text-emerald-100/80">
+                Only visible to Master Super Admin. Create staff accounts, grant Admin access, or manage customer roles.
+              </p>
+            </div>
           </div>
-          <div>
-            <span className="rounded-full bg-gold-500/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-gold-300">
-              Master Super Admin Privileges
-            </span>
-            <h2 className="mt-1 font-display text-xl font-bold">Confidential User &amp; Role Manager</h2>
-            <p className="mt-0.5 text-xs text-emerald-100/80">
-              Only visible to Master Super Admin. Create staff accounts, grant Admin access, or manage customer roles.
-            </p>
+
+          <div className="rounded-2xl border border-gold-400/30 bg-white/10 p-3 sm:p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-gold-300" /> Feature Simulation Mode
+                </p>
+                <p className="text-[11px] text-emerald-100/70">
+                  {isMockModeActive() ? 'Populated with mock data' : 'Showing live database data'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !isMockModeActive();
+                  setMockModeActive(next);
+                  window.location.reload();
+                }}
+                className={`rounded-xl px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-all shadow-soft ${
+                  isMockModeActive()
+                    ? 'bg-amber-400 text-ink-950 hover:bg-amber-300'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                {isMockModeActive() ? 'Toggle OFF' : 'Toggle ON'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
