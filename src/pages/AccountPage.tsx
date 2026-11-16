@@ -784,6 +784,27 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Anticipated Month / Date Filter */}
+            <div className="flex items-center gap-1 rounded-xl border border-ink-200 bg-white px-2.5 py-1">
+              <Calendar className="h-3.5 w-3.5 text-gold-600" />
+              <input
+                type="month"
+                value={anticipatedMonthFilter === 'all' ? '' : anticipatedMonthFilter}
+                onChange={(e) => setAnticipatedMonthFilter(e.target.value || 'all')}
+                className="text-xs font-semibold text-ink-700 bg-transparent focus:outline-none"
+                title="Filter expenses anticipated in a specific month"
+              />
+              {anticipatedMonthFilter !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setAnticipatedMonthFilter('all')}
+                  className="text-[10px] text-ink-400 hover:text-ink-900"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -828,6 +849,7 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
             if (statusFilter !== 'all' && h.status !== statusFilter) return false;
             if (memberFilter !== 'all' && !h.requestedBy.toLowerCase().includes(memberFilter.toLowerCase())) return false;
             if (categoryFilter !== 'all' && !h.category.toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+            if (anticipatedMonthFilter !== 'all' && !h.anticipatedDate.startsWith(anticipatedMonthFilter)) return false;
             return true;
           });
 
@@ -837,7 +859,7 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
                 <p className="text-sm font-semibold">No expense heads match your filter criteria.</p>
                 <button
                   type="button"
-                  onClick={() => { setStatusFilter('all'); setMemberFilter('all'); setCategoryFilter('all'); }}
+                  onClick={() => { setStatusFilter('all'); setMemberFilter('all'); setCategoryFilter('all'); setAnticipatedMonthFilter('all'); }}
                   className="mt-2 text-xs font-bold text-brand-700 underline"
                 >
                   Reset all dialogue filters
