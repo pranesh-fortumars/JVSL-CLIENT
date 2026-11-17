@@ -193,7 +193,7 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
     <div className="min-h-screen bg-ink-50">
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate(PATHS.home)} className="flex items-center gap-2.5" aria-label="Back to website">
               <Wordmark />
@@ -237,7 +237,7 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Tabs */}
         <div className="mb-8 flex gap-1 overflow-x-auto rounded-2xl border border-ink-100 bg-white p-1.5 shadow-soft">
           {TABS.map((t) => {
@@ -1139,8 +1139,10 @@ function EnquiryDetail({ enquiry, onUpdate }: { enquiry: EnquiryRow; onUpdate: (
         </div>
       </div>
 
-      <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
-        <InfoRow icon={MessageSquare} label="Subject" value={enquiry.subject} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="sm:col-span-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+          <InfoRow icon={MessageSquare} label="Subject" value={enquiry.subject} />
+        </div>
       </div>
 
       <div>
@@ -1398,7 +1400,7 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
       {/* Centered Modal Window with click containment */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 flex max-h-[88vh] w-full max-w-2xl flex-col rounded-3xl border border-ink-100 bg-white shadow-2xl overflow-hidden"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl border border-ink-100 bg-white shadow-2xl overflow-hidden"
       >
         {/* Modal Header */}
         <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-ink-100 bg-white/95 px-5 sm:px-6 py-4 backdrop-blur">
