@@ -44,7 +44,7 @@ import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { Wordmark } from '@/components/Logo';
-import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet, Sparkles, ToggleLeft, ToggleRight, Calendar, Filter, RotateCcw } from 'lucide-react';
+import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet, Sparkles, ToggleLeft, ToggleRight, Calendar, Filter, RotateCcw, BadgeIndianRupee } from 'lucide-react';
 import { isMockModeActive, setMockModeActive } from '@/lib/mockData';
 
 type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
@@ -375,6 +375,7 @@ function Overview({
   orders,
   surveys,
   enquiries,
+  profilesCount = 0,
   onJump,
   onSelectOrder,
 }: {
@@ -387,6 +388,7 @@ function Overview({
   orders: OrderRow[];
   surveys: SurveyRow[];
   enquiries: EnquiryRow[];
+  profilesCount?: number;
   onJump: (t: Tab) => void;
   onSelectOrder: (order: OrderRow) => void;
 }) {
@@ -408,6 +410,24 @@ function Overview({
     }
     return orders;
   }, [orders, timelineScope]);
+
+  // Master Franchisee Backend Royalty Calculation: ₹1 for every registered member who places an order
+  const masterFranchiseeRoyalty = useMemo(() => {
+    // Unique user IDs or unique customer names that placed non-cancelled orders within the active timeline
+    const activeOrderers = new Set(
+      filteredOrders
+        .filter((o) => o.status !== 'cancelled')
+        .map((o) => o.user_id || o.mobile || o.customer_name)
+    );
+    // ₹1 per registered member placing an order + cumulative non-cancelled order counts
+    const eligibleMembers = activeOrderers.size;
+    const eligibleOrders = filteredOrders.filter((o) => o.status !== 'cancelled').length;
+    return {
+      uniqueMembers: eligibleMembers,
+      totalOrdersPlaced: eligibleOrders,
+      payoutDueRupees: eligibleMembers * 1, // ₹1 per registered ordering member
+    };
+  }, [filteredOrders]);
 
   const recentOrders = filteredOrders.slice(0, 6);
   const cards = [
@@ -493,6 +513,44 @@ function Overview({
             <p className="mt-0.5 text-xs text-ink-500">{c.sub}</p>
           </button>
         ))}
+      </div>
+
+      {/* Master Franchisee Backend Royalty Calculation Banner */}
+      <div className="rounded-3xl border border-gold-300/60 bg-gradient-to-r from-forest-900 via-brand-950 to-ink-950 p-6 sm:p-7 text-white shadow-soft">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold-400/20 text-gold-300 border border-gold-400/30">
+              <BadgeIndianRupee className="h-6 w-6 text-gold-300" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-gold-400/25 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-gold-300 border border-gold-400/40">
+                  Backend Franchisee Royalty Model
+                </span>
+                <span className="text-xs text-emerald-200/80 font-mono">Rate: ₹1 / ordering member</span>
+              </div>
+              <h3 className="mt-1.5 font-display text-xl font-bold text-white">
+                Master Franchisee Royalty Ledger
+              </h3>
+              <p className="mt-1 max-w-2xl text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
+                Backend calculated fee payable to Master Franchisee: exactly ₹1 per registered member who has placed orders within this timeline horizon ({timelineScope.replace('_', ' ')}).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center min-w-[7.5rem] backdrop-blur-md shadow-soft">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-gold-300">Ordering Members</p>
+              <p className="mt-0.5 font-display text-2xl font-black text-white">{masterFranchiseeRoyalty.uniqueMembers}</p>
+              <p className="text-[10px] text-emerald-100/70">Verified buyers</p>
+            </div>
+            <div className="rounded-2xl border border-gold-400/40 bg-gold-500/20 px-5 py-3 text-center min-w-[8.5rem] backdrop-blur-md shadow-soft">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-gold-300">Royalty Payable</p>
+              <p className="mt-0.5 font-display text-2xl font-black text-gold-200">₹{masterFranchiseeRoyalty.payoutDueRupees}</p>
+              <p className="text-[10px] text-gold-300/80">@ ₹1 per member</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Recent orders */}
