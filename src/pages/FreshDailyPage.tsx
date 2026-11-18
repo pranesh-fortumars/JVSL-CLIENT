@@ -68,6 +68,7 @@ export function FreshDailyPage() {
 
   const [info, setInfo] = useState<CustomerInfo>(EMPTY);
   const [selections, setSelections] = useState<Record<string, { quantity: string; frequency: Freq }>>({});
+  const [selectedSeason, setSelectedSeason] = useState<Season | 'all'>('all');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -129,8 +130,6 @@ export function FreshDailyPage() {
     const next = Math.max(0, Math.round((current + delta) * 100) / 100);
     setQty(id, next === 0 ? '' : String(next));
   };
-
-  const [selectedSeason, setSelectedSeason] = useState<Season | 'all'>('all');
 
   const updateInfo = (field: keyof CustomerInfo, value: string) => {
     // Requirements: All Customer profile details capture strictly in CAPITAL LETTERS
