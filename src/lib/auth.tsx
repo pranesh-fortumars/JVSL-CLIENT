@@ -9,9 +9,19 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import type { Profile } from './firestoreService';
+import type { Profile, UserAddress } from './firestoreService';
 
-type SignUpInput = { fullName: string; email: string; password: string };
+export type SignUpInput = {
+  fullName: string;
+  email: string;
+  password: string;
+  mobile?: string;
+  countryCode?: string;
+  landline?: string;
+  cityStdCode?: string;
+  preferredLanguage?: 'en' | 'gu' | 'hi';
+  initialAddress?: UserAddress;
+};
 
 type AuthContextValue = {
   user: User | null;
@@ -20,6 +30,7 @@ type AuthContextValue = {
   signUp: (input: SignUpInput) => Promise<{ error: string | null; hasSession: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  updateCustomerProfile: (data: Partial<Profile>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -127,23 +138,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signUp: AuthContextValue['signUp'] = async ({ fullName, email, password }) => {
+  const signUp: AuthContextValue['signUp'] = async (input) => {
     try {
-      const res = await createUserWithEmailAndPassword(auth, email, password);
-      if (fullName) {
-        await updateProfile(res.user, { displayName: fullName });
+      const res = await createUserWithEmailAndPassword(auth, input.email, input.password);
+      if (input.fullName) {
+        await updateProfile(res.user, { displayName: input.fullName });
       }
+      const initialAddresses = input.initialAddress ? [input.initialAddress] : [];
       const newProf: Profile = {
         id: res.user.uid,
-        email,
-        full_name: fullName,
-        role: isSuperAdminEmail(email) ? 'superadmin' : isStaffAdminEmail(email) ? 'admin' : 'customer',
+        email: input.email,
+        full_name: input.fullName,
+        role: isSuperAdminEmail(input.email) ? 'superadmin' : isStaffAdminEmail(input.email) ? 'admin' : 'customer',
+        mobile: input.mobile,
+        country_code: input.countryCode || '+91',
+        landline: input.landline,
+        city_std_code: input.cityStdCode,
+        preferred_language: input.preferredLanguage || 'en',
+        addresses: initialAddresses,
       };
       await setDoc(doc(db, 'profiles', res.user.uid), newProf, { merge: true });
       setProfile(newProf);
       return { error: null, hasSession: true };
     } catch (err: any) {
       return { error: friendlyAuthError(err.code || err.message), hasSession: false };
+    }
+  };
+
+  const updateCustomerProfile = async (data: Partial<Profile>) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'profiles', user.uid), data, { merge: true });
+      setProfile((prev) => (prev ? { ...prev, ...data } : null));
+    } catch (err) {
+      console.warn('updateCustomerProfile notice:', err);
     }
   };
 
@@ -190,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, updateCustomerProfile }}>
       {children}
     </AuthContext.Provider>
   );

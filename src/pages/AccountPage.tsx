@@ -25,10 +25,11 @@ import {
   RotateCcw,
   Star,
   X,
+  Home,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { navigate, PATHS } from '@/lib/router';
-import { fetchOrders, submitOrderFeedback, type OrderRow, type OrderFeedback } from '@/lib/firestoreService';
+import { fetchOrders, submitOrderFeedback, createFamilyGroup, joinFamilyGroupByCode, fetchFamilyGroup, type OrderRow, type OrderFeedback, type FamilyGroup, type UserAddress } from '@/lib/firestoreService';
 
 const STATUS_LABEL: Record<OrderRow['status'], string> = {
   new: 'Received',
@@ -63,6 +64,25 @@ export function AccountPage() {
   const [fbComment, setFbComment] = useState<string>('');
   const [fbSubmitting, setFbSubmitting] = useState<boolean>(false);
   const [fbSubmittedOrders, setFbSubmittedOrders] = useState<Set<string>>(() => new Set());
+
+  // Family Group State (P4 System)
+  const [familyGroup, setFamilyGroup] = useState<FamilyGroup | null>(null);
+  const [familyLoading, setFamilyLoading] = useState<boolean>(false);
+  const [inviteInput, setInviteInput] = useState<string>('');
+  const [joinRole, setJoinRole] = useState<'family_member' | 'domestic_help'>('family_member');
+  const [createHouseholdName, setCreateHouseholdName] = useState<string>('');
+  const [createAddress, setCreateAddress] = useState<string>('');
+  const [groupActionNotice, setGroupActionNotice] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [showJoinModal, setShowJoinModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!profile?.family_group_id) return;
+    setFamilyLoading(true);
+    fetchFamilyGroup(profile.family_group_id)
+      .then((grp) => setFamilyGroup(grp))
+      .finally(() => setFamilyLoading(false));
+  }, [profile?.family_group_id]);
 
   useEffect(() => {
     if (!user) return;
@@ -461,44 +481,287 @@ export function AccountPage() {
           </div>
         )}
 
-        {/* Tab 3: Family Group & Shared Address Permissions */}
+        {/* Tab 3: Family Group & Shared Address Permissions (P4 Implementation) */}
         {activeTab === 'family' && (
-          <div className="mt-8 rounded-3xl border border-ink-100 bg-white p-6 shadow-soft">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-display text-lg font-bold text-ink-950">Connected Family Hub</h3>
-                <p className="mt-1 text-xs sm:text-sm text-ink-600">
-                  Allow family members or domestic help/maid to order directly to your verified address.
-                </p>
+          <div className="mt-8 space-y-6">
+            <div className="rounded-3xl border border-ink-100 bg-white p-6 sm:p-8 shadow-soft">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink-100 pb-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                      <Users className="h-4 w-4" />
+                    </span>
+                    <h3 className="font-display text-lg font-bold text-ink-950">
+                      {familyGroup ? familyGroup.household_name : 'Household & Family Group System'}
+                    </h3>
+                  </div>
+                  <p className="mt-1 text-xs sm:text-sm text-ink-600">
+                    Connect multiple household members and domestic help with verified address-locked ordering rules.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {!familyGroup ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCreateHouseholdName(profile?.full_name ? `${profile.full_name}'s Household` : 'Dave Family Household');
+                          setCreateAddress(profile?.addresses?.[0] ? `${profile.addresses[0].house_flat}, ${profile.addresses[0].building_society}, ${profile.addresses[0].area_road}, ${profile.addresses[0].city}` : 'A-301, Goyal Intercity, Drive-In Road, Ahmedabad');
+                          setShowCreateModal(true);
+                        }}
+                        className="btn-primary px-4 py-2 text-xs"
+                      >
+                        + Create Family Group
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowJoinModal(true)}
+                        className="btn-outline px-4 py-2 text-xs"
+                      >
+                        Join by Code
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-2xl bg-brand-50 px-3.5 py-1.5 border border-brand-200">
+                      <span className="text-xs font-bold text-brand-900">Invite Code:</span>
+                      <span className="font-mono text-sm font-black text-brand-700 tracking-wider">
+                        {familyGroup.invite_code}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <button
-                type="button"
-                className="btn-primary px-4 py-2 text-xs"
-              >
-                + Add Member
-              </button>
+
+              {groupActionNotice && (
+                <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                  {groupActionNotice}
+                </div>
+              )}
+
+              {familyGroup ? (
+                <div className="mt-6 space-y-4">
+                  <div className="rounded-2xl border border-ink-100 bg-ink-50/60 p-4 text-xs">
+                    <p className="font-bold text-ink-900 uppercase tracking-wider text-[11px] text-ink-500">Verified Household Address</p>
+                    <p className="mt-1 text-ink-800 font-medium">{familyGroup.household_address}</p>
+                    <p className="mt-1 text-[11px] text-brand-800 font-semibold">
+                      All domestic staff and restricted members are strictly geo-locked to this address for morning deliveries.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-3">
+                      Authorized Household Members ({familyGroup.members.length})
+                    </h4>
+                    <div className="divide-y divide-ink-100 rounded-2xl border border-ink-100 overflow-hidden bg-white">
+                      {familyGroup.members.map((m) => (
+                        <div key={m.uid} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-ink-900">{m.full_name}</p>
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                m.role === 'owner'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : m.role === 'domestic_help'
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : 'bg-brand-50 text-brand-800'
+                              }`}>
+                                {m.role === 'owner' ? 'Group Owner' : m.role === 'domestic_help' ? 'Domestic Staff / Maid' : 'Family Member'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-ink-500 mt-0.5">
+                              Mobile: {m.mobile} · Joined {new Date(m.joined_at).toLocaleDateString('en-IN')}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold ${
+                              m.can_order ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-700'
+                            }`}>
+                              {m.can_order ? '✓ Ordering Authorized' : '✕ No Order Access'}
+                            </span>
+                            {m.address_locked && (
+                              <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-brand-50 text-brand-800 border border-brand-200">
+                                🔒 Doorstep Locked
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-8 rounded-2xl border border-dashed border-ink-200 p-8 text-center">
+                  <Home className="mx-auto h-10 w-10 text-brand-400" />
+                  <h4 className="mt-3 font-display text-base font-bold text-ink-900">No Family Group Connected Yet</h4>
+                  <p className="mx-auto mt-1 max-w-md text-xs sm:text-sm text-ink-600">
+                    Create a household group to share fresh kitchen baskets with family, generate unique invite codes, or allow your maid/domestic staff to order strictly to your doorstep.
+                  </p>
+                  <div className="mt-5 flex justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreateHouseholdName(profile?.full_name ? `${profile.full_name}'s Household` : 'Dave Family Household');
+                        setCreateAddress(profile?.addresses?.[0] ? `${profile.addresses[0].house_flat}, ${profile.addresses[0].building_society}, ${profile.addresses[0].area_road}, ${profile.addresses[0].city}` : 'A-301, Goyal Intercity, Drive-In Road, Ahmedabad');
+                        setShowCreateModal(true);
+                      }}
+                      className="btn-primary px-5 py-2.5 text-xs sm:text-sm"
+                    >
+                      + Create Household Group
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowJoinModal(true)}
+                      className="btn-outline px-5 py-2.5 text-xs sm:text-sm"
+                    >
+                      Enter Household Invite Code
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="mt-6 divide-y divide-ink-100">
-              <div className="flex items-center justify-between py-3.5">
-                <div>
-                  <p className="text-sm font-bold text-ink-900">Primary Account Holder (You)</p>
-                  <p className="text-xs text-ink-500">Full Access · Master Billing &amp; Subscriptions</p>
+            {/* Modal: Create Family Group */}
+            {showCreateModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-950/70 backdrop-blur-sm">
+                <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-ink-100">
+                  <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+                    <h4 className="font-display text-base font-bold text-ink-950">Register New Family Household</h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateModal(false)}
+                      className="h-7 w-7 rounded-lg bg-ink-100 text-ink-600 flex items-center justify-center"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!createHouseholdName.trim() || !createAddress.trim()) return;
+                      const grp = await createFamilyGroup(
+                        { uid: user.uid, name: profile?.full_name || 'Household Owner', mobile: profile?.mobile || '9825112233' },
+                        createHouseholdName.trim(),
+                        createAddress.trim()
+                      );
+                      setFamilyGroup(grp);
+                      setShowCreateModal(false);
+                      setGroupActionNotice(`Household created successfully! Share invite code "${grp.invite_code}" with your family.`);
+                    }}
+                    className="mt-4 space-y-4"
+                  >
+                    <div>
+                      <label className="label">Household / Family Group Name</label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={createHouseholdName}
+                        onChange={(e) => setCreateHouseholdName(e.target.value)}
+                        placeholder="e.g. Harshit Dave Household"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Verified Doorstep Delivery Address</label>
+                      <textarea
+                        className="input-field"
+                        rows={3}
+                        value={createAddress}
+                        onChange={(e) => setCreateAddress(e.target.value)}
+                        placeholder="Complete society, road and city address..."
+                        required
+                      />
+                      <p className="mt-1 text-[11px] text-ink-500">All member orders under domestic staff role will lock to this address.</p>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateModal(false)}
+                        className="btn-ghost text-xs px-3 py-2"
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn-primary text-xs px-4 py-2">
+                        Create Group &amp; Generate Code
+                      </button>
+                    </div>
+                  </form>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800">
-                  Owner
-                </span>
               </div>
-              <div className="flex items-center justify-between py-3.5">
-                <div>
-                  <p className="text-sm font-bold text-ink-900">Maid / Domestic Staff Ordering Role</p>
-                  <p className="text-xs text-ink-500">Permission: Locked strictly to Primary Registered Doorstep Address</p>
+            )}
+
+            {/* Modal: Join Family Group by Code */}
+            {showJoinModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-950/70 backdrop-blur-sm">
+                <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-ink-100">
+                  <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+                    <h4 className="font-display text-base font-bold text-ink-950">Join Household Group</h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowJoinModal(false)}
+                      className="h-7 w-7 rounded-lg bg-ink-100 text-ink-600 flex items-center justify-center"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!inviteInput.trim()) return;
+                      const joined = await joinFamilyGroupByCode(
+                        { uid: user.uid, name: profile?.full_name || 'Member', mobile: profile?.mobile || '9825112233' },
+                        inviteInput.trim(),
+                        joinRole
+                      );
+                      if (joined) {
+                        setFamilyGroup(joined);
+                        setShowJoinModal(false);
+                        setGroupActionNotice(`Successfully joined "${joined.household_name}"!`);
+                      } else {
+                        alert('Invalid or expired family invite code. Please verify with the group owner.');
+                      }
+                    }}
+                    className="mt-4 space-y-4"
+                  >
+                    <div>
+                      <label className="label">Household Invite Code</label>
+                      <input
+                        type="text"
+                        className="input-field font-mono font-bold tracking-wider uppercase"
+                        value={inviteInput}
+                        onChange={(e) => setInviteInput(e.target.value.toUpperCase())}
+                        placeholder="e.g. FAM-AB12C"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Your Role in this Household</label>
+                      <select
+                        className="input-field"
+                        value={joinRole}
+                        onChange={(e) => setJoinRole(e.target.value as any)}
+                      >
+                        <option value="family_member">Family Member (Full Kitchen Ordering Access)</option>
+                        <option value="domestic_help">Domestic Staff / Maid (Locked strictly to Household Doorstep)</option>
+                      </select>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowJoinModal(false)}
+                        className="btn-ghost text-xs px-3 py-2"
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn-primary text-xs px-4 py-2">
+                        Verify &amp; Join Group
+                      </button>
+                    </div>
+                  </form>
                 </div>
-                <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-bold text-brand-800">
-                  Restricted Order
-                </span>
               </div>
-            </div>
+            )}
           </div>
         )}
 
