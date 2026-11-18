@@ -71,6 +71,7 @@ export function FreshDailyPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -92,12 +93,22 @@ export function FreshDailyPage() {
   }, []);
 
   const grouped = useMemo(() => {
+    const list = selectedSeason === 'all'
+      ? products
+      : products.filter((p) => {
+          const match = SEASONAL_CATALOGUE.find(
+            (sp) => sp.name.toLowerCase().includes(p.name.toLowerCase().split(' ')[0]) ||
+                    p.name.toLowerCase().includes(sp.name.toLowerCase().split(' ')[0])
+          );
+          return match ? match.season === selectedSeason : selectedSeason === 'all_year';
+        });
+
     return {
-      vegetable: products.filter((p) => p.category === 'vegetable'),
-      fruit: products.filter((p) => p.category === 'fruit'),
-      milk: products.filter((p) => p.category === 'milk'),
+      vegetable: list.filter((p) => p.category === 'vegetable'),
+      fruit: list.filter((p) => p.category === 'fruit'),
+      milk: list.filter((p) => p.category === 'milk'),
     };
-  }, [products]);
+  }, [products, selectedSeason]);
 
   const selectedCount = Object.values(selections).filter((s) => Number(s.quantity) > 0).length;
 
@@ -430,6 +441,7 @@ export function FreshDailyPage() {
                 onQty={setQty}
                 onFreq={setFreq}
                 onStep={stepQty}
+                onPreview={setPreviewProduct}
               />
 
               {/* Fruits */}
@@ -443,6 +455,7 @@ export function FreshDailyPage() {
                 onQty={setQty}
                 onFreq={setFreq}
                 onStep={stepQty}
+                onPreview={setPreviewProduct}
               />
 
               {/* Milk */}
@@ -456,6 +469,7 @@ export function FreshDailyPage() {
                 onQty={setQty}
                 onFreq={setFreq}
                 onStep={stepQty}
+                onPreview={setPreviewProduct}
               />
 
               {/* Notes + submit */}
@@ -496,6 +510,63 @@ export function FreshDailyPage() {
                 </div>
               </div>
             </form>
+          )}
+
+          {/* Survey Product Image Preview Lightbox Modal */}
+          {previewProduct && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-md animate-fade-in"
+              onClick={() => setPreviewProduct(null)}
+            >
+              <div
+                className="relative max-w-lg w-full overflow-hidden rounded-3xl bg-white shadow-2xl animate-scale-in border border-ink-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewProduct(null)}
+                  className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-ink-800 shadow-lift backdrop-blur-md transition-all hover:bg-white hover:scale-110"
+                  aria-label="Close preview"
+                >
+                  ✕
+                </button>
+                <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-ink-100">
+                  {previewProduct.image_url ? (
+                    <img
+                      src={previewProduct.image_url}
+                      alt={previewProduct.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-ink-300">
+                      <Leaf className="h-16 w-16" />
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/70 via-transparent to-transparent p-4 text-white">
+                    <span className="rounded-full bg-brand-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+                      {previewProduct.category}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-6 sm:p-7">
+                  <h3 className="font-display text-2xl font-bold text-ink-950">
+                    {previewProduct.name}
+                  </h3>
+                  <p className="mt-1 text-xs sm:text-sm text-ink-600">
+                    Standard unit: <span className="font-semibold text-ink-900">{previewProduct.unit}</span>
+                  </p>
+                  <div className="mt-6 flex justify-end pt-4 border-t border-ink-100">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewProduct(null)}
+                      className="btn-primary px-6 py-2 text-sm"
+                    >
+                      Close Preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </section>
@@ -564,6 +635,7 @@ function ProductSection({
   onQty,
   onFreq,
   onStep,
+  onPreview,
 }: {
   step: string;
   icon: React.ElementType;
@@ -574,6 +646,7 @@ function ProductSection({
   onQty: (id: string, qty: string) => void;
   onFreq: (id: string, freq: Freq) => void;
   onStep: (id: string, delta: number) => void;
+  onPreview?: (p: Product) => void;
 }) {
   if (products.length === 0) return null;
   return (
@@ -590,7 +663,7 @@ function ProductSection({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {products.map((p) => {
           const qty = selections[p.id]?.quantity || '';
           const freq = selections[p.id]?.frequency ?? 'weekly';
@@ -604,20 +677,24 @@ function ProductSection({
           return (
             <div
               key={p.id}
-              className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white transition-all ${
+              className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white transition-all duration-200 hover:shadow-card hover:-translate-y-0.5 ${
                 active
-                  ? 'border-brand-400 shadow-card'
+                  ? 'border-brand-400 shadow-soft ring-1 ring-brand-300'
                   : 'border-ink-100 hover:border-brand-200'
               }`}
             >
               <div>
-                <div className="relative h-32 w-full overflow-hidden bg-ink-50">
+                <div
+                  className="relative h-44 sm:h-48 w-full overflow-hidden bg-ink-100 cursor-pointer group"
+                  onClick={() => onPreview && onPreview(p)}
+                  title="Click to view full preview"
+                >
                   {p.image_url ? (
                     <img
                       src={p.image_url}
                       alt={p.name}
-                      className={`h-full w-full object-cover transition-transform duration-500 ${
-                        active ? 'scale-105' : 'hover:scale-105'
+                      className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${
+                        active ? 'scale-105' : ''
                       }`}
                       loading="lazy"
                       onError={(e) => {
@@ -631,13 +708,16 @@ function ProductSection({
                       <Icon className="h-8 w-8" />
                     </div>
                   )}
+                  <span className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-full bg-ink-950/80 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 backdrop-blur-sm">
+                    🔍 View Preview
+                  </span>
                   {active && (
                     <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-white shadow-soft">
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                   )}
                   {seasonalMatch?.seasonLabel && (
-                    <span className="absolute bottom-2 left-2 rounded-full bg-emerald-950/80 px-2.5 py-0.5 text-[10px] font-bold text-gold-300 backdrop-blur-sm">
+                    <span className="absolute bottom-2 right-2 rounded-full bg-emerald-950/85 px-2.5 py-1 text-[10px] font-bold text-gold-300 backdrop-blur-sm border border-gold-400/20 shadow-sm">
                       {seasonalMatch.seasonLabel}
                     </span>
                   )}
@@ -656,13 +736,18 @@ function ProductSection({
 
                   {/* Clinical & Health Nutritional Advisories */}
                   {seasonalMatch?.medicalAdvisory && (
-                    <div className="mt-2.5 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-[11px] leading-tight text-amber-800 border border-amber-200">
+                    <div className="mt-2.5 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-[10px] sm:text-[11px] leading-tight text-amber-900 border border-amber-200">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
                       <span>{seasonalMatch.medicalAdvisory}</span>
                     </div>
                   )}
                   {seasonalMatch?.nutritionalNotes && !seasonalMatch?.medicalAdvisory && (
-                    <p className="mt-2 text-[11px] leading-tight text-ink-500 italic">
+                    <p className="mt-2 text-[11px] leading-tight text-ink-500 line-clamp-2">
+                      "{seasonalMatch.nutritionalNotes}"
+                    </p>
+                  )}
+                </div>
+              </div>
                       "{seasonalMatch.nutritionalNotes}"
                     </p>
                   )}

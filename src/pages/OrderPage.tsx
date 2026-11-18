@@ -373,22 +373,22 @@ export function OrderPage() {
                     {/* Enlarged Product Image Lightbox Modal */}
                     {previewProduct && (
                       <div
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/70 p-4 backdrop-blur-sm animate-fade-in"
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-md animate-fade-in"
                         onClick={() => setPreviewProduct(null)}
                       >
                         <div
-                          className="relative max-w-md w-full overflow-hidden rounded-3xl bg-white shadow-lift animate-scale-in"
+                          className="relative max-w-lg w-full overflow-hidden rounded-3xl bg-white shadow-2xl animate-scale-in border border-ink-100"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
                             type="button"
                             onClick={() => setPreviewProduct(null)}
-                            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-ink-700 shadow-md backdrop-blur-md transition-all hover:bg-white hover:scale-105"
+                            className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-ink-800 shadow-lift backdrop-blur-md transition-all hover:bg-white hover:scale-110"
                             aria-label="Close preview"
                           >
                             <X className="h-5 w-5" />
                           </button>
-                          <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-ink-100">
+                          <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-ink-100">
                             {previewProduct.image_url ? (
                               <img
                                 src={previewProduct.image_url}
@@ -400,30 +400,59 @@ export function OrderPage() {
                                 <ShoppingBasket className="h-16 w-16" />
                               </div>
                             )}
-                          </div>
-                          <div className="p-6">
-                            <div className="flex items-center justify-between">
-                              <h3 className="font-display text-xl font-bold text-ink-950">
-                                {previewProduct.name}
-                              </h3>
-                              <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/70 via-transparent to-transparent p-4 text-white">
+                              <span className="rounded-full bg-brand-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
                                 {previewProduct.category}
                               </span>
                             </div>
-                            <p className="mt-2 text-sm text-ink-600">
-                              Selected unit: <span className="font-semibold text-ink-900">{previewProduct.unit}</span>
-                              {previewProduct.price ? (
-                                <> · Base price: <span className="font-semibold text-brand-700">₹{previewProduct.price}</span></>
-                              ) : null}
-                            </p>
-                            <div className="mt-6 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setPreviewProduct(null)}
-                                className="btn-primary px-6 py-2 text-sm"
-                              >
-                                Close preview
-                              </button>
+                          </div>
+                          <div className="p-6 sm:p-7">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="font-display text-2xl font-bold text-ink-950">
+                                  {previewProduct.name}
+                                </h3>
+                                <p className="mt-1 text-xs sm:text-sm text-ink-600">
+                                  Standard unit: <span className="font-semibold text-ink-900">{previewProduct.unit}</span>
+                                  {previewProduct.price ? (
+                                    <> · Base pricing: <span className="font-bold text-brand-700">₹{previewProduct.price} / {previewProduct.unit}</span></>
+                                  ) : null}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Quick Add To Cart from Preview Modal */}
+                            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-ink-600">In your basket:</span>
+                                <span className="font-bold text-brand-800 bg-brand-50 px-2.5 py-1 rounded-lg text-sm">
+                                  {cart[previewProduct.id] ?? 0} {previewProduct.unit}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => stepQty(previewProduct.id, -1)}
+                                  disabled={(cart[previewProduct.id] ?? 0) <= 0}
+                                  className="h-9 w-9 rounded-xl border border-ink-200 bg-ink-50 text-ink-700 font-bold hover:bg-ink-100 disabled:opacity-40"
+                                >
+                                  -
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => stepQty(previewProduct.id, 1)}
+                                  className="h-9 px-4 rounded-xl bg-brand-700 text-white font-bold hover:bg-brand-800 shadow-soft text-xs sm:text-sm flex items-center gap-1.5"
+                                >
+                                  <Plus className="h-4 w-4" /> Add
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewProduct(null)}
+                                  className="btn-outline px-4 py-2 text-xs sm:text-sm"
+                                >
+                                  Close
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -697,7 +726,7 @@ function CategoryGroup({
       <h2 className="flex items-center gap-2 font-display text-xl font-bold text-ink-950">
         <Icon className="h-5 w-5 text-brand-600" /> {title}
       </h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {products.map((p) => {
           const selectable = isSelectable(p);
           const qty = cart[p.id] ?? 0;
@@ -712,14 +741,14 @@ function CategoryGroup({
               className={`group overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:shadow-card hover:-translate-y-0.5 ${
                 selectable
                   ? qty > 0
-                    ? 'border-brand-400 shadow-soft'
+                    ? 'border-brand-400 shadow-soft ring-1 ring-brand-300'
                     : 'border-ink-100 hover:border-brand-200'
                   : 'border-ink-100 opacity-60'
               }`}
               aria-disabled={!selectable}
             >
               <div
-                className="relative h-32 w-full overflow-hidden bg-ink-50 cursor-pointer"
+                className="relative h-44 sm:h-48 w-full overflow-hidden bg-ink-100 cursor-pointer"
                 onClick={() => onPreview(p)}
                 title="Click to view large preview"
               >
@@ -727,7 +756,7 @@ function CategoryGroup({
                   <img
                     src={p.image_url}
                     alt={p.name}
-                    className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 ${
+                    className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${
                       selectable ? '' : 'grayscale'
                     }`}
                     loading="lazy"
@@ -742,8 +771,8 @@ function CategoryGroup({
                     <Icon className="h-8 w-8" />
                   </div>
                 )}
-                <span className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-full bg-ink-950/70 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 backdrop-blur-sm">
-                  <ZoomIn className="h-3 w-3" /> Preview
+                <span className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-full bg-ink-950/80 px-2.5 py-1 text-[11px] font-semibold text-white transition-all duration-200 group-hover:scale-105 backdrop-blur-md shadow-md">
+                  <ZoomIn className="h-3.5 w-3.5 text-gold-300" /> View Preview
                 </span>
                 {!selectable && (
                   <span className="absolute inset-0 flex items-center justify-center bg-white/40">
