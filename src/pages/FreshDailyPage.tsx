@@ -748,11 +748,6 @@ function ProductSection({
                   )}
                 </div>
               </div>
-                      "{seasonalMatch.nutritionalNotes}"
-                    </p>
-                  )}
-                </div>
-              </div>
 
               <div className="p-4 pt-0">
                 {/* Quantity stepper */}
