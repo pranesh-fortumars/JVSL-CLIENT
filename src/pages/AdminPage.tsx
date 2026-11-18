@@ -35,10 +35,12 @@ import {
   updateOrderStatus as syncUpdateOrderStatus,
   updateSurveyStatus as syncUpdateSurveyStatus,
   updateEnquiryStatus as syncUpdateEnquiryStatus,
+  fetchMasterFranchiseeRoyaltyLedger,
   type OrderRow,
   type SurveyRow,
   type EnquiryRow,
   type Profile,
+  type MasterFranchiseeRoyaltyEntry,
 } from '@/lib/firestoreService';
 import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
@@ -549,6 +551,35 @@ function Overview({
               <p className="mt-0.5 font-display text-2xl font-black text-gold-200">₹{masterFranchiseeRoyalty.payoutDueRupees}</p>
               <p className="text-[10px] text-gold-300/80">@ ₹1 per member</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                const csvData = [
+                  ['Member ID', 'Customer Name', 'Phone', 'Order Reference', 'Royalty (INR)', 'Status', 'Date'],
+                  ...filteredOrders.filter((o) => o.status !== 'cancelled').map((o) => [
+                    o.user_id || 'REG-' + o.mobile.slice(-6),
+                    o.customer_name,
+                    o.mobile,
+                    o.id,
+                    '1.00',
+                    'Payable',
+                    o.created_at || new Date().toISOString(),
+                  ])
+                ];
+                const csvContent = 'data:text/csv;charset=utf-8,' + csvData.map((e) => e.join(',')).join('\n');
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement('a');
+                link.setAttribute('href', encodedUri);
+                link.setAttribute('download', `Master_Franchisee_Royalty_Report_${timelineScope}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="rounded-2xl border border-gold-400/50 bg-gold-400/20 px-4 py-3 text-xs font-bold text-gold-200 hover:bg-gold-400/30 transition-colors flex items-center gap-1.5"
+              title="Download Master Franchisee Royalty Audit CSV"
+            >
+              <Download className="h-4 w-4" /> Download Audit CSV
+            </button>
           </div>
         </div>
       </div>
