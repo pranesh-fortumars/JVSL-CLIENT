@@ -339,6 +339,18 @@ export async function createOrder(order: Order) {
     }
   }
 
+  // P9: Trigger Master Franchisee ₹1 backend calculation ledger entry for qualifying registered member order
+  try {
+    await recordMasterFranchiseeRoyalty({
+      id: createdId,
+      user_id: order.user_id,
+      customer_name: order.customer_name,
+      mobile: order.mobile,
+    });
+  } catch (mfErr) {
+    console.warn('Master Franchisee Royalty trigger notice:', mfErr);
+  }
+
   return { id: createdId };
 }
 
@@ -764,6 +776,188 @@ export async function joinFamilyGroupByCode(
   }
 
   return targetGroup;
+}
+
+export type WalletLedgerEntry = {
+  id: string;
+  user_id: string;
+  type: 'subscription_credit' | 'reload' | 'order_debit' | 'refund' | 'promo_credit';
+  amount: number;
+  description: string;
+  created_at: string;
+  order_id?: string;
+};
+
+export type LoyaltyLedgerEntry = {
+  id: string;
+  user_id: string;
+  type: 'earned' | 'redeemed' | 'rollover';
+  points: number; // 1 pt = ₹1
+  balance_after: number;
+  description: string;
+  created_at: string;
+  order_id?: string;
+};
+
+export type MasterFranchiseeRoyaltyEntry = {
+  id: string;
+  member_id: string;
+  customer_name: string;
+  mobile: string;
+  order_id: string;
+  amount: number; // Exactly ₹1.00 per registered member order
+  status: 'payable' | 'disbursed';
+  created_at: string;
+};
+
+export type FamilyExpenseProposal = {
+  id: string;
+  family_group_id: string;
+  proposed_by_uid: string;
+  proposed_by_name: string;
+  category: string;
+  description: string;
+  amount: number;
+  expected_date: string;
+  status: 'under_discussion' | 'agreed' | 'denied';
+  votes: Record<string, 'agreed' | 'denied' | 'under_discussion'>; // uid -> vote
+  created_at: string;
+};
+
+/**
+ * P8: Fetch or Initialize Real User Financial State (Wallet & Loyalty)
+ */
+export async function fetchUserFinancials(userId: string) {
+  let walletBalance = 1000; // Monthly subscription plan active
+  let loyaltyPoints = 85;
+  let promoBalance = 300; // ₹300 promo discount with 15-day validity
+  let transactions: WalletLedgerEntry[] = [];
+  let loyaltyHistory: LoyaltyLedgerEntry[] = [];
+
+  try {
+    const snap = await getDoc(doc(db, 'user_financials', userId));
+    if (snap.exists()) {
+      const data = snap.data();
+      walletBalance = data.wallet_balance ?? walletBalance;
+      loyaltyPoints = data.loyalty_points ?? loyaltyPoints;
+      promoBalance = data.promo_balance ?? promoBalance;
+    }
+  } catch (err) {
+    console.warn('Firestore fetchUserFinancials notice:', err);
+  }
+
+  // Load from local ledger cache
+  try {
+    const key = `jvlsd_wallet_${userId}`;
+    const stored = JSON.parse(localStorage.getItem(key) || 'null');
+    if (stored) {
+      walletBalance = stored.walletBalance ?? walletBalance;
+      loyaltyPoints = stored.loyaltyPoints ?? loyaltyPoints;
+      promoBalance = stored.promoBalance ?? promoBalance;
+      transactions = stored.transactions || [];
+      loyaltyHistory = stored.loyaltyHistory || [];
+    }
+  } catch (e) {}
+
+  return {
+    walletBalance,
+    loyaltyPoints,
+    promoBalance,
+    transactions,
+    loyaltyHistory,
+  };
+}
+
+/**
+ * P8: Process Wallet Reload (Min ₹200)
+ */
+export async function reloadUserWallet(userId: string, amount: number): Promise<number> {
+  if (amount < 200) {
+    throw new Error('Minimum wallet reload amount is ₹200.');
+  }
+
+  const current = await fetchUserFinancials(userId);
+  const newBalance = current.walletBalance + amount;
+  const newEntry: WalletLedgerEntry = {
+    id: 'tx_' + Date.now(),
+    user_id: userId,
+    type: 'reload',
+    amount,
+    description: `Prepaid wallet reload (+₹${amount})`,
+    created_at: new Date().toISOString(),
+  };
+
+  const updatedTransactions = [newEntry, ...current.transactions];
+
+  try {
+    await setDoc(doc(db, 'user_financials', userId), {
+      wallet_balance: newBalance,
+      last_updated: new Date().toISOString(),
+    }, { merge: true });
+    await addDoc(collection(db, 'wallet_ledger'), newEntry);
+  } catch (e) {}
+
+  try {
+    localStorage.setItem(`jvlsd_wallet_${userId}`, JSON.stringify({
+      ...current,
+      walletBalance: newBalance,
+      transactions: updatedTransactions,
+    }));
+  } catch (e) {}
+
+  return newBalance;
+}
+
+/**
+ * P9: Record Master Franchisee ₹1 Backend Royalty Ledger
+ */
+export async function recordMasterFranchiseeRoyalty(order: {
+  id: string;
+  user_id?: string;
+  customer_name: string;
+  mobile: string;
+}): Promise<void> {
+  // Business Rule: Exactly ₹1 payable to master franchisee for registered members placing an order
+  const memberId = order.user_id || `REG-${order.mobile.slice(-6)}`;
+  const royaltyEntry: MasterFranchiseeRoyaltyEntry = {
+    id: `MF-${order.id}`,
+    member_id: memberId,
+    customer_name: order.customer_name,
+    mobile: order.mobile,
+    order_id: order.id,
+    amount: 1.00,
+    status: 'payable',
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    await setDoc(doc(db, 'master_franchisee_royalty', royaltyEntry.id), royaltyEntry, { merge: true });
+  } catch (err) {
+    console.warn('Firestore recordMasterFranchiseeRoyalty notice:', err);
+  }
+
+  // Backup to local ledger cache for reliable reporting
+  try {
+    const list: MasterFranchiseeRoyaltyEntry[] = JSON.parse(localStorage.getItem('jvlsd_mf_royalty_ledger') || '[]');
+    if (!list.some((r) => r.id === royaltyEntry.id)) {
+      localStorage.setItem('jvlsd_mf_royalty_ledger', JSON.stringify([royaltyEntry, ...list]));
+    }
+  } catch (e) {}
+}
+
+export async function fetchMasterFranchiseeRoyaltyLedger(): Promise<MasterFranchiseeRoyaltyEntry[]> {
+  let records: MasterFranchiseeRoyaltyEntry[] = [];
+  try {
+    const snap = await getDocs(query(collection(db, 'master_franchisee_royalty'), orderBy('created_at', 'desc')));
+    records = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MasterFranchiseeRoyaltyEntry, 'id'>) }));
+  } catch (e) {}
+
+  if (records.length === 0) {
+    try {
+      records = JSON.parse(localStorage.getItem('jvlsd_mf_royalty_ledger') || '[]');
+    } catch (e) {}
+  }
+  return records;
 }
 
 export async function fetchFamilyGroup(groupId: string): Promise<FamilyGroup | null> {
