@@ -67,6 +67,7 @@ export function OrderPage() {
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'vegetable' | 'fruit' | 'milk'>('all');
+  const [seasonFilter, setSeasonFilter] = useState<'all' | 'all_year' | 'winter' | 'monsoon' | 'summer'>('all');
   const [healthTipProduce, setHealthTipProduce] = useState<any | null>(null);
 
   // Check for pre-loaded re-order basket from AccountPage
@@ -124,9 +125,20 @@ export function OrderPage() {
     return products.filter((p) => {
       const matchCat = categoryFilter === 'all' || p.category === categoryFilter;
       const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
-      return matchCat && matchSearch;
+
+      // P5: Seasonal Filter Mapping (Báremās, Shiyāḷo, Chomāsu, Unāḷo)
+      let matchSeason = true;
+      if (seasonFilter !== 'all') {
+        const seasonalMatch = SEASONAL_CATALOGUE.find(
+          (sp) => sp.name.toLowerCase().includes(p.name.toLowerCase().split(' ')[0]) ||
+                  p.name.toLowerCase().includes(sp.name.toLowerCase().split(' ')[0])
+        );
+        matchSeason = seasonalMatch ? seasonalMatch.season === seasonFilter : seasonFilter === 'all_year';
+      }
+
+      return matchCat && matchSearch && matchSeason;
     });
-  }, [products, categoryFilter, searchQuery]);
+  }, [products, categoryFilter, searchQuery, seasonFilter]);
 
   const grouped = useMemo(
     () => ({
@@ -279,6 +291,33 @@ export function OrderPage() {
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* P5: Gujarati Seasonal Filters Bar */}
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3 text-xs">
+                      <span className="font-bold text-ink-800 flex items-center gap-1">
+                        <Leaf className="h-3.5 w-3.5 text-brand-700" /> Gujarati Seasonal Calendar:
+                      </span>
+                      {[
+                        { id: 'all', label: 'All Seasons' },
+                        { id: 'all_year', label: 'બારેમાસ (12 Months / Perennial)' },
+                        { id: 'winter', label: 'શિયાળો (Winter / Oct–Feb)' },
+                        { id: 'monsoon', label: 'ચોમાસુ (Monsoon / Jun–Sep)' },
+                        { id: 'summer', label: 'ઉનાળો (Summer / Mar–May)' },
+                      ].map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setSeasonFilter(s.id as any)}
+                          className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                            seasonFilter === s.id
+                              ? 'bg-emerald-800 text-gold-300 font-bold shadow-soft'
+                              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
                     </div>
 
                     {/* Offer banner */}
@@ -869,7 +908,24 @@ function Checkout({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+
+  // Pre-fill from customer's saved profile or family locked address
+  useEffect(() => {
+    if (profile) {
+      const activeAddr = profile.addresses?.[0];
+      const addrStr = activeAddr
+        ? `${activeAddr.house_flat}, ${activeAddr.building_society}, ${activeAddr.area_road}, ${activeAddr.city} - ${activeAddr.pincode}${activeAddr.digipin ? ' (DIGIPIN: ' + activeAddr.digipin + ')' : ''}`
+        : '';
+
+      setInfo((prev) => ({
+        ...prev,
+        customer_name: prev.customer_name || profile.full_name || '',
+        mobile: prev.mobile || profile.mobile || '',
+        address: prev.address || addrStr,
+      }));
+    }
+  }, [profile]);
 
   const deliveryDate = mode === 'next_day' ? tomorrowISO() : todayISO();
 
@@ -888,6 +944,16 @@ function Checkout({
       e.mobile = 'Mobile number strictly 10 digits (India).';
     }
     if (!info.address.trim()) e.address = 'Please enter your delivery address with DIGIPIN/PIN.';
+
+    // P6: Geofencing validation for Same-Day dispatch (3km radius check)
+    if (mode === 'same_day') {
+      const pinMatch = info.address.match(/\b(380009|380014|380013|380054|380052|380015)\b/);
+      // Operational hub PINs around Navrangpura / Stadium within ~3 km
+      if (!pinMatch && !info.address.includes('NAVRANGPURA') && !info.address.includes('STADIUM') && !info.address.includes('THALTEJ') && !info.address.includes('USMANPURA')) {
+        e.address = 'Same-day emergency orders are restricted strictly to within 3 km of our Navrangpura hub. Please switch to Next-day pre-order for wider city delivery.';
+      }
+    }
+
     return e;
   };
 
