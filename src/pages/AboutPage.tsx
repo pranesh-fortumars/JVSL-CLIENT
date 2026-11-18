@@ -53,10 +53,7 @@ export function AboutPage() {
               Building a trusted house of everyday essentials.
             </h1>
             <p className="mt-6 text-lg sm:text-xl leading-relaxed text-ink-700">
-              Jagatpati Vigneshwara LSD LLP (JVLSD) is the parent organisation behind a
-              growing family of business activities. We are starting with Shakhwala and the
-              JVLSD-FD Fresh Daily direct delivery service — and the structure is designed to
-              welcome new divisions over time.
+              Jagatpati Vigneshwara LSD LLP (JVLSD) is the parent organisation established to nurture and support multiple dedicated business divisions. Designed as an enduring corporate foundation, JVLSD champions sustainable supply chains, household convenience, and community trust across all its operating arms.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <button onClick={() => navigate(PATHS.order)} className="btn-primary px-6 py-3 text-base">

@@ -46,6 +46,7 @@ function AppRoutes() {
         {route.name === 'about' && <AboutPage />}
         {route.name === 'shakhwala' && <ShakhwalaPage />}
         {route.name === 'fresh-daily' && <FreshDailyPage />}
+        {route.name === 'survey' && <FreshDailyPage />}
         {route.name === 'order' && <OrderPage />}
         {route.name === 'contact' && <ContactPage />}
         {route.name === 'login' && <LoginPage />}

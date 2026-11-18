@@ -13,7 +13,7 @@ export function Logo({ className = 'h-11 w-13' }: { className?: string }) {
 export function Wordmark({ dark = false }: { dark?: boolean }) {
   return (
     <div className="flex items-center gap-2.5 sm:gap-3">
-      {/* Stadium / Rounded Pill Master Logo Badge without black borders */}
+      {/* Master JVLSD Logo Badge */}
       <div className="relative h-11 w-13 sm:h-12 sm:w-14 shrink-0 transition-transform duration-300 hover:scale-105 flex items-center justify-center">
         <img
           src="/jvlsd-celestial-badge.png"
@@ -24,10 +24,10 @@ export function Wordmark({ dark = false }: { dark?: boolean }) {
 
       <div className="flex flex-col text-left justify-center">
         <span className={`font-display text-base sm:text-lg font-black tracking-tight leading-tight ${dark ? 'text-white' : 'text-ink-950'}`}>
-          JVLSD-FD
+          JVLSD
         </span>
-        <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider leading-tight ${dark ? 'text-emerald-400' : 'text-brand-700'}`}>
-          FRANCHISEE OF SHAKHWALA
+        <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-tight ${dark ? 'text-emerald-400' : 'text-brand-700'}`}>
+          Jagatpati Vigneshwara LSD LLP
         </span>
       </div>
     </div>

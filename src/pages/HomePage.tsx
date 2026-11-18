@@ -42,21 +42,20 @@ export function HomePage() {
               <Sprout className="h-3.5 w-3.5" /> Jagatpati Vigneshwara LSD LLP
             </span>
             <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-ink-950 sm:text-5xl lg:text-6xl">
-              Fresh vegetables, fruits
-              <span className="block text-brand-700">&amp; milk, delivered direct.</span>
+              Nurturing trust, freshness
+              <span className="block text-brand-700">&amp; holistic wellness.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-600">
-              JVLSD brings everyday freshness to your doorstep through{' '}
-              <strong className="font-semibold text-ink-900">Shakhwala</strong> and our
-              JVLSD-FD Fresh Daily service. Plan your kitchen a day in advance and help us
-              reduce waste — while enjoying genuinely farm-fresh produce.
+              Jagatpati Vigneshwara LSD LLP (JVLSD) is the parent organisation established to support sustainable, health-first business ecosystems. Through our specialised consumer verticals like{' '}
+              <strong className="font-semibold text-ink-900">Shakhwala</strong> and{' '}
+              <strong className="font-semibold text-ink-900">JVLSD-FD Fresh Daily</strong>, we deliver farm-fresh vegetables, fruits, and pure milk with a mission to eliminate food waste through planned advance procurement.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button onClick={() => navigate(PATHS.order)} className="btn-primary px-6 py-3 text-base">
-                <ShoppingBasket className="h-5 w-5" /> Start an Order
+              <button onClick={() => navigate(PATHS.about)} className="btn-primary px-6 py-3 text-base">
+                Explore JVLSD Ecosystem <ArrowRight className="h-4 w-4" />
               </button>
-              <button onClick={() => navigate(PATHS.freshDaily)} className="btn-outline px-6 py-3 text-base">
-                Take the Fresh Daily Survey <ArrowRight className="h-4 w-4" />
+              <button onClick={() => navigate(PATHS.order)} className="btn-outline px-6 py-3 text-base">
+                <ShoppingBasket className="h-5 w-5" /> Order Fresh Daily
               </button>
             </div>
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-6">
@@ -178,7 +177,7 @@ export function HomePage() {
                 tag: 'Active',
                 icon: ShoppingBasket,
                 title: 'Shakhwala',
-                desc: 'Fresh vegetables, fruits and milk delivered direct to households.',
+                desc: 'Specialized enterprise delivering fresh farm vegetables, seasonal fruits, and pure milk directly to households.',
                 cta: 'Explore Shakhwala',
                 path: PATHS.shakhwala,
               },
@@ -186,15 +185,15 @@ export function HomePage() {
                 tag: 'Active',
                 icon: Sun,
                 title: 'JVLSD-FD Fresh Daily',
-                desc: 'Advance-order & same-day delivery service that helps reduce food waste.',
+                desc: 'Advance-order & emergency same-day 3km delivery service helping households cut kitchen food waste.',
                 cta: 'Order Fresh Daily',
                 path: PATHS.order,
               },
               {
-                tag: 'Coming soon',
+                tag: 'Future Division',
                 icon: Sprout,
-                title: 'Future divisions',
-                desc: 'Additional business categories will be introduced as JVLSD grows.',
+                title: 'JVLSD-Bites & Beyond',
+                desc: 'Upcoming clean culinary and nutritious ready-to-eat kitchen offerings under the JVLSD umbrella.',
                 cta: null,
               },
             ].map((d) => (

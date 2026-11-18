@@ -9,6 +9,7 @@ const NAV: { label: string; route: Route['name']; path: string }[] = [
   { label: 'About JVLSD', route: 'about', path: PATHS.about },
   { label: 'Shakhwala', route: 'shakhwala', path: PATHS.shakhwala },
   { label: 'Fresh Daily', route: 'fresh-daily', path: PATHS.freshDaily },
+  { label: 'Survey', route: 'survey', path: PATHS.survey },
   { label: 'Order Now', route: 'order', path: PATHS.order },
   { label: 'Contact', route: 'contact', path: PATHS.contact },
 ];

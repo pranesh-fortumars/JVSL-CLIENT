@@ -110,10 +110,9 @@ export function ContactPage() {
                   {
                     icon: MapPin,
                     label: 'Registered Office',
-                    value: '4-D, fourth floor, Vardan Tower, Lakudi Talav, near Sardar Patel Stadium, Navrangpura, Ahmedabad 380009',
+                    value: 'Jagatpati Vigneshwara LSD LLP, 4-D, Fourth Floor, Vardan Tower, Lakudi Talav, Near Sardar Patel Stadium, Navrangpura, Ahmedabad – 380009, Gujarat, India.',
                   },
-                  { icon: Phone, label: 'Phone', value: '+91 00000 00000', href: 'tel:+910000000000' },
-                  { icon: Mail, label: 'Email', value: 'hello@jvlsd.in', href: 'mailto:hello@jvlsd.in' },
+                  { icon: Mail, label: 'Official Inquiries', value: 'contact@jvlsd.in', href: 'mailto:contact@jvlsd.in' },
                   { icon: Clock, label: 'Service hours', value: 'Pre-order: 24/7 · Same-day delivery: 7 AM – 9 PM' },
                 ].map((c) => (
                   <li key={c.label} className="flex items-start gap-4">

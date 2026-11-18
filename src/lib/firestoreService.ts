@@ -16,11 +16,54 @@ import { db } from './firebase';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { isMockModeActive, MOCK_ORDERS, MOCK_SURVEYS, MOCK_ENQUIRIES, MOCK_PROFILES } from './mockData';
 
+export type UserAddress = {
+  id: string;
+  label: string; // e.g., 'Home', 'Parents Household', 'Office'
+  house_flat: string;
+  building_society: string;
+  landmark?: string;
+  area_road: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
+  digipin?: string;
+  is_primary?: boolean;
+};
+
 export type Profile = {
   id: string;
   email: string;
   full_name: string | null;
   role: 'customer' | 'admin' | 'superadmin';
+  mobile?: string;
+  country_code?: string;
+  landline?: string;
+  city_std_code?: string;
+  preferred_language?: 'en' | 'gu' | 'hi';
+  addresses?: UserAddress[];
+  family_group_id?: string;
+};
+
+export type FamilyMember = {
+  uid: string;
+  full_name: string;
+  mobile: string;
+  role: 'owner' | 'family_member' | 'domestic_help';
+  can_order: boolean;
+  address_locked: boolean;
+  joined_at: string;
+  authorized_by?: string;
+};
+
+export type FamilyGroup = {
+  id: string;
+  household_name: string;
+  household_address: string;
+  invite_code: string;
+  creator_uid: string;
+  members: FamilyMember[];
+  created_at: string;
 };
 
 export type Product = {
@@ -625,6 +668,117 @@ export async function updateUserRole(userId: string, role: Profile['role']): Pro
     try {
       await supabase.from('profiles').update({ role }).eq('id', userId);
     } catch (e) {}
+  }
+}
+
+/**
+ * Family Groups: Create or Join Family Group
+ */
+export async function createFamilyGroup(
+  creator: { uid: string; name: string; mobile: string },
+  householdName: string,
+  householdAddress: string
+): Promise<FamilyGroup> {
+  const code = 'FAM-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+  const group: FamilyGroup = {
+    id: 'grp_' + Date.now(),
+    household_name: householdName,
+    household_address: householdAddress,
+    invite_code: code,
+    creator_uid: creator.uid,
+    members: [
+      {
+        uid: creator.uid,
+        full_name: creator.name,
+        mobile: creator.mobile,
+        role: 'owner',
+        can_order: true,
+        address_locked: false,
+        joined_at: new Date().toISOString(),
+      },
+    ],
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    await setDoc(doc(db, 'family_groups', group.id), group);
+    await setDoc(doc(db, 'profiles', creator.uid), { family_group_id: group.id }, { merge: true });
+  } catch (err) {
+    console.warn('Firestore family group creation notice:', err);
+  }
+
+  // Local storage cache backup
+  try {
+    const list = JSON.parse(localStorage.getItem('jvlsd_family_groups') || '[]');
+    localStorage.setItem('jvlsd_family_groups', JSON.stringify([group, ...list]));
+  } catch (e) {}
+
+  return group;
+}
+
+export async function joinFamilyGroupByCode(
+  user: { uid: string; name: string; mobile: string },
+  code: string,
+  role: 'family_member' | 'domestic_help' = 'family_member'
+): Promise<FamilyGroup | null> {
+  let targetGroup: FamilyGroup | null = null;
+
+  try {
+    const snap = await getDocs(query(collection(db, 'family_groups'), where('invite_code', '==', code.trim().toUpperCase())));
+    if (!snap.empty) {
+      targetGroup = { id: snap.docs[0].id, ...(snap.docs[0].data() as Omit<FamilyGroup, 'id'>) };
+    }
+  } catch (err) {
+    console.warn('Firestore joinFamilyGroupByCode notice:', err);
+  }
+
+  if (!targetGroup) {
+    try {
+      const list: FamilyGroup[] = JSON.parse(localStorage.getItem('jvlsd_family_groups') || '[]');
+      targetGroup = list.find((g) => g.invite_code.toUpperCase() === code.trim().toUpperCase()) || null;
+    } catch (e) {}
+  }
+
+  if (!targetGroup) return null;
+
+  // Add new member if not already in group
+  if (!targetGroup.members.some((m) => m.uid === user.uid)) {
+    const newMember: FamilyMember = {
+      uid: user.uid,
+      full_name: user.name,
+      mobile: user.mobile,
+      role,
+      can_order: role === 'family_member',
+      address_locked: role === 'domestic_help',
+      joined_at: new Date().toISOString(),
+      authorized_by: targetGroup.creator_uid,
+    };
+    targetGroup.members.push(newMember);
+
+    try {
+      await updateDoc(doc(db, 'family_groups', targetGroup.id), { members: targetGroup.members });
+      await setDoc(doc(db, 'profiles', user.uid), { family_group_id: targetGroup.id }, { merge: true });
+    } catch (err) {
+      console.warn('Firestore update family members notice:', err);
+    }
+  }
+
+  return targetGroup;
+}
+
+export async function fetchFamilyGroup(groupId: string): Promise<FamilyGroup | null> {
+  try {
+    const snap = await getDoc(doc(db, 'family_groups', groupId));
+    if (snap.exists()) {
+      return { id: snap.id, ...(snap.data() as Omit<FamilyGroup, 'id'>) };
+    }
+  } catch (e) {}
+
+  try {
+    const list: FamilyGroup[] = JSON.parse(localStorage.getItem('jvlsd_family_groups') || '[]');
+    return list.find((g) => g.id === groupId) || null;
+  } catch (e) {
+    return null;
   }
 }
 

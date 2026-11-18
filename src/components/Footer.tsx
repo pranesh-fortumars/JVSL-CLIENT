@@ -67,23 +67,17 @@ export function Footer() {
             <ul className="mt-4 space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 text-gold-300 shrink-0" />
-                <span className="text-ink-300 leading-relaxed">
-                  <strong className="text-white font-semibold">Reg. Office:</strong><br />
-                  4-D, fourth floor, Vardan Tower,<br />
-                  Lakudi Talav, near Sardar Patel Stadium,<br />
-                  Navrangpura, Ahmedabad 380009
+                <span className="text-ink-300 leading-relaxed text-xs">
+                  <strong className="text-white font-semibold">Jagatpati Vigneshwara LSD LLP</strong><br />
+                  4-D, Fourth Floor, Vardan Tower,<br />
+                  Lakudi Talav, Near Sardar Patel Stadium,<br />
+                  Navrangpura, Ahmedabad – 380009, Gujarat, India.
                 </span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-gold-300 shrink-0" />
-                <a href="tel:+910000000000" className="text-ink-300 hover:text-white transition-colors">
-                  +91 00000 00000
-                </a>
-              </li>
-              <li className="flex items-center gap-3">
                 <Mail className="h-4 w-4 text-gold-300 shrink-0" />
-                <a href="mailto:hello@jvlsd.in" className="text-ink-300 hover:text-white transition-colors">
-                  hello@jvlsd.in
+                <a href="mailto:contact@jvlsd.in" className="text-ink-300 hover:text-white transition-colors">
+                  contact@jvlsd.in
                 </a>
               </li>
             </ul>
