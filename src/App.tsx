@@ -11,6 +11,8 @@ import { AdminPage } from '@/pages/AdminPage';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { AccountPage } from '@/pages/AccountPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
+import { TermsPage } from '@/pages/TermsPage';
 import { AuthProvider } from '@/lib/auth';
 
 function App() {
@@ -51,6 +53,8 @@ function AppRoutes() {
         {route.name === 'contact' && <ContactPage />}
         {route.name === 'login' && <LoginPage />}
         {route.name === 'account' && <AccountPage />}
+        {route.name === 'privacy' && <PrivacyPage />}
+        {route.name === 'terms' && <TermsPage />}
       </main>
       <Footer />
     </div>

@@ -10,6 +10,8 @@ export type Route =
   | { name: 'contact' }
   | { name: 'login' }
   | { name: 'account' }
+  | { name: 'privacy' }
+  | { name: 'terms' }
   | { name: 'admin-login' }
   | { name: 'admin' };
 
@@ -23,6 +25,8 @@ const ROUTES: Record<string, Route> = {
   '/contact': { name: 'contact' },
   '/login': { name: 'login' },
   '/account': { name: 'account' },
+  '/privacy': { name: 'privacy' },
+  '/terms': { name: 'terms' },
   '/admin/login': { name: 'admin-login' },
   '/admin': { name: 'admin' },
 };
@@ -62,6 +66,8 @@ export const PATHS = {
   contact: '/contact',
   login: '/login',
   account: '/account',
+  privacy: '/privacy',
+  terms: '/terms',
   adminLogin: '/admin/login',
   admin: '/admin',
 } as const;

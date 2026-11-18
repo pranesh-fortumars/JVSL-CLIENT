@@ -27,6 +27,7 @@ import {
   fetchProducts,
   createOrder,
   submitOrderFeedback,
+  fetchUserFinancials,
   type Product,
   type OrderMode,
   type OrderItem,
@@ -432,7 +433,7 @@ export function OrderPage() {
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => stepQty(previewProduct.id, -1)}
+                                  onClick={() => stepQty(previewProduct.id, -1, previewProduct.unit)}
                                   disabled={(cart[previewProduct.id] ?? 0) <= 0}
                                   className="h-9 w-9 rounded-xl border border-ink-200 bg-ink-50 text-ink-700 font-bold hover:bg-ink-100 disabled:opacity-40"
                                 >
@@ -440,7 +441,7 @@ export function OrderPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => stepQty(previewProduct.id, 1)}
+                                  onClick={() => stepQty(previewProduct.id, 1, previewProduct.unit)}
                                   className="h-9 px-4 rounded-xl bg-brand-700 text-white font-bold hover:bg-brand-800 shadow-soft text-xs sm:text-sm flex items-center gap-1.5"
                                 >
                                   <Plus className="h-4 w-4" /> Add
@@ -939,6 +940,43 @@ function Checkout({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { user, profile } = useAuth();
 
+  // Financial States
+  const [walletBalance, setWalletBalance] = useState(1000);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(85);
+  const [promoBalance, setPromoBalance] = useState(300);
+  const [applyWallet, setApplyWallet] = useState(true);
+  const [applyPromo, setApplyPromo] = useState(true);
+  const [applyLoyalty, setApplyLoyalty] = useState(false);
+  const [isAddressLocked, setIsAddressLocked] = useState(false);
+
+  // Compute Base Total from Cart Items
+  const rawSubtotal = useMemo(() => {
+    return cartItems.reduce((acc, it) => acc + (it.price || 40) * it.quantity, 0);
+  }, [cartItems]);
+
+  // Promo discount calculation: Max ₹50 per order within ₹300 limit
+  const promoDiscount = useMemo(() => {
+    if (!applyPromo || promoBalance <= 0 || rawSubtotal <= 0) return 0;
+    return Math.min(50, promoBalance, rawSubtotal);
+  }, [applyPromo, promoBalance, rawSubtotal]);
+
+  // Loyalty deduction calculation: Eligible only if points >= 75; max 5 points (₹5) per bill; keeps >= 20 floor
+  const loyaltyDeduction = useMemo(() => {
+    if (!applyLoyalty || loyaltyPoints < 75) return 0;
+    const maxUsable = Math.min(5, loyaltyPoints - 20, Math.max(0, rawSubtotal - promoDiscount));
+    return Math.max(0, maxUsable);
+  }, [applyLoyalty, loyaltyPoints, rawSubtotal, promoDiscount]);
+
+  const afterDiscountTotal = Math.max(0, rawSubtotal - promoDiscount - loyaltyDeduction);
+
+  // Wallet deduction calculation
+  const walletDeduction = useMemo(() => {
+    if (!applyWallet || walletBalance <= 0) return 0;
+    return Math.min(walletBalance, afterDiscountTotal);
+  }, [applyWallet, walletBalance, afterDiscountTotal]);
+
+  const finalPayable = Math.max(0, afterDiscountTotal - walletDeduction);
+
   // Pre-fill from customer's saved profile or family locked address
   useEffect(() => {
     if (profile) {
@@ -947,6 +985,10 @@ function Checkout({
         ? `${activeAddr.house_flat}, ${activeAddr.building_society}, ${activeAddr.area_road}, ${activeAddr.city} - ${activeAddr.pincode}${activeAddr.digipin ? ' (DIGIPIN: ' + activeAddr.digipin + ')' : ''}`
         : '';
 
+      // Check if user has domestic help address lock
+      const locked = (profile as any).address_locked === true;
+      setIsAddressLocked(locked);
+
       setInfo((prev) => ({
         ...prev,
         customer_name: prev.customer_name || profile.full_name || '',
@@ -954,7 +996,14 @@ function Checkout({
         address: prev.address || addrStr,
       }));
     }
-  }, [profile]);
+    if (user?.uid) {
+      fetchUserFinancials(user.uid).then((fin) => {
+        setWalletBalance(fin.walletBalance);
+        setLoyaltyPoints(fin.loyaltyPoints);
+        setPromoBalance(fin.promoBalance);
+      });
+    }
+  }, [profile, user]);
 
   const deliveryDate = mode === 'next_day' ? tomorrowISO() : todayISO();
 
@@ -1008,7 +1057,26 @@ function Checkout({
         expected_delivery: deliveryDate,
         notes: info.notes.trim() || undefined,
         user_id: user?.uid ?? undefined,
+        total_amount: finalPayable,
+        payment_method: walletDeduction > 0 && finalPayable === 0 ? 'Prepaid Wallet' : 'Cash / UPI on Delivery',
       });
+
+      // Update user financial balance if wallet or discounts applied
+      if (user?.uid && (walletDeduction > 0 || promoDiscount > 0 || loyaltyDeduction > 0)) {
+        try {
+          const current = await fetchUserFinancials(user.uid);
+          const newWallet = current.walletBalance - walletDeduction;
+          const newPromo = current.promoBalance - promoDiscount;
+          const newLoyalty = current.loyaltyPoints - loyaltyDeduction + 5; // +5 earned
+          localStorage.setItem(`jvlsd_wallet_${user.uid}`, JSON.stringify({
+            ...current,
+            walletBalance: Math.max(0, newWallet),
+            promoBalance: Math.max(0, newPromo),
+            loyaltyPoints: newLoyalty,
+          }));
+        } catch (e) {}
+      }
+
       setShowConfirmModal(false);
       onPlaced(res?.id || `ORD-${Date.now()}`, info.customer_name.trim());
     } catch (err) {
@@ -1045,24 +1113,94 @@ function Checkout({
         </ul>
 
         {/* Financial & Automated Checkout Breakdown */}
-        <div className="mt-5 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-brand-50/40 p-4">
-          <div className="flex items-center justify-between text-xs font-semibold text-emerald-900">
-            <span>Monthly Subscription Active (₹1,000 Plan)</span>
-            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] text-white">LSD Privilege</span>
+        <div className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-brand-50/40 p-5 shadow-soft">
+          <div className="flex items-center justify-between text-xs font-bold text-emerald-900 border-b border-emerald-200/60 pb-3">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-emerald-700" /> LSD Privilege &amp; Wallet Deductions
+            </span>
+            <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] text-white">Verified Account</span>
           </div>
-          <div className="mt-3 space-y-1.5 text-xs text-ink-700">
-            <div className="flex justify-between">
-              <span>LSD ₹300 Promotional Discount (₹50 order cap)</span>
-              <span className="font-semibold text-brand-700">-₹50.00</span>
+
+          <div className="mt-3 space-y-2.5 text-xs text-ink-700">
+            <div className="flex items-center justify-between">
+              <span className="text-ink-600">Subtotal ({cartItems.length} items):</span>
+              <span className="font-mono font-bold text-ink-900">₹{rawSubtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Prepaid Wallet Balance Applied</span>
-              <span className="font-semibold text-brand-700">Eligible</span>
+
+            {/* Promo Discount Toggle */}
+            <div className="flex items-center justify-between rounded-xl bg-white/70 p-2.5 border border-ink-100">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyPromo}
+                  onChange={(e) => setApplyPromo(e.target.checked)}
+                  disabled={promoBalance <= 0}
+                  className="rounded text-brand-600 focus:ring-brand-500 h-4 w-4"
+                />
+                <div>
+                  <span className="font-semibold text-ink-900">Apply LSD ₹300 Promo Allowance</span>
+                  <p className="text-[10px] text-ink-500">Max ₹50/order cap · Remaining: ₹{promoBalance}</p>
+                </div>
+              </label>
+              <span className="font-mono font-bold text-emerald-700">
+                -₹{promoDiscount.toFixed(2)}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span>Loyalty Points Earning (1 pt = ₹1)</span>
-              <span className="font-semibold text-gold-700">+5 pts earned</span>
+
+            {/* Loyalty Points Redemption Toggle */}
+            <div className="flex items-center justify-between rounded-xl bg-white/70 p-2.5 border border-ink-100">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyLoyalty}
+                  onChange={(e) => setApplyLoyalty(e.target.checked)}
+                  disabled={loyaltyPoints < 75}
+                  className="rounded text-gold-600 focus:ring-gold-500 h-4 w-4"
+                />
+                <div>
+                  <span className="font-semibold text-ink-900">Redeem Loyalty Points (1 pt = ₹1)</span>
+                  <p className="text-[10px] text-ink-500">
+                    {loyaltyPoints >= 75
+                      ? `Eligible (Balance: ${loyaltyPoints} pts · Max 5 pts/bill · Keeps 20 floor)`
+                      : `Needs 75 pts to redeem (Current: ${loyaltyPoints} pts)`}
+                  </p>
+                </div>
+              </label>
+              <span className="font-mono font-bold text-gold-700">
+                {loyaltyDeduction > 0 ? `-₹${loyaltyDeduction.toFixed(2)}` : '₹0.00'}
+              </span>
             </div>
+
+            {/* Prepaid Wallet Deduction Toggle */}
+            <div className="flex items-center justify-between rounded-xl bg-white/70 p-2.5 border border-ink-100">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyWallet}
+                  onChange={(e) => setApplyWallet(e.target.checked)}
+                  disabled={walletBalance <= 0}
+                  className="rounded text-brand-700 focus:ring-brand-500 h-4 w-4"
+                />
+                <div>
+                  <span className="font-semibold text-ink-900">Deduct from Prepaid Wallet</span>
+                  <p className="text-[10px] text-ink-500">Available Wallet Balance: ₹{walletBalance.toFixed(2)}</p>
+                </div>
+              </label>
+              <span className="font-mono font-bold text-brand-700">
+                -₹{walletDeduction.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Final Payable */}
+            <div className="flex items-center justify-between pt-3 border-t border-emerald-200 text-sm font-bold">
+              <span className="text-ink-900">Net Payable Amount:</span>
+              <span className="font-mono text-lg text-emerald-950 font-black">₹{finalPayable.toFixed(2)}</span>
+            </div>
+            {finalPayable === 0 && rawSubtotal > 0 && (
+              <p className="text-center text-[11px] font-semibold text-emerald-800">
+                ✓ Fully covered by prepaid wallet &amp; promotional allowances. Zero cash due at delivery.
+              </p>
+            )}
           </div>
         </div>
 
@@ -1124,13 +1262,21 @@ function Checkout({
             {errors.mobile && <p className="field-error" role="alert">{errors.mobile}</p>}
           </div>
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="co-address">Delivery address &amp; DIGIPIN <span className="text-red-600" aria-hidden>*</span></label>
+            <div className="flex items-center justify-between">
+              <label className="label" htmlFor="co-address">Delivery address &amp; DIGIPIN <span className="text-red-600" aria-hidden>*</span></label>
+              {isAddressLocked && (
+                <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+                  <Lock className="h-3 w-3" /> Address Locked by Household Group Owner
+                </span>
+              )}
+            </div>
             <textarea
               id="co-address"
               rows={2}
-              className="input-field uppercase tracking-wide font-medium resize-y"
+              readOnly={isAddressLocked}
+              className={`input-field uppercase tracking-wide font-medium resize-y ${isAddressLocked ? 'bg-ink-100/60 cursor-not-allowed text-ink-700' : ''}`}
               value={info.address}
-              onChange={(e) => update('address', e.target.value)}
+              onChange={(e) => !isAddressLocked && update('address', e.target.value)}
               aria-required="true"
               aria-invalid={!!errors.address}
               placeholder="FLAT / HOUSE NO, STREET, CITY, PIN CODE, DIGIPIN"

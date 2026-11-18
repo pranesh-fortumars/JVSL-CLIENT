@@ -29,7 +29,21 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { navigate, PATHS } from '@/lib/router';
-import { fetchOrders, submitOrderFeedback, createFamilyGroup, joinFamilyGroupByCode, fetchFamilyGroup, type OrderRow, type OrderFeedback, type FamilyGroup, type UserAddress } from '@/lib/firestoreService';
+import {
+  fetchOrders,
+  submitOrderFeedback,
+  createFamilyGroup,
+  joinFamilyGroupByCode,
+  fetchFamilyGroup,
+  fetchFamilyExpenseProposals,
+  saveFamilyExpenseProposal,
+  updateFamilyExpenseStatus,
+  type OrderRow,
+  type OrderFeedback,
+  type FamilyGroup,
+  type UserAddress,
+  type FamilyExpenseProposal,
+} from '@/lib/firestoreService';
 
 const STATUS_LABEL: Record<OrderRow['status'], string> = {
   new: 'Received',
@@ -766,7 +780,13 @@ export function AccountPage() {
         )}
 
         {/* Tab 4: Family Income & Expense Dialogue Planner */}
-        {activeTab === 'finance' && <FamilyFinanceDialogue userEmail={user.email || ''} />}
+        {activeTab === 'finance' && (
+          <FamilyFinanceDialogue
+            userEmail={user.email || ''}
+            userUid={user.uid}
+            familyGroupId={familyGroup?.id || profile?.family_group_id || 'default_family'}
+          />
+        )}
       </div>
 
       {/* Customer Delivery & Quality Feedback Modal */}
@@ -1012,10 +1032,18 @@ const INITIAL_EXPENSE_HEADS: ExpenseHead[] = [
   },
 ];
 
-function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
+function FamilyFinanceDialogue({
+  userEmail,
+  userUid,
+  familyGroupId,
+}: {
+  userEmail: string;
+  userUid?: string;
+  familyGroupId: string;
+}) {
   const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('jvlsd_family_income');
+      const saved = localStorage.getItem(`jvlsd_family_income_${familyGroupId}`);
       return saved ? Number(saved) : 75000;
     } catch {
       return 75000;
@@ -1024,12 +1052,35 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
 
   const [expenses, setExpenses] = useState<ExpenseHead[]>(() => {
     try {
-      const saved = localStorage.getItem('jvlsd_family_expenses');
+      const saved = localStorage.getItem(`jvlsd_family_expenses_${familyGroupId}`);
       return saved ? JSON.parse(saved) : INITIAL_EXPENSE_HEADS;
     } catch {
       return INITIAL_EXPENSE_HEADS;
     }
   });
+
+  // Load from backend Firestore family_finances collection
+  useEffect(() => {
+    if (familyGroupId) {
+      fetchFamilyExpenseProposals(familyGroupId).then((proposals) => {
+        if (proposals.length > 0) {
+          const mapped: ExpenseHead[] = proposals.map((p) => ({
+            id: p.id,
+            category: p.category,
+            description: p.description,
+            proposedAmount: p.amount,
+            anticipatedDate: p.expected_date,
+            requestedBy: p.proposed_by_name,
+            status: p.status,
+            familyNote: (p.votes && Object.keys(p.votes).length > 0)
+              ? `Member consensus votes recorded: ${Object.values(p.votes).join(', ')}`
+              : 'Open for family consensus & review.',
+          }));
+          setExpenses(mapped);
+        }
+      });
+    }
+  }, [familyGroupId]);
 
   // New expense form state
   const [newCategory, setNewCategory] = useState('Fresh Groceries & Milk (JVLSD-FD)');
@@ -1048,23 +1099,24 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
   const saveIncome = (val: number) => {
     setMonthlyIncome(val);
     try {
-      localStorage.setItem('jvlsd_family_income', String(val));
+      localStorage.setItem(`jvlsd_family_income_${familyGroupId}`, String(val));
     } catch {}
   };
 
   const saveExpenses = (list: ExpenseHead[]) => {
     setExpenses(list);
     try {
-      localStorage.setItem('jvlsd_family_expenses', JSON.stringify(list));
+      localStorage.setItem(`jvlsd_family_expenses_${familyGroupId}`, JSON.stringify(list));
     } catch {}
   };
 
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDesc.trim() || !newAmount || Number(newAmount) <= 0 || !newDate) return;
 
+    const newId = `exp-${Date.now()}`;
     const newHead: ExpenseHead = {
-      id: `exp-${Date.now()}`,
+      id: newId,
       category: newCategory,
       description: newDesc.trim(),
       proposedAmount: Number(newAmount),
@@ -1075,15 +1127,34 @@ function FamilyFinanceDialogue({ userEmail }: { userEmail: string }) {
     };
 
     saveExpenses([newHead, ...expenses]);
+
+    // Persist to shared backend Firestore
+    const backendProposal: FamilyExpenseProposal = {
+      id: newId,
+      family_group_id: familyGroupId,
+      proposed_by_uid: userUid || 'member',
+      proposed_by_name: newMember,
+      category: newCategory,
+      description: newDesc.trim(),
+      amount: Number(newAmount),
+      expected_date: newDate,
+      status: 'under_discussion',
+      votes: userUid ? { [userUid]: 'under_discussion' } : {},
+      created_at: new Date().toISOString(),
+    };
+    await saveFamilyExpenseProposal(backendProposal);
+
     setNewDesc('');
     setNewAmount('');
     setNewDate('');
     setNewNote('');
   };
 
-  const handleUpdateStatus = (id: string, newStatus: ExpenseHead['status']) => {
+  const handleUpdateStatus = async (id: string, newStatus: ExpenseHead['status']) => {
     const updated = expenses.map((exp) => (exp.id === id ? { ...exp, status: newStatus } : exp));
     saveExpenses(updated);
+    // Persist status & vote to Firestore backend
+    await updateFamilyExpenseStatus(id, familyGroupId, newStatus, userUid);
   };
 
   const totalProposed = expenses.reduce((sum, item) => sum + item.proposedAmount, 0);

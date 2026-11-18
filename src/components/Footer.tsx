@@ -87,9 +87,9 @@ export function Footer() {
         <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 text-xs text-ink-400 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Jagatpati Vigneshwara LSD LLP. All rights reserved.</p>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <button className="hover:text-white transition-colors">Privacy Policy</button>
-            <button className="hover:text-white transition-colors">Terms of Service</button>
-            <button className="hover:text-white transition-colors">Cookie Policy</button>
+            <button onClick={() => navigate(PATHS.privacy)} className="hover:text-white transition-colors">Privacy Policy</button>
+            <button onClick={() => navigate(PATHS.terms)} className="hover:text-white transition-colors">Terms of Service</button>
+            <button onClick={() => navigate(PATHS.privacy)} className="hover:text-white transition-colors">Cookie Policy</button>
           </div>
         </div>
       </div>

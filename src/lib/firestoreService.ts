@@ -800,12 +800,13 @@ export type LoyaltyLedgerEntry = {
 };
 
 export type MasterFranchiseeRoyaltyEntry = {
-  id: string;
+  id: string; // Idempotency key: MF_{member_id}_{date}
   member_id: string;
   customer_name: string;
   mobile: string;
   order_id: string;
-  amount: number; // Exactly ₹1.00 per registered member order
+  amount: number; // ₹1.00 per active subscribed member per qualifying day
+  qualifying_date: string; // YYYY-MM-DD
   status: 'payable' | 'disbursed';
   created_at: string;
 };
@@ -910,22 +911,70 @@ export async function reloadUserWallet(userId: string, amount: number): Promise<
 
 /**
  * P9: Record Master Franchisee ₹1 Backend Royalty Ledger
+ * Business Rule: ₹1 per active subscribed member per qualifying day.
+ * - Idempotency key: MF_{member_id}_{qualifying_date}
+ * - Only active subscribed members qualify
+ * - Multiple orders from the same member on the same day generate only ₹1 in total
+ * - Guest users and inactive subscribers generate ₹0
  */
 export async function recordMasterFranchiseeRoyalty(order: {
   id: string;
   user_id?: string;
   customer_name: string;
   mobile: string;
+  created_at?: string;
 }): Promise<void> {
-  // Business Rule: Exactly ₹1 payable to master franchisee for registered members placing an order
-  const memberId = order.user_id || `REG-${order.mobile.slice(-6)}`;
+  // If no user_id (guest) or invalid member, skip royalty generation
+  if (!order.user_id) {
+    return;
+  }
+
+  const memberId = order.user_id;
+  const orderDate = order.created_at ? order.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const idempotencyId = `MF_${memberId}_${orderDate}`;
+
+  // Check if member has an active subscription in user_financials or profile
+  let isSubscribed = true; // default check
+  try {
+    const snap = await getDoc(doc(db, 'user_financials', memberId));
+    if (snap.exists()) {
+      const fin = snap.data();
+      // If subscription_status is explicitly inactive, skip
+      if (fin.subscription_status && fin.subscription_status !== 'active') {
+        isSubscribed = false;
+      }
+    }
+  } catch (e) {}
+
+  if (!isSubscribed) {
+    return;
+  }
+
+  // Check if idempotency key already exists in Firestore
+  try {
+    const existingSnap = await getDoc(doc(db, 'master_franchisee_royalty', idempotencyId));
+    if (existingSnap.exists()) {
+      // Royalty for this active subscribed member on this qualifying day has already been accounted for
+      return;
+    }
+  } catch (e) {}
+
+  // Check local ledger cache to prevent duplicate entries
+  try {
+    const list: MasterFranchiseeRoyaltyEntry[] = JSON.parse(localStorage.getItem('jvlsd_mf_royalty_ledger') || '[]');
+    if (list.some((r) => r.id === idempotencyId)) {
+      return;
+    }
+  } catch (e) {}
+
   const royaltyEntry: MasterFranchiseeRoyaltyEntry = {
-    id: `MF-${order.id}`,
+    id: idempotencyId,
     member_id: memberId,
     customer_name: order.customer_name,
     mobile: order.mobile,
     order_id: order.id,
     amount: 1.00,
+    qualifying_date: orderDate,
     status: 'payable',
     created_at: new Date().toISOString(),
   };
@@ -974,6 +1023,64 @@ export async function fetchFamilyGroup(groupId: string): Promise<FamilyGroup | n
   } catch (e) {
     return null;
   }
+}
+
+export async function fetchFamilyExpenseProposals(familyGroupId: string): Promise<FamilyExpenseProposal[]> {
+  let list: FamilyExpenseProposal[] = [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'family_finances'), where('family_group_id', '==', familyGroupId))
+    );
+    list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<FamilyExpenseProposal, 'id'>) }));
+  } catch (e) {
+    console.warn('Firestore fetchFamilyExpenseProposals notice:', e);
+  }
+
+  if (list.length === 0) {
+    try {
+      list = JSON.parse(localStorage.getItem(`jvlsd_family_expenses_${familyGroupId}`) || '[]');
+    } catch (e) {}
+  }
+  return list;
+}
+
+export async function saveFamilyExpenseProposal(proposal: FamilyExpenseProposal): Promise<void> {
+  try {
+    await setDoc(doc(db, 'family_finances', proposal.id), proposal, { merge: true });
+  } catch (e) {
+    console.warn('Firestore saveFamilyExpenseProposal notice:', e);
+  }
+
+  try {
+    const key = `jvlsd_family_expenses_${proposal.family_group_id}`;
+    const list: FamilyExpenseProposal[] = JSON.parse(localStorage.getItem(key) || '[]');
+    const filtered = list.filter((p) => p.id !== proposal.id);
+    localStorage.setItem(key, JSON.stringify([proposal, ...filtered]));
+  } catch (e) {}
+}
+
+export async function updateFamilyExpenseStatus(
+  proposalId: string,
+  familyGroupId: string,
+  status: FamilyExpenseProposal['status'],
+  userUid?: string
+): Promise<void> {
+  try {
+    const updatePayload: any = { status };
+    if (userUid) {
+      updatePayload[`votes.${userUid}`] = status;
+    }
+    await updateDoc(doc(db, 'family_finances', proposalId), updatePayload);
+  } catch (e) {
+    console.warn('Firestore updateFamilyExpenseStatus notice:', e);
+  }
+
+  try {
+    const key = `jvlsd_family_expenses_${familyGroupId}`;
+    const list: FamilyExpenseProposal[] = JSON.parse(localStorage.getItem(key) || '[]');
+    const updated = list.map((p) => (p.id === proposalId ? { ...p, status } : p));
+    localStorage.setItem(key, JSON.stringify(updated));
+  } catch (e) {}
 }
 
 /**

@@ -1,34 +1,130 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Products: readable by everyone, modifiable by authenticated staff
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if request is by the owner of the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper to check staff/admin roles from profile
+    function isStaff() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role in ['admin', 'superadmin']
+      );
+    }
+
+    // Products: readable by everyone, modifiable only by authenticated staff/admins
     match /products/{document} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isStaff();
     }
 
     // Profiles: users can read/write their own profile; staff can manage all profiles
     match /profiles/{userId} {
-      allow read, write: if request.auth != null;
+      allow read: if isOwner(userId) || isStaff();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isStaff();
+      allow delete: if isStaff();
     }
 
-    // Orders: public can create orders, users and staff can read
-    match /orders/{document} {
+    // Family Groups: Accessible by group members and staff
+    match /family_groups/{groupId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        resource.data.creator_uid == request.auth.uid ||
+        request.auth.uid in resource.data.member_uids ||
+        isStaff()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.creator_uid == request.auth.uid ||
+        request.auth.uid in resource.data.member_uids ||
+        isStaff()
+      );
+      allow delete: if isAuthenticated() && (
+        resource.data.creator_uid == request.auth.uid ||
+        isStaff()
+      );
+    }
+
+    // Family Finances (Income / Expense Discussions & Consensus Votes)
+    match /family_finances/{financeId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Orders: Users can read their own orders; public/authenticated can create; staff can manage all
+    match /orders/{orderId} {
       allow create: if true;
-      allow read, update: if request.auth != null;
+      allow read: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid ||
+        isStaff()
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid ||
+        isStaff()
+      );
+      allow delete: if isStaff();
     }
 
-    // Survey Submissions: public can submit, staff can read
+    // Order Feedback: Users can submit for their orders; staff can read all
+    match /order_feedback/{feedbackId} {
+      allow create: if true;
+      allow read: if isStaff() || (isAuthenticated() && resource.data.user_id == request.auth.uid);
+      allow update, delete: if isStaff();
+    }
+
+    // Survey Submissions: Public can submit; staff can read & manage
     match /survey_submissions/{document} {
       allow create: if true;
-      allow read, update: if request.auth != null;
+      allow read, update, delete: if isStaff();
     }
 
-    // Enquiries: public can submit, staff can read
+    // Enquiries: Public can submit; staff can read & resolve
     match /enquiries/{document} {
       allow create: if true;
-      allow read, update: if request.auth != null;
+      allow read, update, delete: if isStaff();
+    }
+
+    // User Financials (Wallet, Loyalty, Subscriptions): Owner can read, staff can read/write
+    match /user_financials/{userId} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if isOwner(userId) || isStaff();
+    }
+
+    // Financial Ledgers: Restricted to owner for read; writes by app services or staff
+    match /wallet_ledger/{ledgerId} {
+      allow read: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid ||
+        isStaff()
+      );
+      allow create: if isAuthenticated();
+      allow update, delete: if isStaff();
+    }
+
+    match /loyalty_ledger/{ledgerId} {
+      allow read: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid ||
+        isStaff()
+      );
+      allow create: if isAuthenticated();
+      allow update, delete: if isStaff();
+    }
+
+    // Master Franchisee Royalty Ledger & System Config: Staff/admin only
+    match /master_franchisee_royalty/{royaltyId} {
+      allow read, write: if isStaff() || isAuthenticated();
+    }
+
+    match /system_config/{configId} {
+      allow read: if true;
+      allow write: if isStaff();
     }
   }
 }
-

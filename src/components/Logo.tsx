@@ -48,10 +48,19 @@ export function CelestialMasterBanner({ className = 'max-w-md w-full' }: { class
 
 export function Mascot({ className = 'h-16 w-auto' }: { className?: string }) {
   return (
-    <img
-      src="/jvlsd-mascot-milkcan.jpg"
-      alt="JVLSD-FD Fresh Daily Mascot - Franchisee of Shakhwala"
-      className={`shrink-0 rounded-2xl object-contain shadow-soft ${className}`}
-    />
+    <div className={`relative flex items-center justify-center gap-1.5 p-1 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-brand-500/10 border border-emerald-500/20 shadow-soft ${className}`}>
+      {/* Green Leafy Vegreenman Mascot */}
+      <img
+        src="/jvlsd-mascot-leafy.jpg"
+        alt="Vegreenman - Green Leafy Farm Mascot"
+        className="h-full w-auto object-contain rounded-xl"
+      />
+      {/* Cow-free Pure Milk-Can Mascot */}
+      <img
+        src="/jvlsd-mascot-milkcan.jpg"
+        alt="Pure Farm Milk Can - Cruelty-free Fresh Milk"
+        className="h-full w-auto object-contain rounded-xl"
+      />
+    </div>
   );
 }

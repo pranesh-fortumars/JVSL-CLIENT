@@ -413,21 +413,29 @@ function Overview({
     return orders;
   }, [orders, timelineScope]);
 
-  // Master Franchisee Backend Royalty Calculation: ₹1 for every registered member who places an order
+  // Master Franchisee Backend Royalty Calculation:
+  // Rule: ₹1 per active subscribed member per qualifying day.
+  // Multiple orders from the same member on the same day generate only ₹1.
+  // Orders from the same member on different days generate separate ₹1 entries.
+  // Guest orders (no user_id) generate ₹0.
   const masterFranchiseeRoyalty = useMemo(() => {
-    // Unique user IDs or unique customer names that placed non-cancelled orders within the active timeline
-    const activeOrderers = new Set(
-      filteredOrders
-        .filter((o) => o.status !== 'cancelled')
-        .map((o) => o.user_id || o.mobile || o.customer_name)
-    );
-    // ₹1 per registered member placing an order + cumulative non-cancelled order counts
-    const eligibleMembers = activeOrderers.size;
-    const eligibleOrders = filteredOrders.filter((o) => o.status !== 'cancelled').length;
+    const dailyMemberPairs = new Set<string>();
+    const eligibleOrders = filteredOrders.filter((o) => o.status !== 'cancelled' && o.user_id);
+
+    eligibleOrders.forEach((o) => {
+      const orderDate = (o.created_at || o.expected_delivery || new Date().toISOString()).slice(0, 10);
+      const key = `${o.user_id}_${orderDate}`;
+      dailyMemberPairs.add(key);
+    });
+
+    const uniqueMembers = new Set(eligibleOrders.map((o) => o.user_id)).size;
+    const qualifyingMemberDays = dailyMemberPairs.size;
+
     return {
-      uniqueMembers: eligibleMembers,
-      totalOrdersPlaced: eligibleOrders,
-      payoutDueRupees: eligibleMembers * 1, // ₹1 per registered ordering member
+      uniqueMembers,
+      qualifyingMemberDays,
+      totalOrdersPlaced: filteredOrders.filter((o) => o.status !== 'cancelled').length,
+      payoutDueRupees: qualifyingMemberDays * 1.00, // ₹1 per active subscribed member per qualifying day
     };
   }, [filteredOrders]);
 
@@ -529,44 +537,58 @@ function Overview({
                 <span className="rounded-full bg-gold-400/25 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-gold-300 border border-gold-400/40">
                   Backend Franchisee Royalty Model
                 </span>
-                <span className="text-xs text-emerald-200/80 font-mono">Rate: ₹1 / ordering member</span>
+                <span className="text-xs text-emerald-200/80 font-mono">Rule: ₹1 / active subscribed member / qualifying day</span>
               </div>
               <h3 className="mt-1.5 font-display text-xl font-bold text-white">
                 Master Franchisee Royalty Ledger
               </h3>
               <p className="mt-1 max-w-2xl text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
-                Backend calculated fee payable to Master Franchisee: exactly ₹1 per registered member who has placed orders within this timeline horizon ({timelineScope.replace('_', ' ')}).
+                Backend calculated fee payable to Master Franchisee: strictly ₹1 per active subscribed member per qualifying day in ({timelineScope.replace('_', ' ')}). Multiple orders from the same member on the same day generate only ₹1; orders on separate days generate separate entries.
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center min-w-[7.5rem] backdrop-blur-md shadow-soft">
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-gold-300">Ordering Members</p>
-              <p className="mt-0.5 font-display text-2xl font-black text-white">{masterFranchiseeRoyalty.uniqueMembers}</p>
-              <p className="text-[10px] text-emerald-100/70">Verified buyers</p>
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-gold-300">Member-Days</p>
+              <p className="mt-0.5 font-display text-2xl font-black text-white">{masterFranchiseeRoyalty.qualifyingMemberDays}</p>
+              <p className="text-[10px] text-emerald-100/70">{masterFranchiseeRoyalty.uniqueMembers} members</p>
             </div>
             <div className="rounded-2xl border border-gold-400/40 bg-gold-500/20 px-5 py-3 text-center min-w-[8.5rem] backdrop-blur-md shadow-soft">
               <p className="text-[10px] font-extrabold uppercase tracking-wider text-gold-300">Royalty Payable</p>
-              <p className="mt-0.5 font-display text-2xl font-black text-gold-200">₹{masterFranchiseeRoyalty.payoutDueRupees}</p>
-              <p className="text-[10px] text-gold-300/80">@ ₹1 per member</p>
+              <p className="mt-0.5 font-display text-2xl font-black text-gold-200">₹{masterFranchiseeRoyalty.payoutDueRupees.toFixed(2)}</p>
+              <p className="text-[10px] text-gold-300/80">@ ₹1 / member-day</p>
             </div>
             <button
               type="button"
               onClick={() => {
-                const csvData = [
-                  ['Member ID', 'Customer Name', 'Phone', 'Order Reference', 'Royalty (INR)', 'Status', 'Date'],
-                  ...filteredOrders.filter((o) => o.status !== 'cancelled').map((o) => [
-                    o.user_id || 'REG-' + o.mobile.slice(-6),
-                    o.customer_name,
-                    o.mobile,
-                    o.id,
-                    '1.00',
-                    'Payable',
-                    o.created_at || new Date().toISOString(),
-                  ])
+                // Generate CSV matching the exact ledger rule: (Member ID + Qualifying Order Date)
+                const processedKeys = new Set<string>();
+                const rows: string[][] = [
+                  ['Ledger ID', 'Member ID', 'Customer Name', 'Phone', 'Qualifying Order Date', 'Order Reference', 'Royalty (INR)', 'Status']
                 ];
-                const csvContent = 'data:text/csv;charset=utf-8,' + csvData.map((e) => e.join(',')).join('\n');
+
+                filteredOrders
+                  .filter((o) => o.status !== 'cancelled' && o.user_id)
+                  .forEach((o) => {
+                    const orderDate = (o.created_at || o.expected_delivery || new Date().toISOString()).slice(0, 10);
+                    const idempotencyKey = `MF_${o.user_id}_${orderDate}`;
+                    if (!processedKeys.has(idempotencyKey)) {
+                      processedKeys.add(idempotencyKey);
+                      rows.push([
+                        idempotencyKey,
+                        o.user_id || '',
+                        o.customer_name,
+                        o.mobile,
+                        orderDate,
+                        o.id,
+                        '1.00',
+                        'Payable',
+                      ]);
+                    }
+                  });
+
+                const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement('a');
                 link.setAttribute('href', encodedUri);
