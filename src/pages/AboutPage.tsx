@@ -119,10 +119,10 @@ export function AboutPage() {
           <Reveal delay={120} className="card p-8">
             <div className="grid grid-cols-2 gap-6">
               {[
-                { k: 'Parent', v: 'Jagatpati Vigneshwara LSD LLP' },
+                { k: 'Parent Corporate', v: 'Jagatpati Vigneshwara LSD LLP' },
+                { k: 'Registered Office', v: 'Vardan Tower, Navrangpura, Ahmedabad 380009' },
                 { k: 'First venture', v: 'Shakhwala' },
                 { k: 'Service', v: 'JVLSD-FD Fresh Daily' },
-                { k: 'Model', v: 'Pre-order + same-day' },
               ].map((s) => (
                 <div key={s.v} className="rounded-2xl bg-brand-50/60 p-5">
                   <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">{s.k}</p>

@@ -23,10 +23,12 @@ import {
   HelpCircle,
   Calendar,
   RotateCcw,
+  Star,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { navigate, PATHS } from '@/lib/router';
-import { fetchOrders, type OrderRow } from '@/lib/firestoreService';
+import { fetchOrders, submitOrderFeedback, type OrderRow, type OrderFeedback } from '@/lib/firestoreService';
 
 const STATUS_LABEL: Record<OrderRow['status'], string> = {
   new: 'Received',
@@ -51,6 +53,16 @@ export function AccountPage() {
   const [filterDate, setFilterDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [filterMonth, setFilterMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [filterYear, setFilterYear] = useState<string>(() => String(new Date().getFullYear()));
+
+  // Delivery & Produce feedback state
+  const [feedbackOrder, setFeedbackOrder] = useState<OrderRow | null>(null);
+  const [fbProduceFreshness, setFbProduceFreshness] = useState<number>(5);
+  const [fbServiceRating, setFbServiceRating] = useState<number>(5);
+  const [fbDeliveryPunctuality, setFbDeliveryPunctuality] = useState<number>(5);
+  const [fbPackaging, setFbPackaging] = useState<number>(5);
+  const [fbComment, setFbComment] = useState<string>('');
+  const [fbSubmitting, setFbSubmitting] = useState<boolean>(false);
+  const [fbSubmittedOrders, setFbSubmittedOrders] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -392,6 +404,27 @@ export function AccountPage() {
                           <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">
                             {STATUS_LABEL[order.status]}
                           </span>
+                          {order.status === 'delivered' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFeedbackOrder(order);
+                                setFbProduceFreshness(order.feedback?.item_quality_rating || 5);
+                                setFbServiceRating(order.feedback?.service_rating || 5);
+                                setFbDeliveryPunctuality(order.feedback?.delivery_punctuality_rating || 5);
+                                setFbPackaging(order.feedback?.packaging_rating || 5);
+                                setFbComment(order.feedback?.comment || '');
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-xl px-3 py-1 text-xs font-bold transition-colors shadow-soft ${
+                                order.feedback || fbSubmittedOrders.has(order.id)
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : 'bg-brand-600 text-white hover:bg-brand-700'
+                              }`}
+                            >
+                              <Star className="h-3.5 w-3.5" />
+                              {order.feedback || fbSubmittedOrders.has(order.id) ? 'Feedback Given ★' : 'Rate Delivery & Quality'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
@@ -472,6 +505,190 @@ export function AccountPage() {
         {/* Tab 4: Family Income & Expense Dialogue Planner */}
         {activeTab === 'finance' && <FamilyFinanceDialogue userEmail={user.email || ''} />}
       </div>
+
+      {/* Customer Delivery & Quality Feedback Modal */}
+      {feedbackOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-950/70 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-ink-100 sm:p-7">
+            <div className="flex items-center justify-between border-b border-ink-100 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-ink-950">
+                  Rate Order &amp; Delivery Experience
+                </h3>
+                <p className="text-xs text-ink-500">
+                  Order #{feedbackOrder.id.slice(0, 8)} · Delivered {formatDate(feedbackOrder.expected_delivery)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFeedbackOrder(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink-100 text-ink-600 hover:bg-ink-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setFbSubmitting(true);
+                const feedbackData: OrderFeedback = {
+                  order_id: feedbackOrder.id,
+                  customer_name: feedbackOrder.customer_name || profile?.full_name || 'Customer',
+                  mobile: feedbackOrder.mobile,
+                  item_quality_rating: fbProduceFreshness,
+                  service_rating: fbServiceRating,
+                  delivery_punctuality_rating: fbDeliveryPunctuality,
+                  packaging_rating: fbPackaging,
+                  comment: fbComment.trim() || undefined,
+                  created_at: new Date().toISOString(),
+                };
+
+                await submitOrderFeedback(feedbackData);
+                setFbSubmittedOrders((prev) => new Set([...prev, feedbackOrder.id]));
+                setOrders((prev) =>
+                  prev.map((o) =>
+                    o.id === feedbackOrder.id ? { ...o, feedback: feedbackData } : o
+                  )
+                );
+                setFbSubmitting(false);
+                setFeedbackOrder(null);
+              }}
+              className="mt-5 space-y-4"
+            >
+              <div className="space-y-3">
+                {/* 1. Item Quality */}
+                <div className="flex items-center justify-between rounded-xl bg-ink-50 p-3">
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Produce Freshness &amp; Quality</p>
+                    <p className="text-[11px] text-ink-500">Farm vegetables, fruits &amp; purity of milk</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFbProduceFreshness(star)}
+                        className={`text-lg transition-transform hover:scale-110 ${
+                          star <= fbProduceFreshness ? 'text-amber-500' : 'text-ink-300'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Service Quality */}
+                <div className="flex items-center justify-between rounded-xl bg-ink-50 p-3">
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Overall Service &amp; Support</p>
+                    <p className="text-[11px] text-ink-500">Ordering clarity, updates &amp; assistance</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFbServiceRating(star)}
+                        className={`text-lg transition-transform hover:scale-110 ${
+                          star <= fbServiceRating ? 'text-amber-500' : 'text-ink-300'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Delivery Punctuality */}
+                <div className="flex items-center justify-between rounded-xl bg-ink-50 p-3">
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Delivery Punctuality</p>
+                    <p className="text-[11px] text-ink-500">Morning dispatch timing adherence</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFbDeliveryPunctuality(star)}
+                        className={`text-lg transition-transform hover:scale-110 ${
+                          star <= fbDeliveryPunctuality ? 'text-amber-500' : 'text-ink-300'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Packaging */}
+                <div className="flex items-center justify-between rounded-xl bg-ink-50 p-3">
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Packaging Hygiene &amp; Cleanliness</p>
+                    <p className="text-[11px] text-ink-500">Safe handling &amp; sealed presentation</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFbPackaging(star)}
+                        className={`text-lg transition-transform hover:scale-110 ${
+                          star <= fbPackaging ? 'text-amber-500' : 'text-ink-300'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-ink-700">Detailed Feedback or Requests</label>
+                <textarea
+                  value={fbComment}
+                  onChange={(e) => setFbComment(e.target.value)}
+                  rows={2}
+                  placeholder="Tell us what you loved or how we can improve quality or morning delivery..."
+                  className="mt-1.5 w-full rounded-xl border border-ink-200 p-2.5 text-xs text-ink-900 focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setFeedbackOrder(null)}
+                  className="btn-ghost text-xs px-4 py-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={fbSubmitting}
+                  className="btn-primary text-xs px-5 py-2 inline-flex items-center gap-1.5"
+                >
+                  {fbSubmitting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting…
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-3.5 w-3.5" /> Save Feedback
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

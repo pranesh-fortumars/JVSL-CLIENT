@@ -107,7 +107,11 @@ export function ContactPage() {
               <h2 className="font-display text-xl font-bold text-ink-900">Reach us directly</h2>
               <ul className="mt-6 space-y-5">
                 {[
-                  { icon: MapPin, label: 'Address', value: 'Shakhwala, JVLSD — India' },
+                  {
+                    icon: MapPin,
+                    label: 'Registered Office',
+                    value: '4-D, fourth floor, Vardan Tower, Lakudi Talav, near Sardar Patel Stadium, Navrangpura, Ahmedabad 380009',
+                  },
                   { icon: Phone, label: 'Phone', value: '+91 00000 00000', href: 'tel:+910000000000' },
                   { icon: Mail, label: 'Email', value: 'hello@jvlsd.in', href: 'mailto:hello@jvlsd.in' },
                   { icon: Clock, label: 'Service hours', value: 'Pre-order: 24/7 · Same-day delivery: 7 AM – 9 PM' },

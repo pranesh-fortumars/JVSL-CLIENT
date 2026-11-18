@@ -63,11 +63,16 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="font-display text-sm font-bold uppercase tracking-wider text-white">Get in touch</h3>
+            <h3 className="font-display text-sm font-bold uppercase tracking-wider text-white">Registered Office</h3>
             <ul className="mt-4 space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 text-gold-300 shrink-0" />
-                <span className="text-ink-300">Shakhwala, JVLSD<br />India</span>
+                <span className="text-ink-300 leading-relaxed">
+                  <strong className="text-white font-semibold">Reg. Office:</strong><br />
+                  4-D, fourth floor, Vardan Tower,<br />
+                  Lakudi Talav, near Sardar Patel Stadium,<br />
+                  Navrangpura, Ahmedabad 380009
+                </span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="h-4 w-4 text-gold-300 shrink-0" />

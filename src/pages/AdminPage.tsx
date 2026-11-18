@@ -807,6 +807,42 @@ function OrderDetail({ order, onUpdate }: { order: OrderRow; onUpdate: (s: Order
         </div>
       )}
 
+      {order.feedback && (
+        <div className="rounded-2xl border border-brand-200 bg-emerald-50/50 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-900 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-brand-600" /> Customer Delivery &amp; Quality Feedback
+            </p>
+            <span className="text-[10px] text-ink-500 font-medium">
+              Submitted: {new Date(order.feedback.created_at).toLocaleDateString('en-IN')}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+            <div className="rounded-xl bg-white p-2.5 border border-ink-100 text-center shadow-soft">
+              <span className="text-[10px] font-bold text-ink-500 uppercase">Produce Freshness</span>
+              <p className="text-sm font-black text-amber-500 mt-0.5">{'★'.repeat(order.feedback.item_quality_rating)}{'☆'.repeat(5 - order.feedback.item_quality_rating)}</p>
+            </div>
+            <div className="rounded-xl bg-white p-2.5 border border-ink-100 text-center shadow-soft">
+              <span className="text-[10px] font-bold text-ink-500 uppercase">Service &amp; Care</span>
+              <p className="text-sm font-black text-amber-500 mt-0.5">{'★'.repeat(order.feedback.service_rating)}{'☆'.repeat(5 - order.feedback.service_rating)}</p>
+            </div>
+            <div className="rounded-xl bg-white p-2.5 border border-ink-100 text-center shadow-soft">
+              <span className="text-[10px] font-bold text-ink-500 uppercase">Punctuality</span>
+              <p className="text-sm font-black text-amber-500 mt-0.5">{'★'.repeat(order.feedback.delivery_punctuality_rating)}{'☆'.repeat(5 - order.feedback.delivery_punctuality_rating)}</p>
+            </div>
+            <div className="rounded-xl bg-white p-2.5 border border-ink-100 text-center shadow-soft">
+              <span className="text-[10px] font-bold text-ink-500 uppercase">Packaging</span>
+              <p className="text-sm font-black text-amber-500 mt-0.5">{'★'.repeat(order.feedback.packaging_rating)}{'☆'.repeat(5 - order.feedback.packaging_rating)}</p>
+            </div>
+          </div>
+          {order.feedback.comment && (
+            <p className="mt-3 text-xs sm:text-sm text-ink-800 bg-white p-3 rounded-xl border border-ink-100 italic">
+              "{order.feedback.comment}"
+            </p>
+          )}
+        </div>
+      )}
+
       <div>
         <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Morning Delivery Basket Items ({order.items.length})</h4>
         <ul className="divide-y divide-ink-100 rounded-2xl border border-ink-100 bg-white shadow-soft overflow-hidden">

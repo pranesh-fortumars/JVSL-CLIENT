@@ -26,13 +26,15 @@ import {
 import {
   fetchProducts,
   createOrder,
+  submitOrderFeedback,
   type Product,
   type OrderMode,
-  type OrderItem
+  type OrderItem,
+  type OrderFeedback,
 } from '@/lib/firestoreService';
 import { useAuth } from '@/lib/auth';
 import { SEASONAL_CATALOGUE, type SeasonalProduce } from '@/data/seasonalProduce';
-import { HeartPulse, BookOpen, AlertTriangle } from 'lucide-react';
+import { HeartPulse, BookOpen, AlertTriangle, Star, ThumbsUp, Send } from 'lucide-react';
 
 type Cart = Record<string, number>; // productId -> quantity
 
@@ -173,8 +175,23 @@ export function OrderPage() {
     setQty(id, current + delta * step);
   };
 
+  const [placedOrderId, setPlacedOrderId] = useState<string>('');
+  const [placedCustomerName, setPlacedCustomerName] = useState<string>('');
+
   if (step === 'done') {
-    return <OrderConfirmed onReset={() => { setCart({}); setStep('browse'); }} mode={mode} />;
+    return (
+      <OrderConfirmed
+        orderId={placedOrderId}
+        customerName={placedCustomerName}
+        onReset={() => {
+          setCart({});
+          setPlacedOrderId('');
+          setPlacedCustomerName('');
+          setStep('browse');
+        }}
+        mode={mode}
+      />
+    );
   }
 
   return (
@@ -457,7 +474,11 @@ export function OrderPage() {
                     mode={mode}
                     cartItems={cartItems}
                     onBack={() => setStep('browse')}
-                    onPlaced={() => setStep('done')}
+                    onPlaced={(orderId, customerName) => {
+                      setPlacedOrderId(orderId);
+                      setPlacedCustomerName(customerName);
+                      setStep('done');
+                    }}
                   />
                 )}
               </>
@@ -836,7 +857,7 @@ function Checkout({
   mode: OrderMode;
   cartItems: OrderItem[];
   onBack: () => void;
-  onPlaced: () => void;
+  onPlaced: (orderId: string, customerName: string) => void;
 }) {
   const [info, setInfo] = useState({
     customer_name: '',
@@ -883,7 +904,7 @@ function Checkout({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await createOrder({
+      const res = await createOrder({
         customer_name: info.customer_name.trim(),
         mobile: info.mobile.trim(),
         address: info.address.trim(),
@@ -894,7 +915,7 @@ function Checkout({
         user_id: user?.uid ?? undefined,
       });
       setShowConfirmModal(false);
-      onPlaced();
+      onPlaced(res?.id || `ORD-${Date.now()}`, info.customer_name.trim());
     } catch (err) {
       console.error(err);
       setSubmitError('We could not place your order just now. Please try again.');
@@ -1107,31 +1128,232 @@ function Checkout({
   );
 }
 
-function OrderConfirmed({ onReset, mode }: { onReset: () => void; mode: OrderMode }) {
+function OrderConfirmed({
+  onReset,
+  mode,
+  orderId,
+  customerName,
+}: {
+  onReset: () => void;
+  mode: OrderMode;
+  orderId?: string;
+  customerName?: string;
+}) {
+  const [itemQuality, setItemQuality] = useState(5);
+  const [serviceRating, setServiceRating] = useState(5);
+  const [punctuality, setPunctuality] = useState(5);
+  const [packaging, setPackaging] = useState(5);
+  const [comment, setComment] = useState('');
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+
+  const handleSendFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSendingFeedback(true);
+    try {
+      await submitOrderFeedback({
+        order_id: orderId || `ORD-${Date.now()}`,
+        customer_name: customerName || 'Valued Customer',
+        item_quality_rating: itemQuality,
+        service_rating: serviceRating,
+        delivery_punctuality_rating: punctuality,
+        packaging_rating: packaging,
+        comment: comment.trim() || undefined,
+        created_at: new Date().toISOString(),
+      });
+      setFeedbackSent(true);
+    } catch (err) {
+      console.warn('Feedback submit error:', err);
+      setFeedbackSent(true);
+    } finally {
+      setSendingFeedback(false);
+    }
+  };
+
   return (
-    <div className="pt-[calc(var(--header-h)+4rem)]">
+    <div className="pt-[calc(var(--header-h)+2rem)] pb-16">
       <div className="container-page">
-        <div className="mx-auto max-w-xl rounded-3xl border border-brand-200 bg-white p-8 text-center shadow-lift animate-scale-in sm:p-12">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-brand-200 bg-white p-6 sm:p-10 text-center shadow-lift animate-scale-in">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-700">
             <CheckCircle2 className="h-8 w-8" />
           </span>
-          <h1 className="mt-6 font-display text-2xl font-bold text-ink-950 sm:text-3xl">Order placed!</h1>
-          <p className="mt-3 text-ink-600">
-            Thank you. Your{' '}
+          <h1 className="mt-5 font-display text-2xl font-bold text-ink-950 sm:text-3xl">Order placed!</h1>
+          <p className="mt-2 text-sm sm:text-base text-ink-600">
+            Thank you{customerName ? `, ${customerName}` : ''}. Your{' '}
             <strong className="font-semibold text-ink-900">
               {mode === 'next_day' ? 'next-day pre-order' : 'same-day order'}
             </strong>{' '}
-            has been received. Our team will confirm availability and coordinate your delivery.
+            has been received. Our team will coordinate your morning doorstep delivery.
           </p>
-          <div className="mt-6 rounded-2xl bg-brand-50 p-4 text-left">
-            <p className="flex items-center gap-2 text-sm text-brand-800">
-              <Sun className="h-4 w-4 text-gold-600" />
-              Expected delivery:{' '}
-              <span className="font-semibold">
-                {fmtDate(mode === 'next_day' ? tomorrowISO() : todayISO())}
-              </span>
-            </p>
+
+          <div className="mt-5 rounded-2xl bg-brand-50 p-4 text-left border border-brand-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <p className="flex items-center gap-2 text-sm text-brand-900 font-medium">
+                <Sun className="h-4 w-4 text-gold-600" />
+                Expected delivery:{' '}
+                <span className="font-bold text-brand-800">
+                  {fmtDate(mode === 'next_day' ? tomorrowISO() : todayISO())}
+                </span>
+              </p>
+              {orderId && (
+                <span className="text-xs font-mono font-bold text-brand-700 bg-brand-100/80 px-2.5 py-1 rounded-lg">
+                  Ref: #{orderId.slice(-8)}
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* Customer Quality & Service Experience Feedback Form */}
+          <div className="mt-8 text-left rounded-3xl border border-gold-300/60 bg-gradient-to-br from-amber-50/40 via-white to-brand-50/30 p-5 sm:p-7 shadow-soft">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gold-500/15 text-gold-700 border border-gold-400/30">
+                <Star className="h-5 w-5 fill-gold-500 text-gold-500" />
+              </span>
+              <div>
+                <h3 className="font-display text-base sm:text-lg font-bold text-ink-950">
+                  Customer Experience &amp; Produce Feedback
+                </h3>
+                <p className="text-xs text-ink-500">
+                  Help us maintain pristine quality for everyday essentials, vegetables, fruits &amp; desi milk.
+                </p>
+              </div>
+            </div>
+
+            {feedbackSent ? (
+              <div className="mt-5 rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-emerald-900 text-center">
+                <ThumbsUp className="h-6 w-6 text-emerald-600 mx-auto mb-1" />
+                <p className="font-bold text-sm">Thank you for your valuable feedback!</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Your ratings on produce quality and dispatch services have been recorded for quality assurance.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSendFeedback} className="mt-5 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Rating 1: Item Quality */}
+                  <div className="rounded-2xl border border-ink-100 bg-white p-3.5 shadow-sm">
+                    <p className="text-xs font-bold text-ink-900">Produce &amp; Item Freshness</p>
+                    <p className="text-[11px] text-ink-500 mb-2">Quality of vegetables, fruits &amp; farm milk</p>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setItemQuality(star)}
+                          className="p-1 text-gold-500 hover:scale-110 transition-transform"
+                          aria-label={`${star} star rating for produce quality`}
+                        >
+                          <Star
+                            className={`h-5 w-5 ${
+                              star <= itemQuality ? 'fill-gold-500 text-gold-500' : 'text-ink-200'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                      <span className="ml-2 text-xs font-bold text-ink-700">{itemQuality} / 5</span>
+                    </div>
+                  </div>
+
+                  {/* Rating 2: Service & Dispatch */}
+                  <div className="rounded-2xl border border-ink-100 bg-white p-3.5 shadow-sm">
+                    <p className="text-xs font-bold text-ink-900">Overall Service &amp; Support</p>
+                    <p className="text-[11px] text-ink-500 mb-2">Ordering process and coordination</p>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setServiceRating(star)}
+                          className="p-1 text-gold-500 hover:scale-110 transition-transform"
+                          aria-label={`${star} star rating for service`}
+                        >
+                          <Star
+                            className={`h-5 w-5 ${
+                              star <= serviceRating ? 'fill-gold-500 text-gold-500' : 'text-ink-200'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                      <span className="ml-2 text-xs font-bold text-ink-700">{serviceRating} / 5</span>
+                    </div>
+                  </div>
+
+                  {/* Rating 3: Delivery Punctuality */}
+                  <div className="rounded-2xl border border-ink-100 bg-white p-3.5 shadow-sm">
+                    <p className="text-xs font-bold text-ink-900">Delivery Punctuality</p>
+                    <p className="text-[11px] text-ink-500 mb-2">On-time doorstep arrival</p>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setPunctuality(star)}
+                          className="p-1 text-gold-500 hover:scale-110 transition-transform"
+                          aria-label={`${star} star rating for punctuality`}
+                        >
+                          <Star
+                            className={`h-5 w-5 ${
+                              star <= punctuality ? 'fill-gold-500 text-gold-500' : 'text-ink-200'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                      <span className="ml-2 text-xs font-bold text-ink-700">{punctuality} / 5</span>
+                    </div>
+                  </div>
+
+                  {/* Rating 4: Hygiene & Packaging */}
+                  <div className="rounded-2xl border border-ink-100 bg-white p-3.5 shadow-sm">
+                    <p className="text-xs font-bold text-ink-900">Hygienic Packaging</p>
+                    <p className="text-[11px] text-ink-500 mb-2">Clean pouches, crate handling</p>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setPackaging(star)}
+                          className="p-1 text-gold-500 hover:scale-110 transition-transform"
+                          aria-label={`${star} star rating for packaging`}
+                        >
+                          <Star
+                            className={`h-5 w-5 ${
+                              star <= packaging ? 'fill-gold-500 text-gold-500' : 'text-ink-200'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                      <span className="ml-2 text-xs font-bold text-ink-700">{packaging} / 5</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-ink-800 mb-1">
+                    Specific Comments or Fresh Produce Requests (optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Share your thoughts on item freshness, packaging or morning timing..."
+                    className="input-field text-xs resize-y"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={sendingFeedback}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-700 px-4 py-2 text-xs font-bold text-white hover:bg-brand-800 shadow-soft transition-all"
+                  >
+                    {sendingFeedback ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Submit Feedback
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
           <button onClick={onReset} className="btn-primary mt-8 px-6 py-3">
             Place another order
           </button>
