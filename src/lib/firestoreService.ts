@@ -65,6 +65,7 @@ export type FamilyGroup = {
   household_address: string;
   invite_code: string;
   creator_uid: string;
+  member_uids?: string[];
   members: FamilyMember[];
   created_at: string;
   removal_audit_log?: {
@@ -703,12 +704,13 @@ export async function createFamilyGroup(
   householdAddress: string
 ): Promise<FamilyGroup> {
   const code = 'FAM-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-  const group: FamilyGroup = {
+  const group: FamilyGroup & { member_uids: string[] } = {
     id: 'grp_' + Date.now(),
     household_name: householdName,
     household_address: householdAddress,
     invite_code: code,
     creator_uid: creator.uid,
+    member_uids: [creator.uid],
     members: [
       {
         uid: creator.uid,
@@ -777,9 +779,13 @@ export async function joinFamilyGroupByCode(
       authorized_by: targetGroup.creator_uid,
     };
     targetGroup.members.push(newMember);
+    const updatedMemberUids = Array.from(new Set([...(targetGroup as any).member_uids || [], user.uid]));
 
     try {
-      await updateDoc(doc(db, 'family_groups', targetGroup.id), { members: targetGroup.members });
+      await updateDoc(doc(db, 'family_groups', targetGroup.id), {
+        members: targetGroup.members,
+        member_uids: updatedMemberUids,
+      });
       await setDoc(doc(db, 'profiles', user.uid), { family_group_id: targetGroup.id }, { merge: true });
     } catch (err) {
       console.warn('Firestore update family members notice:', err);
