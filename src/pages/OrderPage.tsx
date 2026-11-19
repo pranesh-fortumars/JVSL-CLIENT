@@ -1057,12 +1057,54 @@ function Checkout({
     }
     if (!info.address.trim()) e.address = 'Please enter your delivery address with DIGIPIN/PIN.';
 
-    // P6: Geofencing validation for Same-Day dispatch (3km radius check)
+    // Geofencing validation for Same-Day dispatch (Strict 3.0 km radius check from Navrangpura Hub: 23.0372° N, 72.5613° E)
     if (mode === 'same_day') {
-      const pinMatch = info.address.match(/\b(380009|380014|380013|380054|380052|380015)\b/);
-      // Operational hub PINs around Navrangpura / Stadium within ~3 km
-      if (!pinMatch && !info.address.includes('NAVRANGPURA') && !info.address.includes('STADIUM') && !info.address.includes('THALTEJ') && !info.address.includes('USMANPURA')) {
-        e.address = 'Same-day emergency orders are restricted strictly to within 3 km of our Navrangpura hub. Please switch to Next-day pre-order for wider city delivery.';
+      const NAVRANGPURA_HUB = { lat: 23.0372, lng: 72.5613 };
+      
+      // Known centroid coordinates for Ahmedabad PIN codes surrounding the Navrangpura hub
+      const AHMEDABAD_PIN_COORDS: Record<string, { lat: number; lng: number }> = {
+        '380009': { lat: 23.0372, lng: 72.5613 }, // Navrangpura (~0.0 km)
+        '380014': { lat: 23.0410, lng: 72.5700 }, // Usmanpura (~1.0 km)
+        '380013': { lat: 23.0520, lng: 72.5650 }, // Vadaj (~1.7 km)
+        '380006': { lat: 23.0180, lng: 72.5560 }, // Ellisbridge (~2.2 km)
+        '380015': { lat: 23.0250, lng: 72.5350 }, // Ambawadi / Polytechnic (~2.8 km)
+        '380052': { lat: 23.0550, lng: 72.5300 }, // Memnagar (~3.4 km) - outside 3km
+        '380054': { lat: 23.0500, lng: 72.5150 }, // Thaltej (~4.9 km) - outside 3km
+      };
+
+      const calculateHaversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      };
+
+      const pinMatch = info.address.match(/\b(380\d{3})\b/);
+      let isWithin3Km = false;
+      let calculatedDistance = 0;
+
+      if (pinMatch && AHMEDABAD_PIN_COORDS[pinMatch[1]]) {
+        const coords = AHMEDABAD_PIN_COORDS[pinMatch[1]];
+        calculatedDistance = calculateHaversineKm(NAVRANGPURA_HUB.lat, NAVRANGPURA_HUB.lng, coords.lat, coords.lng);
+        isWithin3Km = calculatedDistance <= 3.0;
+      } else if (
+        info.address.toUpperCase().includes('NAVRANGPURA') ||
+        info.address.toUpperCase().includes('LAKUDI') ||
+        info.address.toUpperCase().includes('STADIUM') ||
+        info.address.toUpperCase().includes('USMANPURA')
+      ) {
+        isWithin3Km = true;
+      }
+
+      if (!isWithin3Km) {
+        e.address = `Same-day emergency orders are restricted strictly to within 3.0 km of our Navrangpura hub (${calculatedDistance > 0 ? calculatedDistance.toFixed(1) + ' km away' : 'outside service boundary'}). Please switch to Next-Day Pre-Order for wider city coverage.`;
       }
     }
 

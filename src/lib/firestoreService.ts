@@ -13,7 +13,6 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { supabase, isSupabaseConfigured } from './supabase';
 import { isMockModeActive, MOCK_ORDERS, MOCK_SURVEYS, MOCK_ENQUIRIES, MOCK_PROFILES } from './mockData';
 
 export type UserAddress = {
@@ -216,96 +215,42 @@ export async function fetchProducts(): Promise<Product[]> {
       ...(docSnap.data() as Omit<Product, 'id'>),
     }));
   } catch (err) {
-    console.warn('Firestore fetch products failed, checking Supabase/fallback:', err);
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('display_order', { ascending: true });
-        if (!error && data && data.length > 0) {
-          return data as Product[];
-        }
-      } catch (sbErr) {
-        console.warn('Supabase product fetch fallback error:', sbErr);
-      }
-    }
+    console.warn('Firestore fetch products failed, using fallback:', err);
     return INITIAL_PRODUCTS.map((p, idx) => ({ id: `local-${idx}`, ...p }));
   }
 }
 
 /**
- * Dual database submission for Enquiries:
- * Stores in Firestore AND also syncs with Supabase if configured.
+ * Direct submission for Enquiries to Firestore
  */
 export async function submitEnquiry(enquiry: Enquiry) {
-  const firestorePromise = addDoc(collection(db, 'enquiries'), {
+  const firestoreRes = await addDoc(collection(db, 'enquiries'), {
     ...enquiry,
     status: 'new',
     created_at: new Date().toISOString(),
     timestamp: serverTimestamp(),
   });
-
-  let supabasePromise = Promise.resolve();
-  if (isSupabaseConfigured) {
-    supabasePromise = Promise.resolve(
-      supabase.from('enquiries').insert({
-        name: enquiry.name.trim(),
-        email: enquiry.email?.trim() || null,
-        phone: enquiry.phone.trim(),
-        subject: enquiry.subject,
-        message: enquiry.message.trim(),
-      })
-    ).then(({ error }) => {
-      if (error) console.warn('Dual-write to Supabase enquiries warning:', error);
-    }).catch((err) => console.warn('Supabase enquiry error:', err));
-  }
-
-  const [firestoreRes] = await Promise.all([firestorePromise, supabasePromise]);
   return firestoreRes;
 }
 
 /**
- * Dual database submission for Surveys:
- * Stores in Firestore AND also syncs with Supabase if configured.
+ * Direct submission for Surveys to Firestore
  */
 export async function submitSurvey(survey: SurveySubmission) {
-  const firestorePromise = addDoc(collection(db, 'survey_submissions'), {
+  const firestoreRes = await addDoc(collection(db, 'survey_submissions'), {
     ...survey,
     status: 'new',
     created_at: new Date().toISOString(),
     timestamp: serverTimestamp(),
   });
-
-  let supabasePromise = Promise.resolve();
-  if (isSupabaseConfigured) {
-    supabasePromise = Promise.resolve(
-      supabase.from('survey_submissions').insert({
-        customer_name: survey.customer_name.trim(),
-        mobile: survey.mobile.trim(),
-        address: survey.address.trim(),
-        family_members: Number(survey.family_members),
-        delivery_preference: survey.delivery_preference,
-        selections: survey.selections,
-        notes: survey.notes?.trim() || null,
-      })
-    ).then(({ error }) => {
-      if (error) console.warn('Dual-write to Supabase survey warning:', error);
-    }).catch((err) => console.warn('Supabase survey error:', err));
-  }
-
-  const [firestoreRes] = await Promise.all([firestorePromise, supabasePromise]);
   return firestoreRes;
 }
 
 /**
- * Dual database submission for Orders:
- * Stores in Firestore AND also syncs with Supabase if configured.
- * Safely handles fallback so a network/permission error in one does not halt the flow.
+ * Authoritative Firestore Submission for Orders
  */
 export async function createOrder(order: Order) {
   let createdId: string = `ORD-${Date.now()}`;
-  let firestoreSuccess = false;
 
   try {
     const docRef = await addDoc(collection(db, 'orders'), {
@@ -316,42 +261,43 @@ export async function createOrder(order: Order) {
     });
     if (docRef?.id) {
       createdId = docRef.id;
-      firestoreSuccess = true;
     }
   } catch (err) {
-    console.warn('Firestore createOrder notice (will proceed with local storage & Supabase):', err);
+    console.warn('Firestore createOrder notice:', err);
   }
 
-  // Backup sync to local storage cache so orders display reliably in local tests/offline
-  try {
-    const cachedOrders = JSON.parse(localStorage.getItem('jvlsd_user_orders') || '[]');
-    const newEntry: OrderRow = {
-      id: createdId,
-      ...order,
-      status: 'new',
-      created_at: new Date().toISOString(),
-    };
-    localStorage.setItem('jvlsd_user_orders', JSON.stringify([newEntry, ...cachedOrders]));
-  } catch (e) {}
-
-  if (isSupabaseConfigured) {
+  // Check if this is the user's first order, and award the ₹50 promotional balance
+  if (order.user_id) {
     try {
-      await supabase.from('orders').insert({
-        customer_name: order.customer_name.trim(),
-        mobile: order.mobile.trim(),
-        address: order.address.trim(),
-        mode: order.mode,
-        items: order.items,
-        expected_delivery: order.expected_delivery,
-        notes: order.notes?.trim() || null,
-        user_id: order.user_id || null,
-      });
-    } catch (err) {
-      console.warn('Supabase createOrder notice:', err);
+      const userOrdersSnap = await getDocs(query(collection(db, 'orders'), where('user_id', '==', order.user_id)));
+      // If this is their 1st qualifying order (snap docs length <= 1)
+      if (userOrdersSnap.docs.length <= 1) {
+        const userFinRef = doc(db, 'user_financials', order.user_id);
+        const finSnap = await getDoc(userFinRef);
+        const currentPromo = finSnap.exists() ? (finSnap.data().promo_balance || 0) : 0;
+        await setDoc(userFinRef, {
+          promo_balance: currentPromo + 50,
+          promo_granted_at: new Date().toISOString(),
+          last_updated: new Date().toISOString(),
+        }, { merge: true });
+
+        // Record in wallet ledger
+        await addDoc(collection(db, 'wallet_ledger'), {
+          id: 'promo_' + Date.now(),
+          user_id: order.user_id,
+          type: 'promo_credit',
+          amount: 50,
+          description: 'First Qualifying Order Promotional Credit (+₹50)',
+          created_at: new Date().toISOString(),
+          order_id: createdId,
+        });
+      }
+    } catch (promoErr) {
+      console.warn('First order promo grant notice:', promoErr);
     }
   }
 
-  // P9: Trigger Master Franchisee ₹1 backend calculation ledger entry for qualifying registered member order
+  // Trigger Master Franchisee ₹1 backend royalty ledger calculation for qualifying member
   try {
     await recordMasterFranchiseeRoyalty({
       id: createdId,
@@ -410,7 +356,6 @@ export async function fetchOrders(userId?: string): Promise<OrderRow[]> {
     const colRef = collection(db, 'orders');
     let q;
     if (userId) {
-      // Query without multi-field composite index ordering to avoid index creation error
       q = query(colRef, where('user_id', '==', userId));
     } else {
       q = query(colRef, orderBy('created_at', 'desc'));
@@ -422,44 +367,16 @@ export async function fetchOrders(userId?: string): Promise<OrderRow[]> {
       ...(d.data() as Omit<OrderRow, 'id'>),
     }));
 
-    // In-memory sort by created_at descending (no Firestore composite index required)
     fsOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    if (fsOrders.length > 0) return fsOrders;
-
-    // Check localStorage cache if Firestore has no rows
-    try {
-      const cached = JSON.parse(localStorage.getItem('jvlsd_user_orders') || '[]');
-      if (Array.isArray(cached) && cached.length > 0) {
-        if (userId) return cached.filter((o: any) => o.user_id === userId);
-        return cached;
-      }
-    } catch (e) {}
-
-    if (isSupabaseConfigured) {
-      let sbQuery = supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (userId) {
-        sbQuery = sbQuery.eq('user_id', userId);
-      }
-      const { data, error } = await sbQuery;
-      if (!error && data) {
-        return data as OrderRow[];
-      }
-    }
-
     return fsOrders;
   } catch (err) {
-    console.warn('Error in fetchOrders, trying Supabase fallback:', err);
-    if (isSupabaseConfigured) {
-      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (data) return data as OrderRow[];
-    }
+    console.warn('Error in fetchOrders:', err);
     return [];
   }
 }
 
 /**
- * Fetch surveys combining Firestore and Supabase if active
+ * Fetch surveys directly from Firestore
  */
 export async function fetchSurveys(): Promise<SurveyRow[]> {
   if (isMockModeActive()) {
@@ -469,34 +386,18 @@ export async function fetchSurveys(): Promise<SurveyRow[]> {
     const colRef = collection(db, 'survey_submissions');
     const q = query(colRef, orderBy('created_at', 'desc'));
     const snap = await getDocs(q);
-    const fsSurveys = snap.docs.map((d) => ({
+    return snap.docs.map((d) => ({
       id: d.id,
       ...(d.data() as Omit<SurveyRow, 'id'>),
     }));
-
-    if (fsSurveys.length > 0) return fsSurveys;
-
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('survey_submissions')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) return data as SurveyRow[];
-    }
-
-    return fsSurveys;
   } catch (err) {
-    console.warn('Error in fetchSurveys, trying Supabase fallback:', err);
-    if (isSupabaseConfigured) {
-      const { data } = await supabase.from('survey_submissions').select('*').order('created_at', { ascending: false });
-      if (data) return data as SurveyRow[];
-    }
+    console.warn('Error in fetchSurveys:', err);
     return [];
   }
 }
 
 /**
- * Fetch enquiries combining Firestore and Supabase if active
+ * Fetch enquiries directly from Firestore
  */
 export async function fetchEnquiries(): Promise<EnquiryRow[]> {
   if (isMockModeActive()) {
@@ -506,92 +407,47 @@ export async function fetchEnquiries(): Promise<EnquiryRow[]> {
     const colRef = collection(db, 'enquiries');
     const q = query(colRef, orderBy('created_at', 'desc'));
     const snap = await getDocs(q);
-    const fsEnquiries = snap.docs.map((d) => ({
+    return snap.docs.map((d) => ({
       id: d.id,
       ...(d.data() as Omit<EnquiryRow, 'id'>),
     }));
-
-    if (fsEnquiries.length > 0) return fsEnquiries;
-
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('enquiries')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) return data as EnquiryRow[];
-    }
-
-    return fsEnquiries;
   } catch (err) {
-    console.warn('Error in fetchEnquiries, trying Supabase fallback:', err);
-    if (isSupabaseConfigured) {
-      const { data } = await supabase.from('enquiries').select('*').order('created_at', { ascending: false });
-      if (data) return data as EnquiryRow[];
-    }
+    console.warn('Error in fetchEnquiries:', err);
     return [];
   }
 }
 
 /**
- * Update order status across both databases
+ * Update order status in Firestore
  */
 export async function updateOrderStatus(id: string, status: OrderRow['status']) {
   if (id.startsWith('MOCK-')) {
-    // In mock simulation mode, resolve immediately without throwing document not found
     return;
   }
-  const fsPromise = updateDoc(doc(db, 'orders', id), { status }).catch((e) =>
+  await updateDoc(doc(db, 'orders', id), { status }).catch((e) =>
     console.warn('Firestore updateOrderStatus notice:', e)
   );
-
-  let sbPromise = Promise.resolve();
-  if (isSupabaseConfigured) {
-    sbPromise = Promise.resolve(supabase.from('orders').update({ status }).eq('id', id)).then(
-      () => {}
-    ).catch((e) => console.warn('Supabase updateOrderStatus notice:', e));
-  }
-
-  await Promise.all([fsPromise, sbPromise]);
 }
 
 /**
- * Update survey status across both databases
+ * Update survey status in Firestore
  */
 export async function updateSurveyStatus(id: string, status: SurveyRow['status']) {
   if (id.startsWith('MOCK-')) {
-    // In mock simulation mode, resolve immediately without throwing document not found
     return;
   }
-  const fsPromise = updateDoc(doc(db, 'survey_submissions', id), { status }).catch((e) =>
+  await updateDoc(doc(db, 'survey_submissions', id), { status }).catch((e) =>
     console.warn('Firestore updateSurveyStatus notice:', e)
   );
-
-  let sbPromise = Promise.resolve();
-  if (isSupabaseConfigured) {
-    sbPromise = Promise.resolve(supabase.from('survey_submissions').update({ status }).eq('id', id)).then(
-      () => {}
-    ).catch((e) => console.warn('Supabase updateSurveyStatus notice:', e));
-  }
-
-  await Promise.all([fsPromise, sbPromise]);
 }
 
 /**
- * Update enquiry status across both databases
+ * Update enquiry status in Firestore
  */
 export async function updateEnquiryStatus(id: string, status: EnquiryRow['status']) {
-  const fsPromise = updateDoc(doc(db, 'enquiries', id), { status }).catch((e) =>
+  await updateDoc(doc(db, 'enquiries', id), { status }).catch((e) =>
     console.warn('Firestore updateEnquiryStatus notice:', e)
   );
-
-  let sbPromise = Promise.resolve();
-  if (isSupabaseConfigured) {
-    sbPromise = Promise.resolve(supabase.from('enquiries').update({ status }).eq('id', id)).then(
-      () => {}
-    ).catch((e) => console.warn('Supabase updateEnquiryStatus notice:', e));
-  }
-
-  await Promise.all([fsPromise, sbPromise]);
 }
 
 /**
@@ -601,7 +457,6 @@ export async function createManagedUser(input: { email: string; full_name: strin
   const docId = input.email.replace(/[^a-zA-Z0-9]/g, '_');
   const ref = doc(db, 'profiles', docId);
 
-  // 1. Attempt Firestore write with soft catch to prevent UI exception
   try {
     await setDoc(ref, {
       email: input.email,
@@ -610,33 +465,7 @@ export async function createManagedUser(input: { email: string; full_name: strin
       created_at: new Date().toISOString(),
     }, { merge: true });
   } catch (fsErr: any) {
-    console.warn('Firestore write permission notice (will save to local memory/Supabase):', fsErr?.message || fsErr);
-  }
-
-  // 2. Also sync to Supabase if configured
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('profiles').upsert({
-        id: docId,
-        email: input.email,
-        full_name: input.full_name,
-        role: input.role,
-      });
-    } catch (sbErr) {
-      console.warn('Supabase upsert notice:', sbErr);
-    }
-  }
-
-  // 3. Keep in local cache so user appears immediately in the table
-  try {
-    const cached = JSON.parse(localStorage.getItem('jvlsd_managed_profiles') || '[]');
-    const updated = [
-      ...cached.filter((p: any) => p.email !== input.email),
-      { id: docId, email: input.email, full_name: input.full_name, role: input.role },
-    ];
-    localStorage.setItem('jvlsd_managed_profiles', JSON.stringify(updated));
-  } catch (e) {
-    // Ignore localStorage restrictions
+    console.warn('Firestore write permission notice:', fsErr?.message || fsErr);
   }
 }
 
@@ -652,18 +481,8 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
     const snap = await getDocs(collection(db, 'profiles'));
     list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Profile, 'id'>) }));
   } catch (err) {
-    console.warn('Firestore fetchAllProfiles notice, using cached list:', err);
+    console.warn('Firestore fetchAllProfiles notice:', err);
   }
-
-  // Combine with localStorage cache
-  try {
-    const cached = JSON.parse(localStorage.getItem('jvlsd_managed_profiles') || '[]');
-    for (const c of cached) {
-      if (!list.some((p) => p.email.toLowerCase() === c.email.toLowerCase())) {
-        list.push(c);
-      }
-    }
-  } catch (e) {}
 
   // Fallback defaults if list is completely empty
   if (list.length === 0) {
@@ -686,12 +505,6 @@ export async function updateUserRole(userId: string, role: Profile['role']): Pro
     await setDoc(ref, { role }, { merge: true });
   } catch (e) {
     console.warn('updateUserRole error:', e);
-  }
-
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('profiles').update({ role }).eq('id', userId);
-    } catch (e) {}
   }
 }
 
@@ -868,6 +681,14 @@ export async function confirmFamilyMemberRemoval(
         log.status = 'completed';
       }
     }
+    // Atomically unlink the family group ID from the member's profile
+    try {
+      await updateDoc(doc(db, 'profiles', targetMemberUid), {
+        family_group_id: null,
+      });
+    } catch (profErr) {
+      console.warn('Unlink profile from family_group_id notice:', profErr);
+    }
   } else {
     delete member.removal_pending;
     delete member.removal_requested_by;
@@ -917,6 +738,66 @@ export type LoyaltyLedgerEntry = {
   order_id?: string;
 };
 
+export type DiscountVoucher = {
+  id: string;
+  user_id: string;
+  amount: number; // e.g. ₹200
+  source: 'discount_refund' | 'promotional_grant';
+  issue_date: string;
+  expiry_date: string; // 60 days from issue
+  is_redeemed: boolean;
+  redeemed_order_id?: string;
+  redeemed_at?: string;
+};
+
+/**
+ * Fetch active, non-expired ₹200 discount refund vouchers for a user
+ */
+export async function fetchUserDiscountVouchers(userId: string): Promise<DiscountVoucher[]> {
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'discount_vouchers'), where('user_id', '==', userId))
+    );
+    const now = new Date().toISOString();
+    return snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<DiscountVoucher, 'id'>) }))
+      .filter((v) => !v.is_redeemed && v.expiry_date > now);
+  } catch (err) {
+    console.warn('fetchUserDiscountVouchers notice:', err);
+    return [];
+  }
+}
+
+/**
+ * Issue a ₹200 discount refund voucher valid for 60 days (2 months)
+ */
+export async function issueDiscountRefundVoucher(userId: string, amount: number = 200): Promise<DiscountVoucher> {
+  const issueDate = new Date();
+  const expiryDate = new Date(issueDate.getTime() + 60 * 24 * 60 * 60 * 1000); // 60 days
+  const voucher: Omit<DiscountVoucher, 'id'> = {
+    user_id: userId,
+    amount,
+    source: 'discount_refund',
+    issue_date: issueDate.toISOString(),
+    expiry_date: expiryDate.toISOString(),
+    is_redeemed: false,
+  };
+
+  const ref = await addDoc(collection(db, 'discount_vouchers'), voucher);
+  return { id: ref.id, ...voucher };
+}
+
+/**
+ * Redeem a discount refund voucher against an order
+ */
+export async function redeemDiscountVoucher(voucherId: string, orderId: string): Promise<void> {
+  await updateDoc(doc(db, 'discount_vouchers', voucherId), {
+    is_redeemed: true,
+    redeemed_order_id: orderId,
+    redeemed_at: new Date().toISOString(),
+  });
+}
+
 export type MasterFranchiseeRoyaltyEntry = {
   id: string; // Idempotency key: MF_{member_id}_{date}
   member_id: string;
@@ -944,12 +825,16 @@ export type FamilyExpenseProposal = {
 };
 
 /**
- * P8: Fetch or Initialize Real User Financial State (Wallet & Loyalty)
+ * Authoritative User Financial State (Wallet, Loyalty & Promotional Credits)
+ * Client Rule:
+ * - Default Promo Balance starts at ₹0.
+ * - ₹50 is credited strictly AFTER the first qualifying order is placed.
+ * - Wallet and Loyalty balances are pulled from Firestore, not localStorage.
  */
 export async function fetchUserFinancials(userId: string) {
-  let walletBalance = 1000; // Monthly subscription plan active
-  let loyaltyPoints = 85;
-  let promoBalance = 300; // ₹300 promo discount with 15-day validity
+  let walletBalance = 0;
+  let loyaltyPoints = 0;
+  let promoBalance = 0;
   let transactions: WalletLedgerEntry[] = [];
   let loyaltyHistory: LoyaltyLedgerEntry[] = [];
 
@@ -957,26 +842,40 @@ export async function fetchUserFinancials(userId: string) {
     const snap = await getDoc(doc(db, 'user_financials', userId));
     if (snap.exists()) {
       const data = snap.data();
-      walletBalance = data.wallet_balance ?? walletBalance;
-      loyaltyPoints = data.loyalty_points ?? loyaltyPoints;
-      promoBalance = data.promo_balance ?? promoBalance;
+      walletBalance = data.wallet_balance ?? 0;
+      loyaltyPoints = data.loyalty_points ?? 0;
+      promoBalance = data.promo_balance ?? 0;
     }
   } catch (err) {
     console.warn('Firestore fetchUserFinancials notice:', err);
   }
 
-  // Load from local ledger cache
+  // Fetch verified ledger history directly from Firestore
   try {
-    const key = `jvlsd_wallet_${userId}`;
-    const stored = JSON.parse(localStorage.getItem(key) || 'null');
-    if (stored) {
-      walletBalance = stored.walletBalance ?? walletBalance;
-      loyaltyPoints = stored.loyaltyPoints ?? loyaltyPoints;
-      promoBalance = stored.promoBalance ?? promoBalance;
-      transactions = stored.transactions || [];
-      loyaltyHistory = stored.loyaltyHistory || [];
-    }
-  } catch (e) {}
+    const walletSnap = await getDocs(
+      query(collection(db, 'wallet_ledger'), where('user_id', '==', userId))
+    );
+    transactions = walletSnap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<WalletLedgerEntry, 'id'>),
+    }));
+    transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  } catch (wErr) {
+    console.warn('Firestore wallet_ledger fetch notice:', wErr);
+  }
+
+  try {
+    const loyaltySnap = await getDocs(
+      query(collection(db, 'loyalty_ledger'), where('user_id', '==', userId))
+    );
+    loyaltyHistory = loyaltySnap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<LoyaltyLedgerEntry, 'id'>),
+    }));
+    loyaltyHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  } catch (lErr) {
+    console.warn('Firestore loyalty_ledger fetch notice:', lErr);
+  }
 
   return {
     walletBalance,
@@ -1251,18 +1150,6 @@ export async function deleteUserCompletely(userId: string, email?: string): Prom
       await Promise.all(deleteSurveyPromises);
     } catch (err) {
       console.warn('Error deleting user surveys:', err);
-    }
-  }
-
-  // 4. Also purge from Supabase if configured
-  if (isSupabaseConfigured) {
-    try {
-      await Promise.all([
-        supabase.from('profiles').delete().eq('id', userId),
-        supabase.from('orders').delete().eq('user_id', userId),
-      ]);
-    } catch (err) {
-      console.warn('Supabase deleteUser notice:', err);
     }
   }
 }

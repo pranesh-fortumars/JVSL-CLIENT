@@ -48,7 +48,7 @@ function friendlyAuthError(codeOrMessage: string) {
   return AUTH_MESSAGES[codeOrMessage] ?? 'Authentication failed. Please verify your credentials and try again.';
 }
 
-// Super Admin accounts reserved for the platform owner
+// Reserved staff email identifiers (used for initial configuration reference)
 export const SUPER_ADMIN_EMAILS = [
   'owner@jvlsd.in',
   'superadmin@jvlsd.in',
@@ -70,33 +70,24 @@ export const ADMIN_EMAILS = [
 export function isStaffAdminEmail(email?: string | null): boolean {
   if (!email) return false;
   const e = email.toLowerCase().trim();
-  return isSuperAdminEmail(e) || ADMIN_EMAILS.includes(e) || (e.endsWith('@jvlsd.in') && !e.startsWith('customer'));
+  return isSuperAdminEmail(e) || ADMIN_EMAILS.includes(e);
 }
 
 async function getOrInitProfile(user: User): Promise<Profile> {
   const ref = doc(db, 'profiles', user.uid);
   const snap = await getDoc(ref);
-  const emailLower = (user.email || '').toLowerCase().trim();
-  const isSuper = isSuperAdminEmail(emailLower);
-  const isAdmin = isStaffAdminEmail(emailLower);
-
-  const defaultRole: Profile['role'] = isSuper ? 'superadmin' : (isAdmin ? 'admin' : 'customer');
 
   if (snap.exists()) {
     const existing = snap.data() as Omit<Profile, 'id'>;
-    // Explicitly preserve saved roles unless an owner/admin email needs an upgrade
-    if (isSuper && existing.role !== 'superadmin') {
-      await setDoc(ref, { role: 'superadmin' }, { merge: true });
-      return { id: user.uid, ...existing, role: 'superadmin' };
-    }
     return { id: user.uid, ...existing };
   }
   
+  // New sign-ups are strictly 'customer' by default. Staff promotion must occur via verified admin delegation.
   const newProfile: Profile = {
     id: user.uid,
     email: user.email || '',
-    full_name: user.displayName || (isSuper ? 'Master Super Admin' : null),
-    role: defaultRole,
+    full_name: user.displayName || null,
+    role: 'customer',
   };
   await setDoc(ref, newProfile, { merge: true });
   return newProfile;
@@ -116,17 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(p);
         } catch (err) {
           console.warn('Could not retrieve profile from firestore:', err);
-          const emailLower = (nextUser.email || '').toLowerCase().trim();
-          const role: Profile['role'] = isSuperAdminEmail(emailLower)
-            ? 'superadmin'
-            : isStaffAdminEmail(emailLower)
-            ? 'admin'
-            : 'customer';
           setProfile({
             id: nextUser.uid,
             email: nextUser.email || '',
-            full_name: nextUser.displayName || (role === 'superadmin' ? 'Master Super Admin' : null),
-            role,
+            full_name: nextUser.displayName || null,
+            role: 'customer',
           });
         }
       } else {
@@ -149,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: res.user.uid,
         email: input.email,
         full_name: input.fullName,
-        role: isSuperAdminEmail(input.email) ? 'superadmin' : isStaffAdminEmail(input.email) ? 'admin' : 'customer',
+        role: 'customer',
         mobile: input.mobile,
         country_code: input.countryCode || '+91',
         landline: input.landline,

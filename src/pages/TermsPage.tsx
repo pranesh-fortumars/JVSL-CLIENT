@@ -52,11 +52,13 @@ export function TermsPage() {
             </section>
 
             <section>
-              <h2 className="font-display text-lg font-bold text-ink-900">3. Wallet, Subscriptions &amp; Discounts</h2>
+              <h2 className="font-display text-lg font-bold text-ink-900">3. Wallet, Discounts &amp; Subscriptions</h2>
               <ul className="mt-2 list-disc pl-5 space-y-1 text-ink-600">
-                <li>Prepaid wallet reloads require a minimum of ₹200.</li>
-                <li>Monthly subscription counters (₹1,000 plan) grant promotional discounts up to ₹50 per order within a ₹300/15-day limit.</li>
-                <li>Loyalty points (1 pt = ₹1) require a minimum qualifying balance of 75 points, redeemable up to 5 points per bill while maintaining a 20-point minimum retention floor.</li>
+                <li>Prepaid wallet reloads require a minimum of ₹1,000 for the initial load. When your balance reaches ₹300, subsequent top-ups must be at least ₹300.</li>
+                <li>A promotional balance of ₹50 is credited to your account upon successful placement of your first qualifying order.</li>
+                <li>Active members placing at least 2 orders within a calendar month enjoy a 20% discount on subsequent eligible orders, and those placing at least 4 orders enjoy a 30% discount.</li>
+                <li>Promotional discount refund amounts (₹200) carry a validity of 60 days (two months) from the date of issuance.</li>
+                <li>Loyalty points (1 pt = ₹1) can be redeemed against qualifying grocery deliveries subject to platform redemption ceilings.</li>
               </ul>
             </section>
 

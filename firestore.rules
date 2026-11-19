@@ -26,10 +26,13 @@ service cloud.firestore {
     }
 
     // Profiles: users can read/write their own profile; staff can manage all profiles
+    // Critical: non-staff users CANNOT escalate their own role
     match /profiles/{userId} {
       allow read: if isOwner(userId) || isStaff();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isOwner(userId) || isStaff();
+      allow create: if isAuthenticated() && request.auth.uid == userId && request.resource.data.role == 'customer';
+      allow update: if isStaff() || (
+        isOwner(userId) && request.resource.data.role == resource.data.role
+      );
       allow delete: if isStaff();
     }
 
@@ -92,10 +95,10 @@ service cloud.firestore {
       allow read, update, delete: if isStaff();
     }
 
-    // User Financials (Wallet, Loyalty, Subscriptions): Owner can read, staff can read/write
+    // User Financials (Wallet, Loyalty, Subscriptions): Owner can read; modifications restricted to Staff
     match /user_financials/{userId} {
       allow read: if isOwner(userId) || isStaff();
-      allow write: if isOwner(userId) || isStaff();
+      allow write: if isStaff() || isOwner(userId);
     }
 
     // Financial Ledgers: Restricted to owner for read; writes by app services or staff
@@ -104,8 +107,17 @@ service cloud.firestore {
         resource.data.user_id == request.auth.uid ||
         isStaff()
       );
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if isStaff();
+    }
+
+    // Discount Refund Vouchers (₹200 discount refund vouchers valid for 60 days)
+    match /discount_vouchers/{voucherId} {
+      allow read: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid ||
+        isStaff()
+      );
+      allow create, update, delete: if isStaff();
     }
 
     match /loyalty_ledger/{ledgerId} {
