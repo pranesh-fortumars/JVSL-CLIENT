@@ -54,6 +54,9 @@ export type FamilyMember = {
   address_locked: boolean;
   joined_at: string;
   authorized_by?: string;
+  removal_pending?: boolean;
+  removal_requested_by?: string;
+  removal_reason?: string;
 };
 
 export type FamilyGroup = {
@@ -64,6 +67,14 @@ export type FamilyGroup = {
   creator_uid: string;
   members: FamilyMember[];
   created_at: string;
+  removal_audit_log?: {
+    id: string;
+    target_uid: string;
+    requested_by_uid: string;
+    confirmed_by_target: boolean;
+    timestamp: string;
+    status: 'pending_target_confirmation' | 'completed' | 'declined';
+  }[];
 };
 
 export type Product = {
@@ -778,6 +789,107 @@ export async function joinFamilyGroupByCode(
   return targetGroup;
 }
 
+/**
+ * B: Request Family Member Removal (Two-Party Mutual Confirmation Rule)
+ * Requires both the requester and the member being removed to confirm.
+ */
+export async function requestFamilyMemberRemoval(
+  groupId: string,
+  requestedByUid: string,
+  targetMemberUid: string,
+  reason: string = 'Household separation request'
+): Promise<void> {
+  const group = await fetchFamilyGroup(groupId);
+  if (!group) throw new Error('Family group not found');
+
+  const member = group.members.find((m) => m.uid === targetMemberUid);
+  if (!member) throw new Error('Member not found in family group');
+
+  member.removal_pending = true;
+  member.removal_requested_by = requestedByUid;
+  member.removal_reason = reason;
+
+  const logEntry = {
+    id: `rem_${Date.now()}`,
+    target_uid: targetMemberUid,
+    requested_by_uid: requestedByUid,
+    confirmed_by_target: requestedByUid === targetMemberUid, // auto-confirm if self-removal
+    timestamp: new Date().toISOString(),
+    status: (requestedByUid === targetMemberUid
+      ? 'completed'
+      : 'pending_target_confirmation') as 'pending_target_confirmation' | 'completed' | 'declined',
+  };
+
+  group.removal_audit_log = [logEntry, ...(group.removal_audit_log || [])];
+
+  if (logEntry.status === 'completed') {
+    group.members = group.members.filter((m) => m.uid !== targetMemberUid);
+  }
+
+  try {
+    await updateDoc(doc(db, 'family_groups', groupId), {
+      members: group.members,
+      removal_audit_log: group.removal_audit_log,
+    });
+  } catch (e) {
+    console.warn('requestFamilyMemberRemoval notice:', e);
+  }
+
+  try {
+    const list: FamilyGroup[] = JSON.parse(localStorage.getItem('jvlsd_family_groups') || '[]');
+    const updated = list.map((g) => (g.id === groupId ? group : g));
+    localStorage.setItem('jvlsd_family_groups', JSON.stringify(updated));
+  } catch (e) {}
+}
+
+export async function confirmFamilyMemberRemoval(
+  groupId: string,
+  targetMemberUid: string,
+  accept: boolean
+): Promise<void> {
+  const group = await fetchFamilyGroup(groupId);
+  if (!group) throw new Error('Family group not found');
+
+  const member = group.members.find((m) => m.uid === targetMemberUid);
+  if (!member) throw new Error('Member not found in family group');
+
+  if (accept) {
+    group.members = group.members.filter((m) => m.uid !== targetMemberUid);
+    if (group.removal_audit_log && group.removal_audit_log.length > 0) {
+      const log = group.removal_audit_log.find((l) => l.target_uid === targetMemberUid);
+      if (log) {
+        log.confirmed_by_target = true;
+        log.status = 'completed';
+      }
+    }
+  } else {
+    delete member.removal_pending;
+    delete member.removal_requested_by;
+    delete member.removal_reason;
+    if (group.removal_audit_log && group.removal_audit_log.length > 0) {
+      const log = group.removal_audit_log.find((l) => l.target_uid === targetMemberUid);
+      if (log) {
+        log.status = 'declined';
+      }
+    }
+  }
+
+  try {
+    await updateDoc(doc(db, 'family_groups', groupId), {
+      members: group.members,
+      removal_audit_log: group.removal_audit_log,
+    });
+  } catch (e) {
+    console.warn('confirmFamilyMemberRemoval notice:', e);
+  }
+
+  try {
+    const list: FamilyGroup[] = JSON.parse(localStorage.getItem('jvlsd_family_groups') || '[]');
+    const updated = list.map((g) => (g.id === groupId ? group : g));
+    localStorage.setItem('jvlsd_family_groups', JSON.stringify(updated));
+  } catch (e) {}
+}
+
 export type WalletLedgerEntry = {
   id: string;
   user_id: string;
@@ -870,14 +982,29 @@ export async function fetchUserFinancials(userId: string) {
 }
 
 /**
- * P8: Process Wallet Reload (Min ₹200)
+ * P8 & F: Process Wallet Reload with Client Rules:
+ * - Initial wallet loading minimum: ₹1,000.
+ * - When balance reaches ₹300, subsequent loading can be for any amount above ₹300.
  */
-export async function reloadUserWallet(userId: string, amount: number): Promise<number> {
-  if (amount < 200) {
-    throw new Error('Minimum wallet reload amount is ₹200.');
+export async function reloadUserWallet(
+  userId: string,
+  amount: number,
+  isInitialLoad: boolean = false
+): Promise<number> {
+  const current = await fetchUserFinancials(userId);
+
+  if (isInitialLoad || current.transactions.filter(t => t.type === 'reload').length === 0) {
+    if (amount < 1000) {
+      throw new Error('Initial wallet loading requires a minimum of ₹1,000.');
+    }
+  } else {
+    // If balance has dropped to or below ₹300, subsequent loading must be at least ₹300
+    const minSubsequent = current.walletBalance <= 300 ? 300 : 200;
+    if (amount < minSubsequent) {
+      throw new Error(`Minimum subsequent wallet reload amount is ₹${minSubsequent}.`);
+    }
   }
 
-  const current = await fetchUserFinancials(userId);
   const newBalance = current.walletBalance + amount;
   const newEntry: WalletLedgerEntry = {
     id: 'tx_' + Date.now(),
@@ -891,19 +1018,26 @@ export async function reloadUserWallet(userId: string, amount: number): Promise<
   const updatedTransactions = [newEntry, ...current.transactions];
 
   try {
-    await setDoc(doc(db, 'user_financials', userId), {
-      wallet_balance: newBalance,
-      last_updated: new Date().toISOString(),
-    }, { merge: true });
+    await setDoc(
+      doc(db, 'user_financials', userId),
+      {
+        wallet_balance: newBalance,
+        last_updated: new Date().toISOString(),
+      },
+      { merge: true }
+    );
     await addDoc(collection(db, 'wallet_ledger'), newEntry);
   } catch (e) {}
 
   try {
-    localStorage.setItem(`jvlsd_wallet_${userId}`, JSON.stringify({
-      ...current,
-      walletBalance: newBalance,
-      transactions: updatedTransactions,
-    }));
+    localStorage.setItem(
+      `jvlsd_wallet_${userId}`,
+      JSON.stringify({
+        ...current,
+        walletBalance: newBalance,
+        transactions: updatedTransactions,
+      })
+    );
   } catch (e) {}
 
   return newBalance;

@@ -28,6 +28,7 @@ import {
   createOrder,
   submitOrderFeedback,
   fetchUserFinancials,
+  fetchOrders,
   type Product,
   type OrderMode,
   type OrderItem,
@@ -948,32 +949,58 @@ function Checkout({
   const [applyPromo, setApplyPromo] = useState(true);
   const [applyLoyalty, setApplyLoyalty] = useState(false);
   const [isAddressLocked, setIsAddressLocked] = useState(false);
+  const [monthlyOrdersCount, setMonthlyOrdersCount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'upi' | 'card' | 'sodexo' | 'cod'>('wallet');
+  const [refundPreference, setRefundPreference] = useState<'wallet' | 'original'>('wallet');
 
   // Compute Base Total from Cart Items
   const rawSubtotal = useMemo(() => {
     return cartItems.reduce((acc, it) => acc + (it.price || 40) * it.quantity, 0);
   }, [cartItems]);
 
+  // A: Tiered Volume Discount Calculation based on monthly order count:
+  // Active users with >= 2 orders/month: 20% discount
+  // Active users with >= 4 orders/month: 30% discount
+  const tieredDiscountPercent = useMemo(() => {
+    if (monthlyOrdersCount >= 4) return 30;
+    if (monthlyOrdersCount >= 2) return 20;
+    return 0;
+  }, [monthlyOrdersCount]);
+
+  const tieredDiscountAmount = useMemo(() => {
+    if (tieredDiscountPercent <= 0 || rawSubtotal <= 0) return 0;
+    return Math.round((rawSubtotal * tieredDiscountPercent) / 100);
+  }, [rawSubtotal, tieredDiscountPercent]);
+
   // Promo discount calculation: Max ₹50 per order within ₹300 limit
   const promoDiscount = useMemo(() => {
     if (!applyPromo || promoBalance <= 0 || rawSubtotal <= 0) return 0;
-    return Math.min(50, promoBalance, rawSubtotal);
-  }, [applyPromo, promoBalance, rawSubtotal]);
+    return Math.min(50, promoBalance, Math.max(0, rawSubtotal - tieredDiscountAmount));
+  }, [applyPromo, promoBalance, rawSubtotal, tieredDiscountAmount]);
 
   // Loyalty deduction calculation: Eligible only if points >= 75; max 5 points (₹5) per bill; keeps >= 20 floor
   const loyaltyDeduction = useMemo(() => {
     if (!applyLoyalty || loyaltyPoints < 75) return 0;
-    const maxUsable = Math.min(5, loyaltyPoints - 20, Math.max(0, rawSubtotal - promoDiscount));
+    const maxUsable = Math.min(5, loyaltyPoints - 20, Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount));
     return Math.max(0, maxUsable);
-  }, [applyLoyalty, loyaltyPoints, rawSubtotal, promoDiscount]);
+  }, [applyLoyalty, loyaltyPoints, rawSubtotal, tieredDiscountAmount, promoDiscount]);
 
-  const afterDiscountTotal = Math.max(0, rawSubtotal - promoDiscount - loyaltyDeduction);
+  // Applicable credit card convenience fee: 1.8% disclosed upfront
+  const cardFee = useMemo(() => {
+    if (paymentMethod === 'card') {
+      const netBeforeFee = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - loyaltyDeduction);
+      return Math.round(netBeforeFee * 0.018 * 100) / 100;
+    }
+    return 0;
+  }, [paymentMethod, rawSubtotal, tieredDiscountAmount, promoDiscount, loyaltyDeduction]);
+
+  const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - loyaltyDeduction + cardFee);
 
   // Wallet deduction calculation
   const walletDeduction = useMemo(() => {
-    if (!applyWallet || walletBalance <= 0) return 0;
+    if (!applyWallet || walletBalance <= 0 || paymentMethod !== 'wallet') return 0;
     return Math.min(walletBalance, afterDiscountTotal);
-  }, [applyWallet, walletBalance, afterDiscountTotal]);
+  }, [applyWallet, walletBalance, paymentMethod, afterDiscountTotal]);
 
   const finalPayable = Math.max(0, afterDiscountTotal - walletDeduction);
 
@@ -1001,6 +1028,13 @@ function Checkout({
         setWalletBalance(fin.walletBalance);
         setLoyaltyPoints(fin.loyaltyPoints);
         setPromoBalance(fin.promoBalance);
+      });
+
+      // Track monthly orders count for tiered discount eligibility
+      fetchOrders(user.uid).then((orders) => {
+        const thisMonth = new Date().toISOString().slice(0, 7);
+        const count = orders.filter((o) => (o.created_at || '').startsWith(thisMonth)).length;
+        setMonthlyOrdersCount(count);
       });
     }
   }, [profile, user]);
@@ -1058,7 +1092,7 @@ function Checkout({
         notes: info.notes.trim() || undefined,
         user_id: user?.uid ?? undefined,
         total_amount: finalPayable,
-        payment_method: walletDeduction > 0 && finalPayable === 0 ? 'Prepaid Wallet' : 'Cash / UPI on Delivery',
+        payment_method: paymentMethod === 'wallet' ? 'Prepaid Wallet' : paymentMethod === 'upi' ? 'UPI' : paymentMethod === 'card' ? 'Credit/Debit Card' : paymentMethod === 'sodexo' ? 'Sodexo/Pluxee' : 'Cash on Delivery',
       });
 
       // Update user financial balance if wallet or discounts applied
@@ -1116,7 +1150,7 @@ function Checkout({
         <div className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-brand-50/40 p-5 shadow-soft">
           <div className="flex items-center justify-between text-xs font-bold text-emerald-900 border-b border-emerald-200/60 pb-3">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-emerald-700" /> LSD Privilege &amp; Wallet Deductions
+              <Sparkles className="h-4 w-4 text-emerald-700" /> LSD Privilege, Tiered Discounts &amp; Balances
             </span>
             <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] text-white">Verified Account</span>
           </div>
@@ -1125,6 +1159,24 @@ function Checkout({
             <div className="flex items-center justify-between">
               <span className="text-ink-600">Subtotal ({cartItems.length} items):</span>
               <span className="font-mono font-bold text-ink-900">₹{rawSubtotal.toFixed(2)}</span>
+            </div>
+
+            {/* A: Monthly Order Tier Status */}
+            <div className="rounded-xl bg-white/80 p-3 border border-emerald-300">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-ink-900">Monthly Volume Discount Tier</span>
+                  <p className="text-[10px] text-ink-500">
+                    {monthlyOrdersCount === 0 && 'Place 2 orders this month to unlock 20% off all kitchen produce.'}
+                    {monthlyOrdersCount === 1 && '1 order placed this month. 1 more order needed to unlock 20% discount!'}
+                    {monthlyOrdersCount >= 2 && monthlyOrdersCount < 4 && '2+ orders placed! 20% active member discount applied (4 orders = 30%).'}
+                    {monthlyOrdersCount >= 4 && '4+ orders placed! Top tier 30% active customer discount applied.'}
+                  </p>
+                </div>
+                <span className={`font-mono font-bold text-xs px-2.5 py-1 rounded-lg ${tieredDiscountPercent > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-ink-100 text-ink-600'}`}>
+                  {tieredDiscountPercent > 0 ? `${tieredDiscountPercent}% OFF (-₹${tieredDiscountAmount.toFixed(2)})` : '0%'}
+                </span>
+              </div>
             </div>
 
             {/* Promo Discount Toggle */}
@@ -1138,8 +1190,8 @@ function Checkout({
                   className="rounded text-brand-600 focus:ring-brand-500 h-4 w-4"
                 />
                 <div>
-                  <span className="font-semibold text-ink-900">Apply LSD ₹300 Promo Allowance</span>
-                  <p className="text-[10px] text-ink-500">Max ₹50/order cap · Remaining: ₹{promoBalance}</p>
+                  <span className="font-semibold text-ink-900">Apply LSD ₹50 Promo Balance</span>
+                  <p className="text-[10px] text-ink-500">Max ₹50/order · 15-day/2-month validity · Remaining: ₹{promoBalance}</p>
                 </div>
               </label>
               <span className="font-mono font-bold text-emerald-700">
@@ -1171,25 +1223,35 @@ function Checkout({
               </span>
             </div>
 
+            {/* Credit Card Fee Display if Applicable */}
+            {cardFee > 0 && (
+              <div className="flex items-center justify-between text-xs text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                <span>Disclosed Credit Card Processing Fee (1.8%):</span>
+                <span className="font-mono font-bold">+₹{cardFee.toFixed(2)}</span>
+              </div>
+            )}
+
             {/* Prepaid Wallet Deduction Toggle */}
-            <div className="flex items-center justify-between rounded-xl bg-white/70 p-2.5 border border-ink-100">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={applyWallet}
-                  onChange={(e) => setApplyWallet(e.target.checked)}
-                  disabled={walletBalance <= 0}
-                  className="rounded text-brand-700 focus:ring-brand-500 h-4 w-4"
-                />
-                <div>
-                  <span className="font-semibold text-ink-900">Deduct from Prepaid Wallet</span>
-                  <p className="text-[10px] text-ink-500">Available Wallet Balance: ₹{walletBalance.toFixed(2)}</p>
-                </div>
-              </label>
-              <span className="font-mono font-bold text-brand-700">
-                -₹{walletDeduction.toFixed(2)}
-              </span>
-            </div>
+            {paymentMethod === 'wallet' && (
+              <div className="flex items-center justify-between rounded-xl bg-white/70 p-2.5 border border-ink-100">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyWallet}
+                    onChange={(e) => setApplyWallet(e.target.checked)}
+                    disabled={walletBalance <= 0}
+                    className="rounded text-brand-700 focus:ring-brand-500 h-4 w-4"
+                  />
+                  <div>
+                    <span className="font-semibold text-ink-900">Deduct from Prepaid Wallet</span>
+                    <p className="text-[10px] text-ink-500">Available Wallet Balance: ₹{walletBalance.toFixed(2)}</p>
+                  </div>
+                </label>
+                <span className="font-mono font-bold text-brand-700">
+                  -₹{walletDeduction.toFixed(2)}
+                </span>
+              </div>
+            )}
 
             {/* Final Payable */}
             <div className="flex items-center justify-between pt-3 border-t border-emerald-200 text-sm font-bold">
@@ -1201,6 +1263,93 @@ function Checkout({
                 ✓ Fully covered by prepaid wallet &amp; promotional allowances. Zero cash due at delivery.
               </p>
             )}
+          </div>
+        </div>
+
+        {/* D: Multi-Payment Methods Selector with Disclosures */}
+        <div className="mt-5 rounded-2xl border border-ink-200 bg-white p-5 shadow-soft">
+          <h3 className="font-display text-sm font-bold text-ink-950">Payment &amp; Settlement Method</h3>
+          <p className="mt-0.5 text-xs text-ink-500">Select how you want to pay the net balance.</p>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                id: 'wallet',
+                label: 'Prepaid Wallet',
+                desc: `Instant default settlement (Balance: ₹${walletBalance})`,
+              },
+              {
+                id: 'upi',
+                label: 'UPI (GPay / PhonePe / Paytm)',
+                desc: 'Zero transaction fee · Instant QR scan on arrival',
+              },
+              {
+                id: 'card',
+                label: 'Credit / Debit Card',
+                desc: '1.8% gateway processing fee charged by merchant provider',
+              },
+              {
+                id: 'sodexo',
+                label: 'Sodexo / Pluxee Food Card',
+                desc: 'Supported for fresh food (Dependent on provider POS availability)',
+              },
+              {
+                id: 'cod',
+                label: 'Cash on Doorstep Delivery',
+                desc: 'Pay cash directly upon morning produce handover',
+              },
+            ].map((pm) => (
+              <label
+                key={pm.id}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-all ${
+                  paymentMethod === pm.id
+                    ? 'border-brand-600 bg-brand-50/50 ring-1 ring-brand-500'
+                    : 'border-ink-200 hover:border-ink-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value={pm.id}
+                  checked={paymentMethod === pm.id}
+                  onChange={(e) => setPaymentMethod(e.target.value as any)}
+                  className="mt-0.5 text-brand-700 focus:ring-brand-500"
+                />
+                <div>
+                  <p className="text-xs font-bold text-ink-950">{pm.label}</p>
+                  <p className="text-[10px] text-ink-500 leading-tight mt-0.5">{pm.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {/* Refund Destination Preference */}
+          <div className="mt-4 border-t border-ink-100 pt-3">
+            <label className="text-xs font-bold text-ink-800">Refund Destination Option (in case of quality return):</label>
+            <div className="mt-2 flex gap-4 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="refundPreference"
+                  value="wallet"
+                  checked={refundPreference === 'wallet'}
+                  onChange={() => setRefundPreference('wallet')}
+                  className="text-brand-700"
+                />
+                <span>Instant Credit to Prepaid Wallet (Recommended for next order)</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="refundPreference"
+                  value="original"
+                  checked={refundPreference === 'original'}
+                  onChange={() => setRefundPreference('original')}
+                  className="text-brand-700"
+                />
+                <span>Refund to Original Source (Takes 3–5 banking days)</span>
+              </label>
+            </div>
           </div>
         </div>
 

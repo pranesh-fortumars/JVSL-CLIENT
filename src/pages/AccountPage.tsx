@@ -38,6 +38,9 @@ import {
   fetchFamilyExpenseProposals,
   saveFamilyExpenseProposal,
   updateFamilyExpenseStatus,
+  requestFamilyMemberRemoval,
+  confirmFamilyMemberRemoval,
+  reloadUserWallet,
   type OrderRow,
   type OrderFeedback,
   type FamilyGroup,
@@ -217,7 +220,7 @@ export function AccountPage() {
                   <Wallet className="h-5 w-5 text-emerald-600" />
                 </div>
                 <p className="mt-3 font-display text-3xl font-extrabold text-ink-950">₹1,000</p>
-                <p className="mt-1 text-xs text-ink-500">Min. reload ₹200 · Instant default refunds</p>
+                <p className="mt-1 text-xs text-ink-500">Initial loading min ₹1,000 · Subsequent reload &gt; ₹300</p>
               </div>
 
               <div className="rounded-3xl border border-gold-300 bg-white p-5 shadow-soft">
@@ -598,6 +601,60 @@ export function AccountPage() {
                               <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-brand-50 text-brand-800 border border-brand-200">
                                 🔒 Doorstep Locked
                               </span>
+                            )}
+
+                            {/* B: Two-Party Removal Mutual Confirmation */}
+                            {m.removal_pending ? (
+                              m.uid === user.uid ? (
+                                <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 p-1.5 rounded-xl">
+                                  <span className="text-[10px] font-bold text-amber-900">Removal requested. Confirm?</span>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await confirmFamilyMemberRemoval(familyGroup.id, m.uid, true);
+                                      const updated = await fetchFamilyGroup(familyGroup.id);
+                                      setFamilyGroup(updated);
+                                      setGroupActionNotice('You have confirmed departure from the household group.');
+                                    }}
+                                    className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await confirmFamilyMemberRemoval(familyGroup.id, m.uid, false);
+                                      const updated = await fetchFamilyGroup(familyGroup.id);
+                                      setFamilyGroup(updated);
+                                      setGroupActionNotice('Departure request declined.');
+                                    }}
+                                    className="px-2 py-0.5 rounded-lg bg-ink-200 text-ink-800 text-[10px] font-bold"
+                                  >
+                                    Decline
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                                  Awaiting Member Confirmation
+                                </span>
+                              )
+                            ) : (
+                              (familyGroup.creator_uid === user.uid || m.uid === user.uid) && m.role !== 'owner' && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(`Request mutual removal for ${m.full_name}? In accordance with household rules, this action requires mutual confirmation.`)) {
+                                      await requestFamilyMemberRemoval(familyGroup.id, user.uid, m.uid);
+                                      const updated = await fetchFamilyGroup(familyGroup.id);
+                                      setFamilyGroup(updated);
+                                      setGroupActionNotice(`Removal request submitted for ${m.full_name}. Awaiting their confirmation.`);
+                                    }
+                                  }}
+                                  className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline px-1.5 py-0.5"
+                                >
+                                  Remove Member
+                                </button>
+                              )
                             )}
                           </div>
                         </div>
