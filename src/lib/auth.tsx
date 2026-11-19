@@ -29,6 +29,7 @@ type AuthContextValue = {
   loading: boolean;
   signUp: (input: SignUpInput) => Promise<{ error: string | null; hasSession: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInMock: (mockProfile: Profile) => void;
   signOut: () => Promise<void>;
   updateCustomerProfile: (data: Partial<Profile>) => Promise<void>;
 };
@@ -98,7 +99,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const MOCK_SESSION_KEY = 'jvlsd_mock_auth_session';
+
   useEffect(() => {
+    // Check if there is an active mock testing session
+    try {
+      const savedMock = localStorage.getItem(MOCK_SESSION_KEY);
+      if (savedMock) {
+        const mockProf: Profile = JSON.parse(savedMock);
+        setProfile(mockProf);
+        setUser({
+          uid: mockProf.id,
+          email: mockProf.email,
+          displayName: mockProf.full_name || 'Testing User',
+        } as any);
+        setLoading(false);
+        return;
+      }
+    } catch (e) {}
+
     const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
       if (nextUser) {
@@ -122,6 +141,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  const signInMock: AuthContextValue['signInMock'] = (mockProfile: Profile) => {
+    try {
+      localStorage.setItem(MOCK_SESSION_KEY, JSON.stringify(mockProfile));
+      localStorage.setItem('jvlsd_mock_data_mode', 'true');
+    } catch (e) {}
+    setProfile(mockProfile);
+    setUser({
+      uid: mockProfile.id,
+      email: mockProfile.email,
+      displayName: mockProfile.full_name || 'Testing User',
+    } as any);
+    setLoading(false);
+  };
 
   const signUp: AuthContextValue['signUp'] = async (input) => {
     try {
@@ -199,11 +232,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await fbSignOut(auth);
+    try {
+      localStorage.removeItem(MOCK_SESSION_KEY);
+    } catch (e) {}
+    setUser(null);
+    setProfile(null);
+    await fbSignOut(auth).catch(() => {});
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, updateCustomerProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signInMock, signOut, updateCustomerProfile }}>
       {children}
     </AuthContext.Provider>
   );
