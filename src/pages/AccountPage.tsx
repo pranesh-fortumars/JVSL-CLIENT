@@ -41,6 +41,7 @@ import {
   requestFamilyMemberRemoval,
   confirmFamilyMemberRemoval,
   reloadUserWallet,
+  fetchUserFinancials,
   type OrderRow,
   type OrderFeedback,
   type FamilyGroup,
@@ -92,6 +93,20 @@ export function AccountPage() {
   const [groupActionNotice, setGroupActionNotice] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showJoinModal, setShowJoinModal] = useState<boolean>(false);
+
+  // Authenticated Financial Balances
+  const [realWallet, setRealWallet] = useState<number>(0);
+  const [realPromo, setRealPromo] = useState<number>(0);
+  const [realLoyalty, setRealLoyalty] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchUserFinancials(user.uid).then((fin) => {
+      setRealWallet(fin.walletBalance);
+      setRealPromo(fin.promoBalance);
+      setRealLoyalty(fin.loyaltyPoints);
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!profile?.family_group_id) return;
@@ -219,7 +234,7 @@ export function AccountPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Prepaid Wallet</span>
                   <Wallet className="h-5 w-5 text-emerald-600" />
                 </div>
-                <p className="mt-3 font-display text-3xl font-extrabold text-ink-950">₹1,000</p>
+                <p className="mt-3 font-display text-3xl font-extrabold text-ink-950">₹{realWallet.toLocaleString('en-IN')}</p>
                 <p className="mt-1 text-xs text-ink-500">Initial loading min ₹1,000 · Subsequent reload &gt; ₹300</p>
               </div>
 
@@ -228,8 +243,8 @@ export function AccountPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-gold-800">LSD Promo Discount</span>
                   <Sparkles className="h-5 w-5 text-gold-600" />
                 </div>
-                <p className="mt-3 font-display text-3xl font-extrabold text-ink-950">₹300</p>
-                <p className="mt-1 text-xs text-ink-500">Reusable ₹50/order · 15-day validity</p>
+                <p className="mt-3 font-display text-3xl font-extrabold text-ink-950">₹{realPromo.toLocaleString('en-IN')}</p>
+                <p className="mt-1 text-xs text-ink-500">₹50 credited on first qualifying order</p>
               </div>
 
               <div className="rounded-3xl border border-brand-200 bg-white p-5 shadow-soft">
@@ -237,8 +252,8 @@ export function AccountPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-brand-800">Loyalty Balance</span>
                   <Award className="h-5 w-5 text-brand-600" />
                 </div>
-                <p className="mt-3 font-display text-3xl font-extrabold text-ink-950">85 pts</p>
-                <p className="mt-1 text-xs text-ink-500">1 pt = ₹1 · Redeemable (Min 20 floor)</p>
+                <p className="mt-3 font-display text-3xl font-extrabold text-ink-950">{realLoyalty} pts</p>
+                <p className="mt-1 text-xs text-ink-500">1 pt = ₹1 · Redeemable on grocery checkout</p>
               </div>
             </div>
 

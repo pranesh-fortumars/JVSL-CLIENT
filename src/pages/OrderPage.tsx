@@ -941,12 +941,12 @@ function Checkout({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { user, profile } = useAuth();
 
-  // Financial States
-  const [walletBalance, setWalletBalance] = useState(1000);
-  const [loyaltyPoints, setLoyaltyPoints] = useState(85);
-  const [promoBalance, setPromoBalance] = useState(300);
-  const [applyWallet, setApplyWallet] = useState(true);
-  const [applyPromo, setApplyPromo] = useState(true);
+  // Financial States (Strict 0 default for unauthenticated/guest users)
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [promoBalance, setPromoBalance] = useState(0);
+  const [applyWallet, setApplyWallet] = useState(false);
+  const [applyPromo, setApplyPromo] = useState(false);
   const [applyLoyalty, setApplyLoyalty] = useState(false);
   const [isAddressLocked, setIsAddressLocked] = useState(false);
   const [monthlyOrdersCount, setMonthlyOrdersCount] = useState(0);
@@ -1028,6 +1028,8 @@ function Checkout({
         setWalletBalance(fin.walletBalance);
         setLoyaltyPoints(fin.loyaltyPoints);
         setPromoBalance(fin.promoBalance);
+        if (fin.walletBalance > 0) setApplyWallet(true);
+        if (fin.promoBalance > 0) setApplyPromo(true);
       });
 
       // Track monthly orders count for tiered discount eligibility
