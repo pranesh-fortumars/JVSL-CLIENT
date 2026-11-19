@@ -1,97 +1,70 @@
-# JVLSD Website - Technical and Security Documentation
+# JVLSD Website - Technical and Security Architecture Documentation
+**Client:** Jagatpati Vigneshwara LSD LLP (JVLSD)  
+**Lead Engineering Team:** Thrive Tech Solutions  
+**Updated:** November 2026 (Consolidated Brief Verification)
 
-## 1. Architecture
+---
 
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, lucide-react icons. Single-page app with hash-based routing (`src/lib/router.ts`).
-- **Backend:** Supabase (PostgreSQL, Auth, Row Level Security). The browser talks to Supabase directly using the public anon key. There are no edge functions yet.
-- **Sessions:** Supabase JS client with default session persistence. Auth state is provided by `src/lib/auth.tsx`.
+## 1. System Architecture
 
-### Routes
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, lucide-react icons. Single-page application (SPA) with hash and history routing (`src/lib/router.ts`).
+- **Authoritative Backend:** Google Cloud Firebase (Firestore & Firebase Auth).
+  - *Project ID:* `jvsl-60177`
+  - Browser securely connects to Firestore and Firebase Auth using sanitized public web configuration.
+  - Supabase artifacts have been deprecated and removed from active runtime user flows.
+- **Hosting Compatibility:**
+  - Static distribution (`dist/`) builds cleanly with Vite.
+  - MilesWeb cPanel / Apache deployment supported via `public/.htaccess` mod_rewrite SPA routing.
+  - Firebase Hosting supported via `firebase.json`.
 
-| Path | Audience | Purpose |
-|---|---|---|
-| `/` | Public | Home |
-| `/about`, `/shakhwala`, `/fresh-daily`, `/contact` | Public | Corporate pages and forms |
-| `/order` | Public (guest or signed in) | Same-day and next-day ordering with checkout |
-| `/login` | Customers | Sign in or create account |
-| `/account` | Signed-in customers | Own profile and own order history |
-| `/admin/login` | Staff | Admin sign in |
-| `/admin` | Admins only | Orders, surveys, enquiries |
+---
 
-## 2. Database Structure
+## 2. Page & Routing Directory
 
-| Table | Purpose | Written by | Read by |
-|---|---|---|---|
-| `products` | Fresh Daily catalogue (vegetable, fruit, milk), availability flag, image | Admins (direct DB) | Everyone |
-| `orders` | Orders with mode, items, delivery date, optional `user_id` | Anyone (guest or signed in) | Owner (own rows) and admins |
-| `survey_submissions` | Fresh Daily survey responses | Anyone | Admins |
-| `enquiries` | Contact form messages | Anyone | Admins |
-| `profiles` | One row per account: email, name, role (`customer` or `admin`) | Trigger on sign-up only | Owner (own row) |
+| Path | Audience | Functionality |
+| :--- | :--- | :--- |
+| `/` | Public | JVLSD Master Corporate Homepage introducing parent company, purpose, vision, mission, and division links. |
+| `/about` | Public | Corporate philosophy, trust-quality-fairness values, executive leadership, and division structure. |
+| `/shakhwala` | Public / Vendor | Shakhwala franchisee introduction, vendor overview, and retail bridge. |
+| `/fresh-daily` | Public | Dedicated discovery showcase of farm-to-table service, seasonal produce preview, morning slots, and Ayurvedic tips. |
+| `/survey` | Public | Dedicated household procurement preference questionnaire and kitchen produce survey form. |
+| `/order` | Public / Customers | Same-day (strict 3 km Haversine geofence) and Next-day pre-order catalogue, rupee-to-weight converter, cart, and multi-payment settlement. |
+| `/login` | Public / Customers | Multi-step customer registration, DIGIPIN address capture, standard email/password login, and 1-click test simulation accounts. |
+| `/account` | Customers | Household profile, multiple address manager, family hub & consensus voting, and live wallet/loyalty history. |
+| `/contact` | Public | Official company registered office (Vardan Tower, Navrangpura), partner phones, and emails from `companyConfig.ts`. |
+| `/privacy`, `/terms` | Public | Compliant legal pages aligned with client wallet, discount, and royalty rules. |
+| `/admin` | Staff / Admin | Role-gated operations console: orders, inventory, surveys, enquiries, user management, and Master Franchisee royalty ledger. |
 
-- `orders.user_id` defaults to the signed-in user (`auth.uid()`). Guest orders have a null `user_id`.
-- A trigger creates a `profiles` row for every new account with the `customer` role.
-- `is_admin()` checks whether the current user has the `admin` role. It is used by all admin policies.
+---
 
-## 3. Customer Data Handling
+## 3. Database Schema (Cloud Firestore)
 
-- Personal data collected: name, mobile, address, email (enquiries and accounts), survey household details, order notes.
-- Anonymous visitors cannot read, change, or delete any customer data. Verified on the live database: a query run as the anonymous role on `orders` is rejected with a permission error.
-- Customers can read only their own orders and their own profile.
-- Admins can read and change all orders, surveys, and enquiries.
-- Data is stored in Supabase's hosted PostgreSQL. Hosting region and data processing terms must be confirmed with the client before go-live.
+| Collection | Description | Access Rules |
+| :--- | :--- | :--- |
+| `products` | Catalogue items (vegetable, fruit, milk) with units, prices, and seasonal tags. | Public Read; Staff Write. |
+| `orders` | Customer delivery orders with canonical items, price snapshots, delivery mode, and status. | Authenticated Owner Read; Staff Read/Write. |
+| `profiles` | User profiles with contact numbers, structured addresses, and roles (`customer`, `admin`, `superadmin`). | Owner Read/Update (role escalation denied); Staff Full. |
+| `family_groups` | Household groups, member roles, invite codes, and mutual two-party removal audit logs. | Member Read; Authorized Member / Staff Update. |
+| `family_finances` | Household expense proposals and consensus voting records. | Group Member Read/Create/Vote; Staff Read. |
+| `user_financials` | Authoritative customer balance summary (wallet, loyalty, promo credit). | Owner Read; Staff Write only. |
+| `wallet_ledger` | Immutable financial ledger for wallet reloads, order debits, refunds, and promo credits. | Owner Read; Staff / Server Write only. |
+| `loyalty_ledger` | Immutable points ledger (earned, redeemed, rollover). | Owner Read; Staff / Server Write only. |
+| `discount_vouchers` | ₹200 discount refund vouchers with 60-day validity tracking. | Owner Read; Staff / Server Write only. |
+| `master_franchisee_royalty` | ₹1 daily royalty ledger entries per active subscribed member. | Owner/Staff Read; Staff / Server Write only. |
+| `survey_submissions` | Household kitchen survey responses. | Public Create; Staff Read/Manage. |
+| `enquiries` | Customer and vendor contact enquiries. | Public Create; Staff Read/Manage. |
 
-## 4. Authentication and Access Permissions
+---
 
-- **Customers:** email and password via Supabase Auth. Sign-up requires a password of at least 8 characters and a name.
-- **Admins:** same sign-in flow at `/admin/login`. Admin rights come only from the `role` column in `profiles`, which the website cannot change. Admins are granted by a database administrator.
-- Signed-in users have no write access to `profiles`.
-- Admin-only changes (order status, survey and enquiry status, product edits) are enforced in the database, not only in the interface.
+## 4. Key Business Logic Enforcements
 
-### Accepted items
-
-- `is_admin()` is callable by signed-in users through the API. It only returns true or false for the caller's own account, so it reveals nothing about other users. Supabase flags this as a warning; moving the function to a non-exposed schema is a possible hardening step.
-- Survey, enquiry, and order submission are open to anonymous users. Abuse protection (rate limiting, CAPTCHA) is not yet in place.
-
-## 5. Security and Privacy Measures
-
-- Row Level Security is enabled on every table.
-- Table grants are limited to the minimum needed by each role.
-- Passwords are handled entirely by Supabase Auth; the website never stores or sees them after sign-in.
-- Error messages from sign-in are generic and do not reveal whether an account exists.
-- No secrets are placed in the browser code. Only the public anon key and project URL are used.
-- The former shared admin password has been removed.
-
-### Not yet in place
-
-- Privacy policy, terms, and cookie policy (placeholders only).
-- Cookie and consent banner; analytics consent flow.
-- Data retention and deletion process for customer requests (DPDP obligations).
-- Email confirmation is expected to be off in Supabase Auth settings; to be confirmed.
-
-## 6. Backup and Maintenance
-
-- Supabase provides automated daily backups on paid plans. Confirm the plan and retention period with the client.
-- All schema changes are recorded as migration files in `supabase/migrations/`.
-- Recommended: periodic export of orders and surveys to a secure location, and a documented restore test.
-- Dependency updates should be reviewed at least quarterly.
-
-## 7. Technical Limitations
-
-- **Delivery distance (3 km):** not yet validated. The site describes a 3 km same-day area, but no distance check exists. Requires the agreed dispatch location and a geocoding provider (with an API key) run from a secure server function.
-- **Same-day availability rules** are enforced in the ordering screen only. A determined user could submit an unavailable item. Server-side validation is recommended.
-- **Pricing:** the product table has no price fields. Prices are not shown or totalled.
-- **Product management:** admins can change products in the database, but the dashboard has no product editing screen yet.
-- **Guest orders** cannot be tracked from the website; guests have no account and no order history.
-- **Logo:** the approved JVLSD master logo is not yet in the project; the current logo is a temporary placeholder.
-- **Browser and device testing** has not been completed in this environment.
-- **Contact details** (phone, email) are placeholders.
-
-## 8. Future Integration Possibilities
-
-- Online payments (for example Stripe) for prepaid orders.
-- Distance validation and address autocomplete through a geocoding provider.
-- Order notifications by email or WhatsApp to the team.
-- Delivery route planning for the dispatch team.
-- Role-based staff accounts beyond a single admin role.
-
-The financial management platform, autopay, bill integrations, loyalty coins, and extended finance features are out of scope for this website and will be covered in a separate proposal.
+1. **Promotional Credit Rule:**
+   - Default user promo balance is strictly ₹0.
+   - ₹50 credit is awarded only after the customer's first qualifying order is placed.
+2. **Tiered Monthly Volume Discounts:**
+   - 20% discount on orders once customer places ≥ 2 qualifying orders in the current calendar month.
+   - 30% discount on orders once customer places ≥ 4 qualifying orders in the current calendar month.
+3. **Same-Day 3.0 km Dispatch Geofence:**
+   - Orders with `mode === 'same_day'` calculate Haversine distance from the Navrangpura hub (`23.0372° N, 72.5613° E`). Orders exceeding 3.0 km are blocked from same-day checkout.
+4. **Master Franchisee ₹1 Royalty Rule:**
+   - Idempotency key `MF_${member_id}_${orderDate}` guarantees exactly ₹1 is recorded per active member per qualifying order day regardless of order count.
