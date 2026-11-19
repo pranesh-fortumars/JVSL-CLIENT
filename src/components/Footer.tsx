@@ -1,6 +1,7 @@
 import { Phone, Mail, MapPin, Sprout, Leaf, Milk } from 'lucide-react';
 import { Wordmark } from './Logo';
 import { navigate, PATHS } from '@/lib/router';
+import { COMPANY_CONFIG } from '@/data/companyConfig';
 
 export function Footer() {
   return (
@@ -68,16 +69,24 @@ export function Footer() {
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 text-gold-300 shrink-0" />
                 <span className="text-ink-300 leading-relaxed text-xs">
-                  <strong className="text-white font-semibold">Jagatpati Vigneshwara LSD LLP</strong><br />
-                  4-D, Fourth Floor, Vardan Tower,<br />
-                  Lakudi Talav, Near Sardar Patel Stadium,<br />
-                  Navrangpura, Ahmedabad – 380009, Gujarat, India.
+                  <strong className="text-white font-semibold">{COMPANY_CONFIG.legalName}</strong><br />
+                  {COMPANY_CONFIG.registeredOffice.fullFormatted}
                 </span>
               </li>
               <li className="flex items-center gap-3">
+                <Phone className="h-4 w-4 text-gold-300 shrink-0" />
+                <div className="flex flex-col text-xs text-ink-300 font-mono">
+                  {COMPANY_CONFIG.phones.allFormatted.map((ph, idx) => (
+                    <a key={idx} href={`tel:${ph.replace(/\D/g, '')}`} className="hover:text-white transition-colors">
+                      {ph}
+                    </a>
+                  ))}
+                </div>
+              </li>
+              <li className="flex items-center gap-3">
                 <Mail className="h-4 w-4 text-gold-300 shrink-0" />
-                <a href="mailto:contact@jvlsd.in" className="text-ink-300 hover:text-white transition-colors">
-                  contact@jvlsd.in
+                <a href={`mailto:${COMPANY_CONFIG.emails.official}`} className="text-ink-300 hover:text-white transition-colors text-xs font-mono">
+                  {COMPANY_CONFIG.emails.official}
                 </a>
               </li>
             </ul>

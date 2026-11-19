@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { submitEnquiry, type Enquiry } from '@/lib/firestoreService';
+import { COMPANY_CONFIG } from '@/data/companyConfig';
 
 const SUBJECTS = [
   'General enquiry',
@@ -106,35 +107,81 @@ export function ContactPage() {
             <div className="card h-full p-7">
               <h2 className="font-display text-xl font-bold text-ink-900">Reach us directly</h2>
               <ul className="mt-6 space-y-5">
-                {[
-                  {
-                    icon: MapPin,
-                    label: 'Registered Office',
-                    value: 'Jagatpati Vigneshwara LSD LLP, 4-D, Fourth Floor, Vardan Tower, Lakudi Talav, Near Sardar Patel Stadium, Navrangpura, Ahmedabad – 380009, Gujarat, India.',
-                  },
-                  { icon: Mail, label: 'Official Inquiries', value: 'contact@jvlsd.in', href: 'mailto:contact@jvlsd.in' },
-                  { icon: Clock, label: 'Service hours', value: 'Pre-order: 24/7 · Same-day delivery: 7 AM – 9 PM' },
-                ].map((c) => (
-                  <li key={c.label} className="flex items-start gap-4">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                      <c.icon className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">{c.label}</p>
-                      {c.href ? (
-                        <a href={c.href} className="mt-0.5 block font-semibold text-ink-900 hover:text-brand-700">
-                          {c.value}
+                <li className="flex items-start gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                    <MapPin className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Registered Office</p>
+                    <p className="mt-0.5 font-semibold text-ink-900 leading-relaxed text-sm">
+                      {COMPANY_CONFIG.legalName}<br />
+                      {COMPANY_CONFIG.registeredOffice.fullFormatted}
+                    </p>
+                  </div>
+                </li>
+
+                <li className="flex items-start gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                    <Phone className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Contact Numbers</p>
+                    <div className="mt-0.5 space-y-1">
+                      {COMPANY_CONFIG.phones.allFormatted.map((ph, idx) => (
+                        <a
+                          key={idx}
+                          href={`tel:${ph.replace(/\D/g, '')}`}
+                          className="block font-semibold text-ink-900 hover:text-brand-700 text-sm font-mono"
+                        >
+                          {ph}
                         </a>
-                      ) : (
-                        <p className="mt-0.5 font-semibold text-ink-900">{c.value}</p>
-                      )}
+                      ))}
                     </div>
-                  </li>
-                ))}
+                  </div>
+                </li>
+
+                <li className="flex items-start gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                    <Mail className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Official Inquiries &amp; Partners</p>
+                    <div className="mt-0.5 space-y-1">
+                      <a
+                        href={`mailto:${COMPANY_CONFIG.emails.official}`}
+                        className="block font-semibold text-ink-900 hover:text-brand-700 text-sm font-mono"
+                      >
+                        {COMPANY_CONFIG.emails.official}
+                      </a>
+                      {COMPANY_CONFIG.emails.partners.map((em, idx) => (
+                        <a
+                          key={idx}
+                          href={`mailto:${em}`}
+                          className="block text-xs text-ink-600 hover:text-brand-700 font-mono"
+                        >
+                          {em}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+
+                <li className="flex items-start gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                    <Clock className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Service Hours</p>
+                    <p className="mt-0.5 text-xs font-medium text-ink-900 leading-relaxed">
+                      Pre-order: {COMPANY_CONFIG.operatingHours.preOrder}<br />
+                      Same-day: {COMPANY_CONFIG.operatingHours.sameDay}
+                    </p>
+                  </div>
+                </li>
               </ul>
               <div className="mt-7 rounded-2xl bg-brand-50/70 p-5 text-sm text-ink-700">
                 <p className="font-semibold text-brand-800">Same-day delivery area</p>
-                <p className="mt-1">Within 3 km of our Shakhwala dispatch point, subject to operational feasibility.</p>
+                <p className="mt-1">Within 3 km of our Navrangpura hub dispatch point, subject to operational feasibility.</p>
               </div>
             </div>
           </Reveal>
