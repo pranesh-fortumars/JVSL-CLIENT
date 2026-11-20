@@ -269,6 +269,73 @@ export function LoginPage() {
                     <><LogIn className="h-4 w-4" /> Sign In</>
                   )}
                 </button>
+
+                {/* Instant 1-Click Mock Data Testing Accounts */}
+                <div className="mt-6 rounded-2xl border border-dashed border-amber-300 bg-amber-50/70 p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                    <span>Testing Mode · 1-Click Demo Sign In</span>
+                  </div>
+                  <p className="mt-1 text-xs text-amber-900/80">
+                    While the system is undergoing client review, click any demo account below to instantly test the portal without typing passwords:
+                  </p>
+                  
+                  <div className="mt-3 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMockModeActive(true);
+                        const customer = MOCK_PROFILES.find((p) => p.email === 'customer@jvlsd.in') || MOCK_PROFILES[3];
+                        signInMock(customer);
+                      }}
+                      className="flex items-center justify-between rounded-xl border border-amber-200 bg-white px-3 py-2 text-left text-xs font-semibold text-ink-800 hover:border-brand-500 hover:bg-brand-50/40 transition-colors shadow-xs"
+                    >
+                      <div>
+                        <div className="font-bold text-brand-900">Dr. Anand K. Vora (Customer)</div>
+                        <div className="text-[11px] text-ink-500">customer@jvlsd.in · Orders, Family Hub &amp; Wallet</div>
+                      </div>
+                      <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 uppercase">
+                        Customer
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMockModeActive(true);
+                        const owner = MOCK_PROFILES.find((p) => p.email === 'owner@jvlsd.in') || MOCK_PROFILES[0];
+                        signInMock(owner);
+                      }}
+                      className="flex items-center justify-between rounded-xl border border-amber-200 bg-white px-3 py-2 text-left text-xs font-semibold text-ink-800 hover:border-gold-500 hover:bg-gold-50/40 transition-colors shadow-xs"
+                    >
+                      <div>
+                        <div className="font-bold text-gold-950">JVLSD Owner (Super Admin)</div>
+                        <div className="text-[11px] text-ink-500">owner@jvlsd.in · Dashboard, Morning Sheets &amp; Royalty</div>
+                      </div>
+                      <span className="rounded-md bg-gold-100 px-2 py-0.5 text-[10px] font-bold text-gold-900 uppercase">
+                        Super Admin
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMockModeActive(true);
+                        const manager = MOCK_PROFILES.find((p) => p.email === 'manager@jvlsd.in') || MOCK_PROFILES[1];
+                        signInMock(manager);
+                      }}
+                      className="flex items-center justify-between rounded-xl border border-amber-200 bg-white px-3 py-2 text-left text-xs font-semibold text-ink-800 hover:border-blue-500 hover:bg-blue-50/40 transition-colors shadow-xs"
+                    >
+                      <div>
+                        <div className="font-bold text-ink-900">Mahesh Solanki (Operations Mgr)</div>
+                        <div className="text-[11px] text-ink-500">manager@jvlsd.in · Procurement, Surveys &amp; Orders</div>
+                      </div>
+                      <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-900 uppercase">
+                        Admin
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </form>
             )}
 
