@@ -57,28 +57,43 @@ service cloud.firestore {
     }
 
     // Family Finances (Income / Expense Discussions & Consensus Votes)
+    // Strictly restricted to authenticated members of the family group
     match /family_finances/{financeId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        isStaff() ||
+        request.auth.uid in get(/databases/$(database)/documents/family_groups/$(resource.data.family_group_id)).data.member_uids
+      );
+      allow create: if isAuthenticated() && (
+        isStaff() ||
+        request.auth.uid in get(/databases/$(database)/documents/family_groups/$(request.resource.data.family_group_id)).data.member_uids
+      );
+      allow update: if isAuthenticated() && (
+        isStaff() ||
+        request.auth.uid in get(/databases/$(database)/documents/family_groups/$(resource.data.family_group_id)).data.member_uids
+      );
+      allow delete: if isStaff() || (
+        isAuthenticated() && request.auth.uid == resource.data.proposed_by_uid
+      );
     }
 
     // Orders: Users can read their own orders; public/authenticated can create; staff can manage all
+    // Customers CANNOT alter order status, totals, or payment fields
     match /orders/{orderId} {
       allow create: if true;
       allow read: if isAuthenticated() && (
         resource.data.user_id == request.auth.uid ||
         isStaff()
       );
-      allow update: if isAuthenticated() && (
-        resource.data.user_id == request.auth.uid ||
-        isStaff()
-      );
+      allow update: if isStaff();
       allow delete: if isStaff();
     }
 
-    // Order Feedback: Users can submit for their orders; staff can read all
+    // Order Feedback: Must be linked to a genuine order and submitted by authenticated buyer
     match /order_feedback/{feedbackId} {
-      allow create: if true;
+      allow create: if isAuthenticated() && (
+        isStaff() ||
+        get(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.user_id == request.auth.uid
+      );
       allow read: if isStaff() || (isAuthenticated() && resource.data.user_id == request.auth.uid);
       allow update, delete: if isStaff();
     }
@@ -95,20 +110,19 @@ service cloud.firestore {
       allow read, update, delete: if isStaff();
     }
 
-    // User Financials (Wallet, Loyalty, Subscriptions): Owner can read; modifications restricted to Staff
+    // User Financials (Wallet, Loyalty, Subscriptions): Owner can read; modifications restricted strictly to Staff
     match /user_financials/{userId} {
       allow read: if isOwner(userId) || isStaff();
-      allow write: if isStaff() || isOwner(userId);
+      allow write: if isStaff();
     }
 
-    // Financial Ledgers: Restricted to owner for read; writes by app services or staff
+    // Financial Ledgers: Restricted to owner for read; writes strictly by staff/trusted backend
     match /wallet_ledger/{ledgerId} {
       allow read: if isAuthenticated() && (
         resource.data.user_id == request.auth.uid ||
         isStaff()
       );
-      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
-      allow update, delete: if isStaff();
+      allow create, update, delete: if isStaff();
     }
 
     // Discount Refund Vouchers (₹200 discount refund vouchers valid for 60 days)
@@ -125,13 +139,12 @@ service cloud.firestore {
         resource.data.user_id == request.auth.uid ||
         isStaff()
       );
-      allow create: if isAuthenticated();
-      allow update, delete: if isStaff();
+      allow create, update, delete: if isStaff();
     }
 
     // Master Franchisee Royalty Ledger & System Config: Staff/admin only
     match /master_franchisee_royalty/{royaltyId} {
-      allow read, write: if isStaff() || isAuthenticated();
+      allow read, write: if isStaff();
     }
 
     match /system_config/{configId} {

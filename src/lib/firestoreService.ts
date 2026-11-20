@@ -972,15 +972,14 @@ export async function recordMasterFranchiseeRoyalty(order: {
   const orderDate = order.created_at ? order.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
   const idempotencyId = `MF_${memberId}_${orderDate}`;
 
-  // Check if member has an active subscription in user_financials or profile
-  let isSubscribed = true; // default check
+  // Check if member has an active subscription in user_financials
+  let isSubscribed = false; // Must strictly be verified as active
   try {
     const snap = await getDoc(doc(db, 'user_financials', memberId));
     if (snap.exists()) {
       const fin = snap.data();
-      // If subscription_status is explicitly inactive, skip
-      if (fin.subscription_status && fin.subscription_status !== 'active') {
-        isSubscribed = false;
+      if (fin.subscription_status === 'active') {
+        isSubscribed = true;
       }
     }
   } catch (e) {}
