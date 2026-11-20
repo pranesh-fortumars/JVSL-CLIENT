@@ -10,16 +10,8 @@ export function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const emailLower = (user?.email || '').toLowerCase().trim();
-  const isDirectStaffEmail =
-    emailLower === 'manager@jvlsd.in' ||
-    emailLower === 'admin@jvlsd.in' ||
-    emailLower === 'jvlsd@gmail.com' ||
-    emailLower.includes('owner');
-
   const isStaffOrOwner =
-    (profile?.role === 'admin' || profile?.role === 'superadmin' || isDirectStaffEmail) &&
-    profile?.role !== 'customer';
+    profile?.role === 'admin' || profile?.role === 'superadmin';
 
   const profileStillResolving = !!user && !profile;
   const signedInWithoutAccess = !loading && !profileStillResolving && !!user && !isStaffOrOwner;

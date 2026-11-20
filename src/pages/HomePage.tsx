@@ -11,6 +11,7 @@ import {
   Sprout,
   Star,
   Quote,
+  Sparkles,
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
@@ -301,14 +302,13 @@ export function HomePage() {
             <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-ink-950/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink-950">
-                  <Star className="h-3.5 w-3.5 fill-ink-950 text-ink-950" /> Introductory offer
+                  <Star className="h-3.5 w-3.5 fill-ink-950 text-ink-950" /> Volume Discounts
                 </span>
                 <h2 className="mt-4 font-display text-3xl font-extrabold text-ink-950 sm:text-4xl">
-                  20% off your first Fresh Daily order.
+                  Up to 30% off with regular monthly orders.
                 </h2>
                 <p className="mt-2 max-w-lg text-ink-900/80">
-                  A fixed 20% introductory offer as we launch. Final promotional rules will
-                  be confirmed before going live.
+                  20% discount on 2+ orders/month, and 30% discount on 4+ orders/month. Helping households plan ahead and reduce fresh produce waste.
                 </p>
               </div>
               <button
@@ -322,17 +322,16 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Testimonial */}
+      {/* Corporate Philosophy */}
       <section className="bg-brand-50/60 py-20 sm:py-24">
         <div className="container-page">
           <Reveal className="mx-auto max-w-3xl text-center">
-            <Quote className="mx-auto h-10 w-10 text-brand-300" />
+            <Sparkles className="mx-auto h-10 w-10 text-brand-600" />
             <p className="mt-6 font-serif text-2xl leading-relaxed text-ink-800 sm:text-3xl">
-              &ldquo;The advance-order idea changed how my family shops for vegetables. We
-              plan once, and fresh produce arrives the next morning — nothing is wasted.&rdquo;
+              &ldquo;Lush, Seasonal Daily Delivery Direct.&rdquo;
             </p>
-            <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-brand-700">
-              Early Fresh Daily customer
+            <p className="mt-4 text-sm font-semibold uppercase tracking-wider text-brand-700">
+              JVLSD-FD Fresh Daily is the franchisee of SHAKHWALA for fresh vegetables and fruit supplies.
             </p>
           </Reveal>
         </div>

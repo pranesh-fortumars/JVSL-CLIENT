@@ -29,10 +29,12 @@ import {
   submitOrderFeedback,
   fetchUserFinancials,
   fetchOrders,
+  fetchFamilyGroup,
   type Product,
   type OrderMode,
   type OrderItem,
   type OrderFeedback,
+  type FamilyGroup,
 } from '@/lib/firestoreService';
 import { useAuth } from '@/lib/auth';
 import { SEASONAL_CATALOGUE, type SeasonalProduce } from '@/data/seasonalProduce';
@@ -165,6 +167,7 @@ export function OrderPage() {
           id,
           name: productById[id]?.name ?? 'Item',
           unit: productById[id]?.unit ?? 'unit',
+          price: productById[id]?.price,
           quantity: qty,
         })),
     [cart, productById]
@@ -1012,9 +1015,24 @@ function Checkout({
         ? `${activeAddr.house_flat}, ${activeAddr.building_society}, ${activeAddr.area_road}, ${activeAddr.city} - ${activeAddr.pincode}${activeAddr.digipin ? ' (DIGIPIN: ' + activeAddr.digipin + ')' : ''}`
         : '';
 
-      // Check if user has domestic help address lock
-      const locked = (profile as any).address_locked === true;
-      setIsAddressLocked(locked);
+      // Check if user has domestic help address lock (directly or via family group)
+      if (profile.family_group_id) {
+        fetchFamilyGroup(profile.family_group_id).then((grp) => {
+          if (grp) {
+            const memberRecord = grp.members?.find((m) => m.uid === user?.uid);
+            if (memberRecord?.address_locked) {
+              setIsAddressLocked(true);
+              setInfo((prev) => ({
+                ...prev,
+                address: grp.household_address || prev.address || addrStr,
+              }));
+            }
+          }
+        }).catch(() => {});
+      } else {
+        const locked = (profile as any).address_locked === true;
+        setIsAddressLocked(locked);
+      }
 
       setInfo((prev) => ({
         ...prev,

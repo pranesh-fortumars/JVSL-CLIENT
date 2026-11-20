@@ -2,8 +2,8 @@ export function Logo({ className = 'h-11 w-11' }: { className?: string }) {
   return (
     <div className={`relative shrink-0 flex items-center justify-center ${className}`}>
       <img
-        src="/jvlsd-verified-seal-master.jpg"
-        alt="JVLSD - Verified Seal • 100% Trust, Quality & Fairness (Order Checked • Sealed with Faith)"
+        src="/jvlsd-celestial-master-logo.jpg"
+        alt="Jagatpati Vigneshwara LSD LLP • TRUST · QUALITY · FAIRNESS"
         className="h-full w-auto object-contain drop-shadow-[0_2px_8px_rgba(212,175,55,0.35)]"
       />
     </div>
@@ -13,11 +13,11 @@ export function Logo({ className = 'h-11 w-11' }: { className?: string }) {
 export function Wordmark({ dark = false }: { dark?: boolean }) {
   return (
     <div className="flex items-center gap-2.5 sm:gap-3">
-      {/* Approved JVLSD Verified Master Seal Badge */}
+      {/* Approved JVLSD Celestial Master Emblem */}
       <div className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 transition-transform duration-300 hover:scale-105 flex items-center justify-center">
         <img
-          src="/jvlsd-verified-seal-master.jpg"
-          alt="JVLSD - Verified Seal • 100% Trust, Quality & Fairness"
+          src="/jvlsd-celestial-master-logo.jpg"
+          alt="Jagatpati Vigneshwara LSD LLP • TRUST · QUALITY · FAIRNESS"
           className="h-full w-auto object-contain drop-shadow-[0_2px_8px_rgba(212,175,55,0.35)]"
         />
       </div>
@@ -38,8 +38,8 @@ export function CelestialMasterBanner({ className = 'max-w-md w-full' }: { class
   return (
     <div className={`overflow-hidden rounded-3xl shadow-lift ring-1 ring-gold-400/30 ${className}`}>
       <img
-        src="/jvlsd-verified-seal-master.jpg"
-        alt="Jagatpati Vigneshwara LSD LLP - Verified Seal • 100% Trust, Quality & Fairness"
+        src="/jvlsd-celestial-master-logo.jpg"
+        alt="Jagatpati Vigneshwara LSD LLP • TRUST · QUALITY · FAIRNESS"
         className="h-auto w-full object-cover"
       />
     </div>

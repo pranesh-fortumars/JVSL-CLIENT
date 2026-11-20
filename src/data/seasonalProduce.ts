@@ -284,6 +284,36 @@ export const SEASONAL_CATALOGUE: SeasonalProduce[] = [
     imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
     nutritionalNotes: 'Direct, unadulterated farm milk collected and chilled each morning. Wholesome A2 beta-casein proteins and bio-calcium.',
     benefits: ['Strong bones and muscle repair', 'Children nourishment', 'No preservatives or synthetic processing']
+  },
+  {
+    id: 'farm_fresh_dahi',
+    name: 'Fresh Curd (Dahi)',
+    vernacularName: 'તાજું દહીં',
+    category: 'milk',
+    season: 'all_year',
+    seasonLabel: 'બારેમાસ - Daily Farm Fresh',
+    availableMonths: '365 Days',
+    unit: '500g',
+    allowedUnits: ['250g', '500g', '1kg'],
+    pricePerUnit: 45,
+    imageUrl: 'https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=600&q=80',
+    nutritionalNotes: 'Naturally fermented artisanal curd with live probiotic cultures. Calms digestive fire (Pitta) and enriches gut microbiome.',
+    benefits: ['Rich in natural probiotics', 'Supports gut and digestive health', 'No synthetic thickening agents']
+  },
+  {
+    id: 'traditional_chaas',
+    name: 'Spiced Buttermilk (Chaas)',
+    vernacularName: 'મસાલા છાશ',
+    category: 'milk',
+    season: 'all_year',
+    seasonLabel: 'બારેમાસ - Daily Farm Fresh',
+    availableMonths: '365 Days',
+    unit: 'litre',
+    allowedUnits: ['500ml', '1 Litre', '2 Litres'],
+    pricePerUnit: 35,
+    imageUrl: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80',
+    nutritionalNotes: 'Light, churned buttermilk blended with roasted cumin, rock salt, and mint. Essential digestive elixir in Gujarati households.',
+    benefits: ['Aids post-meal digestion', 'Hydrates and cools the system', 'Low fat and electrolyte rich']
   }
 ];
 
