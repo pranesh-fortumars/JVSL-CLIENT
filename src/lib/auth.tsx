@@ -198,7 +198,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithEmailAndPassword(auth, email, password);
       return { error: null };
     } catch (err: any) {
-      return { error: friendlyAuthError(err.code || err.message) };
+      // Any error during signIn (whether user not found, invalid credential, or wrong password on a provisioned user)
+      // will attempt an automatic first-time onboarding so provisioned emails can log in directly
+      try {
+        const res = await createUserWithEmailAndPassword(auth, email, password);
+        const emailLower = email.toLowerCase().trim();
+        const role: Profile['role'] = isSuperAdminEmail(emailLower)
+          ? 'superadmin'
+          : isStaffAdminEmail(emailLower)
+          ? 'admin'
+          : 'customer';
+        
+        await setDoc(
+          doc(db, 'profiles', res.user.uid),
+          {
+            id: res.user.uid,
+            email: email,
+            role: role,
+          },
+          { merge: true }
+        );
+        return { error: null };
+      } catch (signupErr: any) {
+        if (signupErr.code === 'auth/email-already-in-use') {
+          return { error: 'Incorrect password for this account. Please check and try again.' };
+        }
+        if (signupErr.code === 'auth/weak-password') {
+          return { error: 'Password should be at least 6 characters.' };
+        }
+        return { error: friendlyAuthError(err.code || err.message) };
+      }
     }
   };
 
