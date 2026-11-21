@@ -35,10 +35,12 @@ import {
   type OrderItem,
   type OrderFeedback,
   type FamilyGroup,
+  type CutVegPreference,
 } from '@/lib/firestoreService';
 import { useAuth } from '@/lib/auth';
 import { SEASONAL_CATALOGUE, type SeasonalProduce } from '@/data/seasonalProduce';
-import { HeartPulse, BookOpen, AlertTriangle, Star, ThumbsUp, Send } from 'lucide-react';
+import { RECIPE_PREP_KITS, type RecipePrepKit } from '@/data/recipePacks';
+import { HeartPulse, BookOpen, AlertTriangle, Star, ThumbsUp, Send, ChefHat, Scissors, AlertOctagon } from 'lucide-react';
 
 type Cart = Record<string, number>; // productId -> quantity
 
@@ -73,6 +75,11 @@ export function OrderPage() {
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'vegetable' | 'fruit' | 'milk'>('all');
   const [seasonFilter, setSeasonFilter] = useState<'all' | 'all_year' | 'winter' | 'monsoon' | 'summer'>('all');
   const [healthTipProduce, setHealthTipProduce] = useState<any | null>(null);
+
+  // Cut Vegetables & Recipe Prep Customization State (Master Directive Section 12)
+  const [cutVegConfigs, setCutVegConfigs] = useState<Record<string, CutVegPreference>>({});
+  const [cutConfigModalProduct, setCutConfigModalProduct] = useState<Product | null>(null);
+  const [cutErrorNotice, setCutErrorNotice] = useState<string | null>(null);
 
   // Check for pre-loaded re-order basket from AccountPage
   useEffect(() => {
@@ -169,8 +176,9 @@ export function OrderPage() {
           unit: productById[id]?.unit ?? 'unit',
           price: productById[id]?.price,
           quantity: qty,
+          cut_preference: cutVegConfigs[id],
         })),
-    [cart, productById]
+    [cart, productById, cutVegConfigs]
   );
 
   const itemCount = cartItems.length;
@@ -348,6 +356,11 @@ export function OrderPage() {
                         isSelectable={isSelectable}
                         onPreview={setPreviewProduct}
                         onTip={setHealthTipProduce}
+                        onOpenCutConfig={(prod) => {
+                          setCutErrorNotice(null);
+                          setCutConfigModalProduct(prod);
+                        }}
+                        cutVegConfig={cutVegConfigs}
                       />
                       <CategoryGroup
                         icon={Apple}
@@ -539,6 +552,314 @@ export function OrderPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Master Requirement Section 12: Cut Vegetable Preferences & Recipe Pack Modal */}
+                    {cutConfigModalProduct && (
+                      <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/75 p-4 backdrop-blur-sm animate-fade-in"
+                        onClick={() => {
+                          setCutConfigModalProduct(null);
+                          setCutErrorNotice(null);
+                        }}
+                      >
+                        <div
+                          className="relative max-w-xl w-full max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl animate-scale-in border border-amber-200"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-between pb-4 border-b border-ink-100">
+                            <div className="flex items-center gap-3">
+                              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-900">
+                                <Scissors className="h-6 w-6" />
+                              </span>
+                              <div>
+                                <h3 className="font-display text-lg font-bold text-ink-950">
+                                  Cut &amp; Preparation Preference
+                                </h3>
+                                <p className="text-xs text-brand-700 font-semibold">{cutConfigModalProduct.name}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCutConfigModalProduct(null);
+                                setCutErrorNotice(null);
+                              }}
+                              className="rounded-full p-2 text-ink-400 hover:bg-ink-100 transition-colors"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
+
+                          {/* Section 12.6 Onion & Potato Advance Delivery Rule Enforcement Banner */}
+                          {['onion', 'potato', 'aloo', 'pyaaz', 'batata'].some((k) =>
+                            cutConfigModalProduct.name.toLowerCase().includes(k)
+                          ) && (
+                            <div className="mt-4 flex items-start gap-3 rounded-2xl bg-amber-50 p-4 border border-amber-200 text-amber-900">
+                              <AlertOctagon className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+                              <div className="text-xs leading-relaxed">
+                                <span className="font-bold">Freshness Advisory:</span> Due to natural oxidization, colour changes, and aroma release, cut onion and potato items are strictly prepared for <strong>same-day immediate dispatch</strong>. Scheduled advance next-day delivery of pre-cut onion/potato is restricted.
+                              </div>
+                            </div>
+                          )}
+
+                          {cutErrorNotice && (
+                            <div className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-700 border border-red-200">
+                              <AlertCircle className="h-4 w-4 shrink-0" /> {cutErrorNotice}
+                            </div>
+                          )}
+
+                          <div className="mt-6 space-y-6 text-sm">
+                            {/* 12.1 Preparation Preference Type */}
+                            <div>
+                              <label className="block text-xs font-bold uppercase tracking-wider text-ink-600 mb-2">
+                                1. Select Preparation Style
+                              </label>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                {[
+                                  { id: 'individual', title: 'Individual Cut', desc: 'Separately packed vegetable' },
+                                  { id: 'mixed_box', title: 'Mixed Box', desc: 'Assorted in one kitchen box' },
+                                  { id: 'recipe', title: 'Recipe Prep Pack', desc: 'Pre-cut for a specific dish' },
+                                ].map((opt) => {
+                                  const current = cutVegConfigs[cutConfigModalProduct.id]?.preparation_type || 'individual';
+                                  const isSel = current === opt.id;
+                                  return (
+                                    <button
+                                      key={opt.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setCutErrorNotice(null);
+                                        setCutVegConfigs((prev) => ({
+                                          ...prev,
+                                          [cutConfigModalProduct.id]: {
+                                            ...(prev[cutConfigModalProduct.id] || {}),
+                                            preparation_type: opt.id as any,
+                                          },
+                                        }));
+                                      }}
+                                      className={`p-3 text-left rounded-2xl border transition-all ${
+                                        isSel
+                                          ? 'border-brand-600 bg-brand-50/60 text-brand-900 ring-2 ring-brand-300'
+                                          : 'border-ink-200 bg-white hover:bg-ink-50 text-ink-800'
+                                      }`}
+                                    >
+                                      <p className="font-bold text-xs">{opt.title}</p>
+                                      <p className="text-[11px] text-ink-500 mt-0.5">{opt.desc}</p>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* 12.2 Recipe Selection (When Recipe chosen) */}
+                            {cutVegConfigs[cutConfigModalProduct.id]?.preparation_type === 'recipe' && (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-amber-900 mb-2 flex items-center gap-1.5">
+                                  <ChefHat className="h-4 w-4" /> Select Recipe Kit
+                                </label>
+                                <select
+                                  value={cutVegConfigs[cutConfigModalProduct.id]?.recipe_name || RECIPE_PREP_KITS[0].name}
+                                  onChange={(e) => {
+                                    setCutErrorNotice(null);
+                                    const kit = RECIPE_PREP_KITS.find((k) => k.name === e.target.value);
+                                    if (mode === 'next_day' && kit?.hasOnionOrPotato) {
+                                      setCutErrorNotice(
+                                        `"${kit.name}" contains onion/potato and cannot be scheduled for next-day pre-order. Please select Same-Day mode or choose an unoxidized recipe kit.`
+                                      );
+                                    }
+                                    setCutVegConfigs((prev) => ({
+                                      ...prev,
+                                      [cutConfigModalProduct.id]: {
+                                        ...(prev[cutConfigModalProduct.id] || {}),
+                                        preparation_type: 'recipe',
+                                        recipe_name: e.target.value,
+                                      },
+                                    }));
+                                  }}
+                                  className="w-full rounded-xl border border-amber-300 bg-white p-2.5 text-xs font-semibold text-ink-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                >
+                                  {RECIPE_PREP_KITS.map((k) => (
+                                    <option key={k.id} value={k.name}>
+                                      {k.name} ({k.vernacularName || k.description})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            {/* 12.3 Cut Size Options */}
+                            <div>
+                              <label className="block text-xs font-bold uppercase tracking-wider text-ink-600 mb-2">
+                                2. Cut Size Preference
+                              </label>
+                              <div className="flex flex-wrap gap-2">
+                                {[
+                                  { id: 'fine', label: 'Fine Chopped' },
+                                  { id: 'thin', label: 'Thin Slices / Batons' },
+                                  { id: 'small_dice', label: 'Small Dice' },
+                                  { id: 'medium_dice', label: 'Medium Dice' },
+                                  { id: 'large_dice', label: 'Large Chunks' },
+                                ].map((cs) => {
+                                  const current = cutVegConfigs[cutConfigModalProduct.id]?.cut_size || 'medium_dice';
+                                  const isSel = current === cs.id;
+                                  return (
+                                    <button
+                                      key={cs.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setCutVegConfigs((prev) => ({
+                                          ...prev,
+                                          [cutConfigModalProduct.id]: {
+                                            ...(prev[cutConfigModalProduct.id] || { preparation_type: 'individual' }),
+                                            cut_size: cs.id as any,
+                                          },
+                                        }));
+                                      }}
+                                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition-all ${
+                                        isSel
+                                          ? 'border-brand-700 bg-brand-700 text-white shadow-soft'
+                                          : 'border-ink-200 bg-ink-50 text-ink-700 hover:bg-ink-100'
+                                      }`}
+                                    >
+                                      {cs.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* 12.4 Pack Size & Box Style */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-ink-600 mb-2">
+                                  3. Pack Size
+                                </label>
+                                <div className="flex gap-2">
+                                  {['200g', '250g', '500g'].map((ps) => {
+                                    const current = cutVegConfigs[cutConfigModalProduct.id]?.pack_size || '250g';
+                                    const isSel = current === ps;
+                                    return (
+                                      <button
+                                        key={ps}
+                                        type="button"
+                                        onClick={() => {
+                                          setCutVegConfigs((prev) => ({
+                                            ...prev,
+                                            [cutConfigModalProduct.id]: {
+                                              ...(prev[cutConfigModalProduct.id] || { preparation_type: 'individual' }),
+                                              pack_size: ps as any,
+                                            },
+                                          }));
+                                        }}
+                                        className={`flex-1 rounded-xl py-2 text-xs font-bold border transition-all ${
+                                          isSel
+                                            ? 'border-brand-700 bg-brand-700 text-white shadow-soft'
+                                            : 'border-ink-200 bg-ink-50 text-ink-700 hover:bg-ink-100'
+                                        }`}
+                                      >
+                                        {ps}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-ink-600 mb-2">
+                                  4. Box Style
+                                </label>
+                                <div className="flex gap-2">
+                                  {[
+                                    { id: 'individual_pack', label: 'Single Pack' },
+                                    { id: 'assorted_separated_box', label: 'Separated Box' },
+                                  ].map((bx) => {
+                                    const current = cutVegConfigs[cutConfigModalProduct.id]?.box_style || 'individual_pack';
+                                    const isSel = current === bx.id;
+                                    return (
+                                      <button
+                                        key={bx.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setCutVegConfigs((prev) => ({
+                                            ...prev,
+                                            [cutConfigModalProduct.id]: {
+                                              ...(prev[cutConfigModalProduct.id] || { preparation_type: 'individual' }),
+                                              box_style: bx.id as any,
+                                            },
+                                          }));
+                                        }}
+                                        className={`flex-1 rounded-xl py-2 px-1 text-center text-xs font-bold border transition-all ${
+                                          isSel
+                                            ? 'border-brand-700 bg-brand-700 text-white shadow-soft'
+                                            : 'border-ink-200 bg-ink-50 text-ink-700 hover:bg-ink-100'
+                                        }`}
+                                      >
+                                        {bx.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-8 flex items-center justify-between border-t border-ink-100 pt-5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCutVegConfigs((prev) => {
+                                  const n = { ...prev };
+                                  delete n[cutConfigModalProduct.id];
+                                  return n;
+                                });
+                                setCutConfigModalProduct(null);
+                              }}
+                              className="text-xs text-red-600 hover:text-red-800 font-semibold underline"
+                            >
+                              Reset to standard whole
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const isRawOnionPotato = ['onion', 'potato', 'aloo', 'pyaaz', 'batata'].some((k) =>
+                                  cutConfigModalProduct.name.toLowerCase().includes(k)
+                                );
+                                if (mode === 'next_day' && isRawOnionPotato) {
+                                  setCutErrorNotice(
+                                    'Pre-cut Onion and Potato products cannot be ordered for next-day delivery due to colour-change and odour rules. Please switch to Same-Day order mode.'
+                                  );
+                                  return;
+                                }
+
+                                // If user hadn't customized yet, populate default
+                                if (!cutVegConfigs[cutConfigModalProduct.id]) {
+                                  setCutVegConfigs((prev) => ({
+                                    ...prev,
+                                    [cutConfigModalProduct.id]: {
+                                      preparation_type: 'individual',
+                                      cut_size: 'medium_dice',
+                                      pack_size: '250g',
+                                      box_style: 'individual_pack',
+                                    },
+                                  }));
+                                }
+
+                                // Auto-increment item count in cart if 0
+                                if ((cart[cutConfigModalProduct.id] ?? 0) === 0) {
+                                  setQty(cutConfigModalProduct.id, 1);
+                                }
+
+                                setCutConfigModalProduct(null);
+                                setCutErrorNotice(null);
+                              }}
+                              className="btn-primary px-6 py-2.5 text-xs font-bold"
+                            >
+                              Save Cut Preference
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -587,16 +908,23 @@ export function OrderPage() {
               ) : (
                 <ul className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                   {cartItems.map((it) => (
-                    <li key={it.id} className="flex items-center justify-between gap-3 text-sm">
+                    <li key={it.id} className="flex items-start justify-between gap-3 text-sm">
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-ink-900">{it.name}</p>
                         <p className="text-xs text-ink-500">
                           {it.quantity} {it.unit}
                         </p>
+                        {it.cut_preference && (
+                          <div className="mt-0.5 text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            {it.cut_preference.preparation_type === 'recipe'
+                              ? `Recipe: ${it.cut_preference.recipe_name}`
+                              : `Cut: ${it.cut_preference.cut_size?.replace('_', ' ')} (${it.cut_preference.pack_size || '250g'})`}
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => setQty(it.id, 0)}
-                        className="rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                        className="rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-50 shrink-0"
                         aria-label={`Remove ${it.name}`}
                       >
                         Remove
@@ -713,6 +1041,8 @@ function CategoryGroup({
   isSelectable,
   onPreview,
   onTip,
+  onOpenCutConfig,
+  cutVegConfig,
 }: {
   icon: React.ElementType;
   title: string;
@@ -724,6 +1054,8 @@ function CategoryGroup({
   isSelectable: (p: Product) => boolean;
   onPreview: (p: Product) => void;
   onTip: (match: SeasonalProduce) => void;
+  onOpenCutConfig?: (p: Product) => void;
+  cutVegConfig?: Record<string, CutVegPreference>;
 }) {
   if (products.length === 0) return null;
   return (
@@ -806,6 +1138,26 @@ function CategoryGroup({
                       >
                         <HeartPulse className="h-3 w-3 text-emerald-600" /> Ayurvedic &amp; Storage Tip
                       </button>
+                    )}
+                    {p.category === 'vegetable' && onOpenCutConfig && (
+                      <div className="mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onOpenCutConfig(p)}
+                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition-all border ${
+                            cutVegConfig?.[p.id]
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-ink-50 text-ink-700 border-ink-200 hover:bg-ink-100'
+                          }`}
+                        >
+                          <Scissors className="h-3 w-3 text-amber-700" />
+                          {cutVegConfig?.[p.id] ? (
+                            <span>Cut: {cutVegConfig[p.id].preparation_type === 'recipe' ? cutVegConfig[p.id].recipe_name : cutVegConfig[p.id].cut_size?.replace('_', ' ') || 'Custom'}</span>
+                          ) : (
+                            <span>Cut &amp; Prep Preference</span>
+                          )}
+                        </button>
+                      </div>
                     )}
                   </div>
                   <span className="text-[11px] font-medium text-ink-500">per {p.unit}</span>

@@ -5,6 +5,7 @@ import { HomePage } from '@/pages/HomePage';
 import { AboutPage } from '@/pages/AboutPage';
 import { ShakhwalaPage } from '@/pages/ShakhwalaPage';
 import { FreshDailyPage } from '@/pages/FreshDailyPage';
+import { BitesPage } from '@/pages/BitesPage';
 import { SurveyPage } from '@/pages/SurveyPage';
 import { OrderPage } from '@/pages/OrderPage';
 import { ContactPage } from '@/pages/ContactPage';
@@ -49,6 +50,7 @@ function AppRoutes() {
         {route.name === 'about' && <AboutPage />}
         {route.name === 'shakhwala' && <ShakhwalaPage />}
         {route.name === 'fresh-daily' && <FreshDailyPage />}
+        {route.name === 'bites' && <BitesPage />}
         {route.name === 'survey' && <SurveyPage />}
         {route.name === 'order' && <OrderPage />}
         {route.name === 'contact' && <ContactPage />}

@@ -5,6 +5,7 @@ export type Route =
   | { name: 'about' }
   | { name: 'shakhwala' }
   | { name: 'fresh-daily' }
+  | { name: 'bites' }
   | { name: 'survey' }
   | { name: 'order' }
   | { name: 'contact' }
@@ -20,6 +21,7 @@ const ROUTES: Record<string, Route> = {
   '/about': { name: 'about' },
   '/shakhwala': { name: 'shakhwala' },
   '/fresh-daily': { name: 'fresh-daily' },
+  '/bites': { name: 'bites' },
   '/survey': { name: 'survey' },
   '/order': { name: 'order' },
   '/contact': { name: 'contact' },
@@ -61,6 +63,7 @@ export const PATHS = {
   about: '/about',
   shakhwala: '/shakhwala',
   freshDaily: '/fresh-daily',
+  bites: '/bites',
   survey: '/survey',
   order: '/order',
   contact: '/contact',

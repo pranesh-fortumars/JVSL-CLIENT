@@ -191,11 +191,12 @@ export function HomePage() {
                 path: PATHS.order,
               },
               {
-                tag: 'Future Division',
+                tag: 'Active',
                 icon: Sprout,
                 title: 'JVLSD-Bites & Beyond',
-                desc: 'Upcoming clean culinary and nutritious ready-to-eat kitchen offerings under the JVLSD umbrella.',
-                cta: null,
+                desc: 'Wholesome biscuits, artisanal khakhra, toast, and nutrient-dense roasted nuts & seeds for everyday wellness.',
+                cta: 'Explore Bites',
+                path: PATHS.bites,
               },
             ].map((d) => (
               <Reveal key={d.title}>

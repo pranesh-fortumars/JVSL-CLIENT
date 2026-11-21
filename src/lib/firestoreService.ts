@@ -119,12 +119,21 @@ export type SurveySubmission = {
 
 export type OrderMode = 'same_day' | 'next_day';
 
+export type CutVegPreference = {
+  preparation_type: 'individual' | 'mixed_box' | 'recipe';
+  recipe_name?: string;
+  cut_size?: 'fine' | 'thin' | 'small_dice' | 'medium_dice' | 'large_dice';
+  pack_size?: '200g' | '250g' | '500g';
+  box_style?: 'individual_pack' | 'assorted_separated_box';
+};
+
 export type OrderItem = {
   id: string;
   name: string;
   unit: string;
   quantity: number;
   price?: number;
+  cut_preference?: CutVegPreference;
 };
 
 export type Order = {
