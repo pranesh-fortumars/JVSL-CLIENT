@@ -86,32 +86,32 @@ export function MascotDuoStanding({ compact = false }: { compact?: boolean }) {
         </span>
       </div>
 
-      {/* Side-by-Side Standing Mascots - Natural Unboxed Standing Characters */}
-      <div className="mt-8 flex flex-col sm:flex-row items-end justify-center gap-8 sm:gap-10">
-        {/* Leafy Vegreenman Standing Character */}
+      {/* Side-by-Side Standing Mascots - Exact Two Approved Images */}
+      <div className="mt-8 flex flex-col sm:flex-row items-end justify-center gap-6 sm:gap-8">
+        {/* Left Mascot: Gau-Mata & Leafy Friend */}
         <div className="group flex flex-col items-center text-center flex-1">
-          <div className="relative flex flex-col items-center">
+          <div className="relative flex flex-col items-center w-full">
             {/* Friendly Floating speech tag */}
-            <div className="mb-2 z-10 rounded-full bg-emerald-700 text-white px-3 py-1 text-[11px] font-extrabold shadow-soft animate-bounce">
+            <div className="mb-2 z-10 rounded-full bg-emerald-700 text-white px-3.5 py-1 text-[11px] font-black shadow-soft animate-bounce">
               100% Farm-Fresh!
             </div>
             
-            {/* Mascot Character Image Standing Freely */}
-            <div className="relative transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-2 cursor-pointer">
+            {/* 2D Vector Character image */}
+            <div className="relative transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-2 cursor-pointer flex justify-center w-full">
               <img
-                src="/jvlsd-mascot-leafy.jpg"
-                alt="Vegreenman - Green Leafy Farm Produce Mascot"
-                className="h-48 sm:h-56 w-auto object-contain rounded-2xl drop-shadow-[0_12px_16px_rgba(5,150,105,0.25)]"
+                src="/jvlsd-mascot-gau-mata-2d.jpg"
+                alt="JVLSD Fresh Daily - Gau-Mata & Leafy Produce Friend"
+                className="h-52 sm:h-64 w-auto object-contain rounded-2xl drop-shadow-[0_12px_16px_rgba(5,150,105,0.25)]"
               />
             </div>
 
-            {/* Natural Ground Pedestal Shadow */}
-            <div className="mt-3 h-3.5 w-36 rounded-[100%] bg-emerald-950/20 blur-[2px] transition-all group-hover:w-40 group-hover:bg-emerald-950/30" />
+            {/* Soft ground pedestal shadow */}
+            <div className="mt-3.5 h-3.5 w-44 rounded-[100%] bg-emerald-950/20 blur-[2px]" />
           </div>
           
           <div className="mt-3.5">
-            <h4 className="font-display text-lg font-black text-ink-950">Vegreenman</h4>
-            <p className="text-xs text-brand-800 font-bold">Fresh Vegetable Guardian</p>
+            <h4 className="font-display text-base sm:text-lg font-black text-ink-950">Gau-Mata &amp; Vegreenman</h4>
+            <p className="text-xs text-brand-800 font-bold">Fresh Produce Guardians</p>
           </div>
         </div>
 
@@ -123,29 +123,29 @@ export function MascotDuoStanding({ compact = false }: { compact?: boolean }) {
           <span className="text-[10px] font-black text-forest-900 uppercase tracking-widest mt-1.5">DAILY DUO</span>
         </div>
 
-        {/* Milkcan Mascot Standing Character */}
+        {/* Right Mascot: Pure Milk Can with Cape */}
         <div className="group flex flex-col items-center text-center flex-1">
-          <div className="relative flex flex-col items-center">
+          <div className="relative flex flex-col items-center w-full">
             {/* Friendly Floating speech tag */}
-            <div className="mb-2 z-10 rounded-full bg-amber-600 text-white px-3 py-1 text-[11px] font-extrabold shadow-soft animate-bounce [animation-delay:0.5s]">
+            <div className="mb-2 z-10 rounded-full bg-amber-600 text-white px-3.5 py-1 text-[11px] font-black shadow-soft animate-bounce [animation-delay:0.5s]">
               Pure &amp; Natural!
             </div>
 
-            {/* Mascot Character Image Standing Freely */}
-            <div className="relative transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-2 cursor-pointer">
+            {/* 2D Vector Character image */}
+            <div className="relative transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-2 cursor-pointer flex justify-center w-full">
               <img
-                src="/jvlsd-mascot-milkcan.jpg"
-                alt="Pure Can - Farm Milk Mascot"
-                className="h-48 sm:h-56 w-auto object-contain rounded-2xl drop-shadow-[0_12px_16px_rgba(217,119,6,0.25)]"
+                src="/jvlsd-mascot-milk-can-2d.jpg"
+                alt="JVLSD Fresh Daily - Pure Can Mascot"
+                className="h-52 sm:h-64 w-auto object-contain rounded-2xl drop-shadow-[0_12px_16px_rgba(217,119,6,0.25)]"
               />
             </div>
 
-            {/* Natural Ground Pedestal Shadow */}
-            <div className="mt-3 h-3.5 w-36 rounded-[100%] bg-amber-950/20 blur-[2px] transition-all group-hover:w-40 group-hover:bg-amber-950/30" />
+            {/* Soft ground pedestal shadow */}
+            <div className="mt-3.5 h-3.5 w-44 rounded-[100%] bg-amber-950/20 blur-[2px]" />
           </div>
 
           <div className="mt-3.5">
-            <h4 className="font-display text-lg font-black text-ink-950">Pure Can</h4>
+            <h4 className="font-display text-base sm:text-lg font-black text-ink-950">Pure Can</h4>
             <p className="text-xs text-amber-700 font-bold">Cruelty-Free Dairy Friend</p>
           </div>
         </div>
