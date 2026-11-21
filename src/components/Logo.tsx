@@ -160,3 +160,60 @@ export function MascotDuoStanding({ compact = false }: { compact?: boolean }) {
     </div>
   );
 }
+
+/**
+ * Mailchimp-Style Lively Delivery Hero Standing Mascot
+ */
+export function MascotHeroStanding({ className = 'max-w-md w-full' }: { className?: string }) {
+  return (
+    <div className={`relative overflow-hidden rounded-3xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-amber-50/80 p-6 sm:p-8 shadow-card transition-all duration-300 hover:shadow-lift ${className}`}>
+      {/* Background glow blobs */}
+      <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-emerald-400/20 blur-3xl pointer-events-none" />
+      <div className="absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-gold-400/20 blur-3xl pointer-events-none" />
+
+      {/* Header Badge */}
+      <div className="flex items-center justify-between pb-4 border-b border-emerald-100">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100/90 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-forest-950 shadow-xs">
+          🌱 Official Delivery Hero
+        </span>
+        <span className="text-[11px] font-extrabold text-emerald-800 bg-white px-3 py-1 rounded-full border border-emerald-200/80 shadow-xs">
+          Fresh Daily Champion
+        </span>
+      </div>
+
+      {/* Standing Mascot Character */}
+      <div className="mt-6 flex flex-col items-center text-center">
+        <div className="relative flex flex-col items-center">
+          {/* Friendly floating speech bubble */}
+          <div className="mb-2 z-10 rounded-full bg-emerald-700 text-white px-3.5 py-1 text-xs font-black shadow-soft animate-bounce">
+            Fresh Vegetables &amp; Pure Milk at 7 AM!
+          </div>
+
+          {/* Full Standing Mascot Artwork */}
+          <div className="relative group cursor-pointer transition-transform duration-300 hover:scale-105 hover:-translate-y-2">
+            <img
+              src="/jvlsd-mascot-hero.jpg"
+              alt="JVLSD Delivery Hero Mascot - Fresh Daily Guardian"
+              className="h-64 sm:h-72 w-auto object-contain rounded-3xl shadow-soft drop-shadow-[0_16px_20px_rgba(5,150,105,0.25)]"
+            />
+          </div>
+
+          {/* Pedestal Ground Contact Shadow */}
+          <div className="mt-3.5 h-4 w-48 rounded-[100%] bg-emerald-950/20 blur-[2px] transition-all" />
+        </div>
+
+        <div className="mt-4">
+          <h4 className="font-display text-xl font-black text-ink-950">Captain Fresh</h4>
+          <p className="text-xs text-brand-800 font-bold mt-0.5">JVLSD-FD Doorstep Delivery Guardian</p>
+        </div>
+      </div>
+
+      {/* Speech Box */}
+      <div className="mt-6 rounded-2xl bg-white/95 p-4 border border-emerald-100 shadow-soft text-center text-xs leading-relaxed text-ink-800">
+        <p>
+          Meet our cheerful delivery hero! Delivering farm-harvested crisp vegetables, fruits, and pure milk right to your doorstep with <strong>zero food waste and planned freshness</strong>.
+        </p>
+      </div>
+    </div>
+  );
+}

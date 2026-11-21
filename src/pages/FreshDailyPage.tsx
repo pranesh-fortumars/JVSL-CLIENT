@@ -21,7 +21,7 @@ import {
 import { navigate, PATHS } from '@/lib/router';
 import { fetchProducts, type Product } from '@/lib/firestoreService';
 import { SEASONAL_CATALOGUE, type Season, type SeasonalProduce } from '@/data/seasonalProduce';
-import { Mascot, MascotDuoStanding } from '@/components/Logo';
+import { Mascot, MascotDuoStanding, MascotHeroStanding } from '@/components/Logo';
 
 export function FreshDailyPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -107,9 +107,9 @@ export function FreshDailyPage() {
               </div>
             </div>
 
-            {/* Mascot Standing Duo Spotlight */}
+            {/* Lively Standing Delivery Hero Mascot */}
             <div className="flex flex-col items-center justify-center">
-              <MascotDuoStanding compact={true} />
+              <MascotHeroStanding className="max-w-md w-full" />
             </div>
           </div>
         </div>
