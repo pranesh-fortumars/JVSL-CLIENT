@@ -139,26 +139,26 @@ export function AboutPage() {
           <Reveal className="max-w-2xl">
             <span className="eyebrow text-gold-300 font-semibold tracking-widest">What guides us</span>
             <h2 className="mt-4 font-display text-3xl font-extrabold text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
-              Vision, mission &amp; purpose.
+              About, Vision &amp; Mission.
             </h2>
           </Reveal>
 
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {[
               {
+                icon: HeartHandshake,
+                title: 'About',
+                desc: 'Guided by Insaniyat (humanity), help people build balanced, independent lives by blending practical skills with timeless family values.',
+              },
+              {
                 icon: Eye,
                 title: 'Vision',
-                desc: 'To become a trusted, multi-category business house that makes everyday essentials fresher, more accessible and less wasteful for households across India.',
+                desc: 'A self-reliant global community where individuals and future generations thrive through clear thinking, good health, strong family bonds, and financial wisdom.',
               },
               {
                 icon: Target,
                 title: 'Mission',
-                desc: 'Deliver fresh vegetables, fruits and milk directly to households through advance-planned procurement and reliable doorstep delivery — and expand thoughtfully into new categories.',
-              },
-              {
-                icon: Compass,
-                title: 'Purpose',
-                desc: 'Help families plan their kitchen a day in advance, so quality stays high, prices stay fair, and food waste is reduced across the supply chain.',
+                desc: 'Learn & Rebuild: Make education simple and engaging to support logical thinking, meaningful work, and fresh starts. Live with Values: Prioritize health, integrity, respect for elders and their wisdom, the bond of marriage, and raising grounded children. Master Money: Unlearn outdated habits to harness compounding and smart investing.',
               },
             ].map((b, i) => (
               <Reveal key={b.title} delay={i * 100}>
