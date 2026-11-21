@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 export function Logo({ className = 'h-11 w-11' }: { className?: string }) {
   return (
     <div className={`relative shrink-0 flex items-center justify-center ${className}`}>
@@ -162,57 +164,120 @@ export function MascotDuoStanding({ compact = false }: { compact?: boolean }) {
 }
 
 /**
- * Mailchimp-Style Lively Delivery Hero Standing Mascot
+ * Rotating Mascot Carousel Component
+ * Smoothly transitions between:
+ * 1. Captain Fresh (The Delivery Boy Hero Mascot)
+ * 2. Gau-Mata & Vegreenman (The Fresh Harvest Mascot)
+ * 3. Pure Can (The Cruelty-Free Farm Milk Mascot)
  */
-export function MascotHeroStanding({ className = 'max-w-md w-full' }: { className?: string }) {
+export function MascotRotator({ className = 'max-w-md w-full' }: { className?: string }) {
+  const MASCOTS = [
+    {
+      id: 'captain_fresh',
+      name: 'Captain Fresh',
+      title: 'Doorstep Delivery Hero',
+      tagline: 'Fresh Vegetables & Pure Milk at 7 AM!',
+      description: 'Our energetic delivery guardian bringing early morning harvest and pure farm milk directly to kitchen doorsteps.',
+      image: '/jvlsd-mascot-hero.jpg',
+      badgeColor: 'bg-emerald-700',
+      tag: 'Morning Champion',
+    },
+    {
+      id: 'gau_mata',
+      name: 'Gau-Mata & Vegreenman',
+      title: 'Fresh Produce Guardians',
+      tagline: '100% Unadulterated Farm-Fresh!',
+      description: 'Charming farm cow in an emerald apron with her smiling leafy companion, holding the morning harvest basket.',
+      image: '/jvlsd-mascot-gau-mata-2d.jpg',
+      badgeColor: 'bg-forest-900',
+      tag: 'Fresh Harvest Duo',
+    },
+    {
+      id: 'pure_can',
+      name: 'Pure Can',
+      title: 'Cruelty-Free Dairy Friend',
+      tagline: 'Unadulterated Pure Desi Cow Milk!',
+      description: 'Lively vintage milk can hero wearing an emerald cape, championing pure, preservative-free morning dairy.',
+      image: '/jvlsd-mascot-milk-can-2d.jpg',
+      badgeColor: 'bg-amber-600',
+      tag: 'Pure Milk Friend',
+    },
+  ];
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % MASCOTS.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [MASCOTS.length]);
+
+  const active = MASCOTS[currentIndex];
+
   return (
     <div className={`relative overflow-hidden rounded-3xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-amber-50/80 p-6 sm:p-8 shadow-card transition-all duration-300 hover:shadow-lift ${className}`}>
       {/* Background glow blobs */}
       <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-emerald-400/20 blur-3xl pointer-events-none" />
       <div className="absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-gold-400/20 blur-3xl pointer-events-none" />
 
-      {/* Header Badge */}
+      {/* Header Tag */}
       <div className="flex items-center justify-between pb-4 border-b border-emerald-100">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100/90 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-forest-950 shadow-xs">
-          🌱 Official Delivery Hero
+          🌱 JVLSD Guardians of Freshness
         </span>
         <span className="text-[11px] font-extrabold text-emerald-800 bg-white px-3 py-1 rounded-full border border-emerald-200/80 shadow-xs">
-          Fresh Daily Champion
+          {active.tag}
         </span>
       </div>
 
-      {/* Standing Mascot Character */}
+      {/* Rotating Mascot Character Showcase */}
       <div className="mt-6 flex flex-col items-center text-center">
-        <div className="relative flex flex-col items-center">
-          {/* Friendly floating speech bubble */}
-          <div className="mb-2 z-10 rounded-full bg-emerald-700 text-white px-3.5 py-1 text-xs font-black shadow-soft animate-bounce">
-            Fresh Vegetables &amp; Pure Milk at 7 AM!
-          </div>
-
-          {/* Full Standing Mascot Artwork */}
-          <div className="relative group cursor-pointer transition-transform duration-300 hover:scale-105 hover:-translate-y-2">
-            <img
-              src="/jvlsd-mascot-hero.jpg"
-              alt="JVLSD Delivery Hero Mascot - Fresh Daily Guardian"
-              className="h-64 sm:h-72 w-auto object-contain rounded-3xl shadow-soft drop-shadow-[0_16px_20px_rgba(5,150,105,0.25)]"
-            />
-          </div>
-
-          {/* Pedestal Ground Contact Shadow */}
-          <div className="mt-3.5 h-4 w-48 rounded-[100%] bg-emerald-950/20 blur-[2px] transition-all" />
+        {/* Floating animated speech tag */}
+        <div key={`tagline-${active.id}`} className="mb-2 z-10 rounded-full text-white px-3.5 py-1 text-xs font-black shadow-soft animate-bounce transition-all duration-500" style={{ backgroundColor: active.id === 'pure_can' ? '#d97706' : '#047857' }}>
+          {active.tagline}
         </div>
 
+        {/* Character Image Container with Fade Animation */}
+        <div className="relative group cursor-pointer transition-transform duration-300 hover:scale-105 hover:-translate-y-2 flex justify-center w-full">
+          <img
+            key={active.id}
+            src={active.image}
+            alt={active.name}
+            className="h-60 sm:h-72 w-auto object-contain rounded-2xl drop-shadow-[0_16px_20px_rgba(5,150,105,0.22)] animate-fade-in transition-all duration-500"
+          />
+        </div>
+
+        {/* Soft ground pedestal shadow */}
+        <div className="mt-3.5 h-4 w-48 rounded-[100%] bg-emerald-950/20 blur-[2px] transition-all" />
+
+        {/* Mascot Name & Role */}
         <div className="mt-4">
-          <h4 className="font-display text-xl font-black text-ink-950">Captain Fresh</h4>
-          <p className="text-xs text-brand-800 font-bold mt-0.5">JVLSD-FD Doorstep Delivery Guardian</p>
+          <h4 className="font-display text-xl font-black text-ink-950">{active.name}</h4>
+          <p className="text-xs text-brand-800 font-bold mt-0.5">{active.title}</p>
         </div>
       </div>
 
-      {/* Speech Box */}
-      <div className="mt-6 rounded-2xl bg-white/95 p-4 border border-emerald-100 shadow-soft text-center text-xs leading-relaxed text-ink-800">
-        <p>
-          Meet our cheerful delivery hero! Delivering farm-harvested crisp vegetables, fruits, and pure milk right to your doorstep with <strong>zero food waste and planned freshness</strong>.
-        </p>
+      {/* Dot Indicators */}
+      <div className="mt-5 flex items-center justify-center gap-2">
+        {MASCOTS.map((m, idx) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setCurrentIndex(idx)}
+            className={`transition-all duration-300 rounded-full ${
+              idx === currentIndex
+                ? 'w-7 h-2 bg-emerald-700'
+                : 'w-2 h-2 bg-ink-200 hover:bg-ink-400'
+            }`}
+            aria-label={`Show ${m.name}`}
+          />
+        ))}
+      </div>
+
+      {/* Bottom Friendly Speech/Message */}
+      <div className="mt-5 rounded-2xl bg-white/95 p-3.5 border border-emerald-100 shadow-soft text-center text-xs leading-relaxed text-ink-800">
+        <p>{active.description}</p>
       </div>
     </div>
   );
