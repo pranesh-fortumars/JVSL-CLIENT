@@ -21,7 +21,7 @@ import {
 import { navigate, PATHS } from '@/lib/router';
 import { fetchProducts, type Product } from '@/lib/firestoreService';
 import { SEASONAL_CATALOGUE, type Season, type SeasonalProduce } from '@/data/seasonalProduce';
-import { Mascot } from '@/components/Logo';
+import { Mascot, MascotDuoStanding } from '@/components/Logo';
 
 export function FreshDailyPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -107,22 +107,9 @@ export function FreshDailyPage() {
               </div>
             </div>
 
-            {/* Mascot & Visual Spotlight */}
+            {/* Mascot Standing Duo Spotlight */}
             <div className="flex flex-col items-center justify-center">
-              <div className="relative rounded-3xl border border-white/20 bg-white/10 p-8 backdrop-blur-md shadow-2xl text-center max-w-sm w-full">
-                <div className="flex justify-center">
-                  <Mascot className="h-32 w-auto" />
-                </div>
-                <h3 className="mt-5 font-display text-xl font-bold text-white">
-                  Meet the Vegreenman &amp; Pure Can
-                </h3>
-                <p className="mt-2 text-xs text-emerald-100/90 leading-relaxed">
-                  Our friendly cruelty-free mascot champions cruelty-free farm purity, zero synthetic additives, and clean morning nutrition for every Gujarati kitchen.
-                </p>
-                <div className="mt-4 rounded-xl bg-gold-400/20 border border-gold-400/40 py-2 px-3 text-[11px] font-bold text-gold-200">
-                  Franchisee of Shakhwala · JVLSD Certified
-                </div>
-              </div>
+              <MascotDuoStanding compact={true} />
             </div>
           </div>
         </div>

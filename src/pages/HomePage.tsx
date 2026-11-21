@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
+import { MascotDuoStanding } from '@/components/Logo';
 
 const HERO_IMG =
   'https://images.pexels.com/photos/17161099/pexels-photo-17161099.jpeg?auto=compress&cs=tinysrgb&h=900&w=1400';
@@ -323,7 +324,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Corporate Philosophy */}
+      {/* Corporate Philosophy & Mascot Duo */}
       <section className="bg-brand-50/60 py-20 sm:py-24">
         <div className="container-page">
           <Reveal className="mx-auto max-w-3xl text-center">
@@ -335,6 +336,13 @@ export function HomePage() {
               JVLSD-FD Fresh Daily is the franchisee of SHAKHWALA for fresh vegetables and fruit supplies.
             </p>
           </Reveal>
+
+          {/* Standing Mascot Duo Component */}
+          <div className="mt-12 max-w-2xl mx-auto">
+            <Reveal delay={120}>
+              <MascotDuoStanding />
+            </Reveal>
+          </div>
         </div>
       </section>
 
