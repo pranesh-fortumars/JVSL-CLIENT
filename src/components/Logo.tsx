@@ -101,9 +101,9 @@ export function MascotDuoStanding({ compact = false }: { compact?: boolean }) {
             {/* 2D Vector Character image */}
             <div className="relative transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-2 cursor-pointer flex justify-center w-full">
               <img
-                src="/jvlsd-mascot-gau-mata-2d.jpg"
+                src="/jvlsd-mascot-gau-mata-2d.png"
                 alt="JVLSD Fresh Daily - Gau-Mata & Leafy Produce Friend"
-                className="h-52 sm:h-64 w-auto object-contain rounded-2xl drop-shadow-[0_12px_16px_rgba(5,150,105,0.25)]"
+                className="h-56 sm:h-68 w-auto object-contain filter drop-shadow-[0_15px_20px_rgba(5,150,105,0.28)]"
               />
             </div>
 
@@ -136,9 +136,9 @@ export function MascotDuoStanding({ compact = false }: { compact?: boolean }) {
             {/* 2D Vector Character image */}
             <div className="relative transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-2 cursor-pointer flex justify-center w-full">
               <img
-                src="/jvlsd-mascot-milk-can-2d.jpg"
+                src="/jvlsd-mascot-milk-can-2d.png"
                 alt="JVLSD Fresh Daily - Pure Can Mascot"
-                className="h-52 sm:h-64 w-auto object-contain rounded-2xl drop-shadow-[0_12px_16px_rgba(217,119,6,0.25)]"
+                className="h-56 sm:h-68 w-auto object-contain filter drop-shadow-[0_15px_20px_rgba(217,119,6,0.28)]"
               />
             </div>
 
@@ -178,7 +178,7 @@ export function MascotRotator({ className = 'max-w-md w-full' }: { className?: s
       title: 'Doorstep Delivery Hero',
       tagline: 'Fresh Vegetables & Pure Milk at 7 AM!',
       description: 'Our energetic delivery guardian bringing early morning harvest and pure farm milk directly to kitchen doorsteps.',
-      image: '/jvlsd-mascot-hero.jpg',
+      image: '/jvlsd-mascot-hero.png',
       badgeColor: 'bg-emerald-700',
       tag: 'Morning Champion',
     },
@@ -188,7 +188,7 @@ export function MascotRotator({ className = 'max-w-md w-full' }: { className?: s
       title: 'Fresh Produce Guardians',
       tagline: '100% Unadulterated Farm-Fresh!',
       description: 'Charming farm cow in an emerald apron with her smiling leafy companion, holding the morning harvest basket.',
-      image: '/jvlsd-mascot-gau-mata-2d.jpg',
+      image: '/jvlsd-mascot-gau-mata-2d.png',
       badgeColor: 'bg-forest-900',
       tag: 'Fresh Harvest Duo',
     },
@@ -198,7 +198,7 @@ export function MascotRotator({ className = 'max-w-md w-full' }: { className?: s
       title: 'Cruelty-Free Dairy Friend',
       tagline: 'Unadulterated Pure Desi Cow Milk!',
       description: 'Lively vintage milk can hero wearing an emerald cape, championing pure, preservative-free morning dairy.',
-      image: '/jvlsd-mascot-milk-can-2d.jpg',
+      image: '/jvlsd-mascot-milk-can-2d.png',
       badgeColor: 'bg-amber-600',
       tag: 'Pure Milk Friend',
     },
@@ -244,7 +244,7 @@ export function MascotRotator({ className = 'max-w-md w-full' }: { className?: s
             key={active.id}
             src={active.image}
             alt={active.name}
-            className="h-60 sm:h-72 w-auto object-contain rounded-2xl drop-shadow-[0_16px_20px_rgba(5,150,105,0.22)] animate-fade-in transition-all duration-500"
+            className="h-64 sm:h-80 w-auto object-contain filter drop-shadow-[0_20px_25px_rgba(0,0,0,0.22)] animate-fade-in transition-all duration-500"
           />
         </div>
 
@@ -278,6 +278,109 @@ export function MascotRotator({ className = 'max-w-md w-full' }: { className?: s
       {/* Bottom Friendly Speech/Message */}
       <div className="mt-5 rounded-2xl bg-white/95 p-3.5 border border-emerald-100 shadow-soft text-center text-xs leading-relaxed text-ink-800">
         <p>{active.description}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Live Standing Mascot Component (Full unboxed character standing directly on canvas)
+ * Based on the Mailchimp-style character reference: lively unboxed character with speech bubble,
+ * dynamic drop-shadow, and smoothly rotating between the 3 official brand mascots.
+ */
+export function MascotLiveStanding({ className = '' }: { className?: string }) {
+  const MASCOTS = [
+    {
+      id: 'gau_mata',
+      name: 'Gau-Mata & Vegreenman',
+      title: 'Fresh Produce Guardians',
+      tagline: '100% Farm-Fresh Daily!',
+      speech: 'Pre-order tonight, harvested by dawn!',
+      image: '/jvlsd-mascot-gau-mata-2d.png',
+      badgeColor: 'bg-emerald-700',
+    },
+    {
+      id: 'pure_can',
+      name: 'Pure Can',
+      title: 'Cruelty-Free Dairy Friend',
+      tagline: 'Pure Desi Cow Milk!',
+      speech: '100% unadulterated, preservative-free!',
+      image: '/jvlsd-mascot-milk-can-2d.png',
+      badgeColor: 'bg-amber-600',
+    },
+    {
+      id: 'captain_fresh',
+      name: 'Captain Fresh',
+      title: 'Doorstep Delivery Hero',
+      tagline: 'Morning 7 AM Prompt!',
+      speech: 'Speeding fresh harvest straight to your door!',
+      image: '/jvlsd-mascot-hero.png',
+      badgeColor: 'bg-emerald-800',
+    },
+  ];
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % MASCOTS.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [MASCOTS.length]);
+
+  const active = MASCOTS[currentIndex];
+
+  return (
+    <div className={`relative flex flex-col items-center select-none ${className}`}>
+      {/* Lively Floating Speech Bubble */}
+      <div className="relative mb-3 z-10 animate-bounce">
+        <div className={`rounded-2xl ${active.badgeColor} text-white px-4 py-1.5 text-xs font-black shadow-lg flex items-center gap-2 transition-colors duration-500`}>
+          <span>💬</span>
+          <span>{active.speech}</span>
+        </div>
+        <div
+          className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[7px] mx-auto"
+          style={{ borderTopColor: active.id === 'pure_can' ? '#d97706' : '#047857' }}
+        />
+      </div>
+
+      {/* Real Full Standing Character (Transparent cutout - unboxed, living on page) */}
+      <div className="relative group cursor-pointer transition-transform duration-300 hover:scale-105 hover:-translate-y-2 flex flex-col items-center">
+        <img
+          key={active.id}
+          src={active.image}
+          alt={active.name}
+          className="h-64 sm:h-76 md:h-84 w-auto object-contain transition-all duration-500 animate-fade-in filter drop-shadow-[0_20px_25px_rgba(0,0,0,0.22)]"
+        />
+        
+        {/* Dynamic Character Cast Shadow on the Ground */}
+        <div className="mx-auto -mt-3 h-4.5 w-3/4 rounded-[100%] bg-ink-950/25 blur-[3px] transition-all duration-500" />
+      </div>
+
+      {/* Floating Info Pill & Mini Carousel Dots */}
+      <div className="mt-4 flex flex-col items-center text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/95 px-4 py-1.5 shadow-soft backdrop-blur-sm">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-display text-sm font-black text-ink-900">{active.name}</span>
+          <span className="text-xs font-semibold text-emerald-700">• {active.title}</span>
+        </div>
+
+        {/* Carousel switchers */}
+        <div className="mt-2.5 flex items-center justify-center gap-1.5">
+          {MASCOTS.map((m, idx) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setCurrentIndex(idx)}
+              className={`transition-all duration-300 rounded-full ${
+                idx === currentIndex
+                  ? 'w-6 h-1.5 bg-emerald-700'
+                  : 'w-1.5 h-1.5 bg-ink-300 hover:bg-ink-500'
+              }`}
+              aria-label={`Switch to ${m.name}`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

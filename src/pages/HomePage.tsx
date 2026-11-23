@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
-import { MascotDuoStanding } from '@/components/Logo';
+import { MascotDuoStanding, MascotLiveStanding } from '@/components/Logo';
 
 const HERO_IMG =
   'https://images.pexels.com/photos/17161099/pexels-photo-17161099.jpeg?auto=compress&cs=tinysrgb&h=900&w=1400';
@@ -74,36 +74,32 @@ export function HomePage() {
             </dl>
           </div>
 
-          <div className="relative animate-scale-in">
-            <div className="relative overflow-hidden rounded-3xl shadow-lift ring-1 ring-black/5 group">
-              <img
-                src={HERO_IMG}
-                alt="Fresh vegetables at a vibrant market stall"
-                className="h-[28rem] w-full object-cover transition-transform duration-700 group-hover:scale-105 sm:h-[34rem]"
-                loading="eager"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-ink-950/50 via-transparent to-transparent" />
+          {/* Mascot Live Standing Hero Feature */}
+          <div className="relative animate-scale-in flex flex-col items-center justify-center">
+            <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-gradient-to-b from-brand-50/60 to-white/80 p-6 sm:p-8 border border-brand-100 shadow-lift">
+              <MascotLiveStanding />
             </div>
-            {/* Floating card */}
-            <div className="absolute -bottom-6 -left-4 sm:-left-8 w-64 rounded-2xl border border-white/40 bg-white/90 p-4 shadow-lift backdrop-blur-md animate-float transition-all hover:scale-105">
+
+            {/* Floating Trust Pills */}
+            <div className="absolute -bottom-5 -left-2 sm:-left-6 w-60 rounded-2xl border border-white/60 bg-white/95 p-3.5 shadow-lift backdrop-blur-md animate-float transition-all hover:scale-105 z-20">
               <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-soft">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-soft">
                   <Leaf className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="text-sm font-bold text-ink-900">Farm-fresh daily</p>
-                  <p className="text-xs text-ink-500">Sourced &amp; packed per order</p>
+                  <p className="text-xs font-bold text-ink-900">Farm-fresh daily</p>
+                  <p className="text-[11px] text-ink-500">Harvested &amp; packed per order</p>
                 </div>
               </div>
             </div>
-            <div className="absolute -top-5 right-4 hidden rounded-2xl border border-white/40 bg-white/90 p-4 shadow-lift backdrop-blur-md sm:block animate-float [animation-delay:2s] transition-all hover:scale-105">
+            <div className="absolute -top-4 right-2 hidden rounded-2xl border border-white/60 bg-white/95 p-3.5 shadow-lift backdrop-blur-md sm:block animate-float [animation-delay:2s] transition-all hover:scale-105 z-20">
               <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 text-white shadow-soft">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 text-white shadow-soft">
                   <Star className="h-5 w-5 fill-white text-white" />
                 </span>
                 <div>
-                  <p className="text-sm font-bold text-ink-900">Trusted quality</p>
-                  <p className="text-xs text-ink-500">Cleaned, weighed &amp; sealed</p>
+                  <p className="text-xs font-bold text-ink-900">100% Unadulterated</p>
+                  <p className="text-[11px] text-ink-500">Pure Desi Farm Quality</p>
                 </div>
               </div>
             </div>
