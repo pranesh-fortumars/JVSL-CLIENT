@@ -259,23 +259,28 @@ export async function submitSurvey(survey: SurveySubmission) {
 
 /**
  * Authoritative Firestore Submission for Orders
+ * Fails closed if the database write is not confirmed.
  */
-export async function createOrder(order: Order) {
-  let createdId: string = `ORD-${Date.now()}`;
-
-  try {
-    const docRef = await addDoc(collection(db, 'orders'), {
-      ...order,
-      status: 'new',
-      created_at: new Date().toISOString(),
-      timestamp: serverTimestamp(),
-    });
-    if (docRef?.id) {
-      createdId = docRef.id;
-    }
-  } catch (err) {
-    console.warn('Firestore createOrder notice:', err);
+export async function createOrder(order: Order): Promise<{ id: string }> {
+  // If in mock mode, return an explicit mock identifier
+  if (isMockModeActive()) {
+    const mockId = `MOCK-ORD-${Date.now()}`;
+    return { id: mockId };
   }
+
+  // Authoritative Firestore write - MUST throw/fail closed if rejected
+  const docRef = await addDoc(collection(db, 'orders'), {
+    ...order,
+    status: 'new',
+    created_at: new Date().toISOString(),
+    timestamp: serverTimestamp(),
+  });
+
+  if (!docRef?.id) {
+    throw new Error('Database write rejected: failed to persist order.');
+  }
+
+  const createdId = docRef.id;
 
   // Check if this is the user's first order, and award the ₹50 promotional balance
   if (order.user_id) {
