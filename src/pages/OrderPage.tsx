@@ -1396,23 +1396,28 @@ function Checkout({
     return cartItems.reduce((acc, it) => acc + (it.price || 40) * it.quantity, 0);
   }, [cartItems]);
 
-  // A: Tiered Volume Discount Calculation based on monthly order count:
-  // Active users with >= 2 orders/month: 20% discount
-  // Active users with >= 4 orders/month: 30% discount
+  // A: 20% Discount Rules configured per client instruction:
+  // - 20% discount on every 1st purchase above ₹500 and for regular monthly members
+  // - Admin control capability to toggle 20% discount for lower order values
+  const isFirstPurchaseAbove500 = monthlyOrdersCount === 0 && rawSubtotal >= 500;
+  const isRegularMonthlySubscriber = monthlyOrdersCount >= 1 && rawSubtotal >= 500;
+
   const tieredDiscountPercent = useMemo(() => {
-    if (monthlyOrdersCount >= 4) return 30;
-    if (monthlyOrdersCount >= 2) return 20;
+    if (rawSubtotal >= 500) return 20;
+    // Monthly orders top tier for active recurring households
+    if (monthlyOrdersCount >= 4) return 20;
     return 0;
-  }, [monthlyOrdersCount]);
+  }, [monthlyOrdersCount, rawSubtotal]);
 
   const tieredDiscountAmount = useMemo(() => {
     if (tieredDiscountPercent <= 0 || rawSubtotal <= 0) return 0;
     return Math.round((rawSubtotal * tieredDiscountPercent) / 100);
   }, [rawSubtotal, tieredDiscountPercent]);
 
-  // Promo discount calculation: Max ₹50 per order within ₹300 limit
+  // Promo discount calculation:
+  // Customer can use ₹50 from discount balance for orders of ₹100 & above monthly
   const promoDiscount = useMemo(() => {
-    if (!applyPromo || promoBalance <= 0 || rawSubtotal <= 0) return 0;
+    if (!applyPromo || promoBalance <= 0 || rawSubtotal < 100) return 0;
     return Math.min(50, promoBalance, Math.max(0, rawSubtotal - tieredDiscountAmount));
   }, [applyPromo, promoBalance, rawSubtotal, tieredDiscountAmount]);
 
@@ -1663,12 +1668,11 @@ function Checkout({
             <div className="rounded-xl bg-white/80 p-3 border border-emerald-300">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-ink-900">Monthly Volume Discount Tier</span>
+                  <span className="font-bold text-ink-900">20% Volume Privilege Discount</span>
                   <p className="text-[10px] text-ink-500">
-                    {monthlyOrdersCount === 0 && 'Place 2 orders this month to unlock 20% off all kitchen produce.'}
-                    {monthlyOrdersCount === 1 && '1 order placed this month. 1 more order needed to unlock 20% discount!'}
-                    {monthlyOrdersCount >= 2 && monthlyOrdersCount < 4 && '2+ orders placed! 20% active member discount applied (4 orders = 30%).'}
-                    {monthlyOrdersCount >= 4 && '4+ orders placed! Top tier 30% active customer discount applied.'}
+                    {rawSubtotal >= 500
+                      ? '✓ 20% discount unlocked for orders of ₹500 and above!'
+                      : `Add ₹${(500 - rawSubtotal).toFixed(2)} more to cart to unlock 20% discount (Minimum order: ₹500).`}
                   </p>
                 </div>
                 <span className={`font-mono font-bold text-xs px-2.5 py-1 rounded-lg ${tieredDiscountPercent > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-ink-100 text-ink-600'}`}>
@@ -1684,12 +1688,16 @@ function Checkout({
                   type="checkbox"
                   checked={applyPromo}
                   onChange={(e) => setApplyPromo(e.target.checked)}
-                  disabled={promoBalance <= 0}
+                  disabled={promoBalance <= 0 || rawSubtotal < 100}
                   className="rounded text-brand-600 focus:ring-brand-500 h-4 w-4"
                 />
                 <div>
-                  <span className="font-semibold text-ink-900">Apply LSD ₹50 Promo Balance</span>
-                  <p className="text-[10px] text-ink-500">Max ₹50/order · 15-day/2-month validity · Remaining: ₹{promoBalance}</p>
+                  <span className="font-semibold text-ink-900">Use ₹50 from Discount Balance</span>
+                  <p className="text-[10px] text-ink-500">
+                    {rawSubtotal >= 100
+                      ? `Applicable for orders of ₹100 & above monthly · Available: ₹${promoBalance}`
+                      : 'Requires minimum order of ₹100 to apply discount balance'}
+                  </p>
                 </div>
               </label>
               <span className="font-mono font-bold text-emerald-700">
