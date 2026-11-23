@@ -232,10 +232,19 @@ export function OrderPage() {
           <h1 className="mt-4 font-display text-3xl font-extrabold leading-tight text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
             Order fresh vegetables, fruits &amp; milk.
           </h1>
-          <p className="mt-3 max-w-2xl text-base sm:text-lg leading-relaxed text-emerald-50/95 font-medium">
-            Choose your mode, pick your products, and check out. Pre-orders help us plan
-            procurement and reduce waste.
-          </p>
+          <div className="mt-4 max-w-3xl space-y-2">
+            <p className="text-base sm:text-lg leading-relaxed text-emerald-50/95 font-medium">
+              Pick your kitchen produce fresh from farmers. Planned pre-orders eliminate warehouse hoarding, guarantee peak nutritional harvest, and prevent food wastage.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs sm:text-sm font-semibold text-gold-300">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-400/20 px-3 py-1 border border-gold-400/40">
+                📅 Next-Day Pre-Order: Delivered prompt 7:00–9:00 AM · Free cancellation up to 10:00 PM tonight
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 border border-emerald-400/40 text-emerald-200">
+                ⚡ Same-Day Emergency Dispatch: Strictly within 3 km of Navrangpura Hub
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 
