@@ -1160,14 +1160,19 @@ function CategoryGroup({
                       </div>
                     )}
                   </div>
-                  <span className="text-[11px] font-medium text-ink-500">per {p.unit}</span>
+                  <div className="flex flex-col items-end">
+                    <span className="font-mono text-base font-black text-brand-800">
+                      ₹{p.price}
+                    </span>
+                    <span className="text-[11px] font-semibold text-ink-500">per {p.unit}</span>
+                  </div>
                 </div>
 
                 {selectable ? (
                   <div className="mt-3 space-y-2">
                     {/* Weight Stepper */}
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center rounded-lg border border-ink-200 bg-white">
+                      <div className="flex items-center rounded-lg border border-ink-200 bg-white shadow-xs">
                         <button
                           type="button"
                           onClick={() => onStep(p.id, p.unit === 'kg' ? -0.25 : -1, p.unit)}
@@ -1181,7 +1186,7 @@ function CategoryGroup({
                           min={0}
                           step={p.unit === 'kg' ? '0.25' : '1'}
                           inputMode="decimal"
-                          className="h-8 w-14 border-x border-ink-200 text-center text-xs font-semibold text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                          className="h-8 w-14 border-x border-ink-200 text-center text-xs font-bold text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-200"
                           value={qty || ''}
                           placeholder="0"
                           onChange={(e) => onSet(p.id, Number(e.target.value) || 0)}
@@ -1196,7 +1201,12 @@ function CategoryGroup({
                           <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <span className="text-xs font-medium text-ink-500">{p.unit}</span>
+                      <span className="text-xs font-bold text-ink-700">{p.unit}</span>
+                      {qty > 0 && p.price && (
+                        <span className="ml-auto font-mono text-xs font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          = ₹{(qty * p.price).toFixed(2)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Quick unit chips for flexible weights */}
@@ -1224,36 +1234,61 @@ function CategoryGroup({
                       </div>
                     )}
 
-                    {/* Amount-Based Calculator ("Buy by ₹") */}
+                    {/* Dozen / Piece quick selector for bananas */}
+                    {p.unit === 'dozen' && (
+                      <div className="flex flex-wrap gap-1">
+                        {[
+                          { label: '½ Doz (6 Pcs)', val: 0.5 },
+                          { label: '1 Dozen (12)', val: 1.0 },
+                          { label: '2 Dozen (24)', val: 2.0 },
+                        ].map((chip) => (
+                          <button
+                            key={chip.label}
+                            type="button"
+                            onClick={() => onSet(p.id, chip.val)}
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                              qty === chip.val
+                                ? 'bg-amber-700 text-white'
+                                : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                            }`}
+                          >
+                            {chip.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Amount-Based Auto-Calculate Feature ("Buy by ₹") */}
                     {p.price && (
-                      <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50/80 px-2 py-1 text-[11px] border border-emerald-200/60">
-                        <span className="font-semibold text-emerald-800">Buy by ₹:</span>
-                        <input
-                          type="number"
-                          placeholder={`₹${p.price}`}
-                          className="w-14 rounded border border-emerald-300 bg-white px-1.5 py-0.5 text-[11px] font-bold text-ink-900 focus:outline-none"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const amt = Number(e.currentTarget.value);
+                      <div className="flex items-center justify-between gap-1.5 rounded-lg bg-emerald-50/90 px-2.5 py-1 text-[11px] border border-emerald-300 shadow-2xs">
+                        <span className="font-bold text-emerald-900">Buy by ₹:</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            placeholder={`₹${p.price}`}
+                            className="w-16 rounded border border-emerald-300 bg-white px-1.5 py-0.5 text-[11px] font-bold text-ink-900 focus:outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const amt = Number(e.currentTarget.value);
+                                if (amt > 0 && p.price) {
+                                  const calcQty = Math.round((amt / p.price) * 100) / 100;
+                                  const minWeight = p.unit === 'kg' ? 0.25 : 1;
+                                  onSet(p.id, Math.max(minWeight, calcQty));
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const amt = Number(e.target.value);
                               if (amt > 0 && p.price) {
                                 const calcQty = Math.round((amt / p.price) * 100) / 100;
-                                // Enforce minimum weight (e.g. 0.25kg min)
                                 const minWeight = p.unit === 'kg' ? 0.25 : 1;
                                 onSet(p.id, Math.max(minWeight, calcQty));
                               }
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const amt = Number(e.target.value);
-                            if (amt > 0 && p.price) {
-                              const calcQty = Math.round((amt / p.price) * 100) / 100;
-                              const minWeight = p.unit === 'kg' ? 0.25 : 1;
-                              onSet(p.id, Math.max(minWeight, calcQty));
-                            }
-                          }}
-                        />
-                        <span className="text-[10px] text-emerald-700 font-medium">auto-calc</span>
+                            }}
+                          />
+                          <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Auto-Calc</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1287,6 +1322,14 @@ function Checkout({
   const [info, setInfo] = useState({
     customer_name: '',
     mobile: '',
+    pincode: '',
+    house_flat: '',
+    building_society: '',
+    landmark: '',
+    area: '',
+    city: 'AHMEDABAD',
+    state: 'GUJARAT',
+    digipin: '',
     address: '',
     notes: '',
   });
@@ -1294,7 +1337,47 @@ function Checkout({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [deliveryOtpGenerated, setDeliveryOtpGenerated] = useState<string>('');
   const { user, profile } = useAuth();
+
+  // Ahmedabad Pin code lookup database for automatic city/area/state & Digipin mapping
+  const AHMEDABAD_PIN_MAP: Record<string, { area: string; city: string; state: string; digipin: string; distKm: number }> = {
+    '380009': { area: 'NAVRANGPURA / LAKUDI / STADIUM', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-NAV-009', distKm: 0.5 },
+    '380014': { area: 'USMANPURA / ASHRAM ROAD', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-USM-014', distKm: 1.2 },
+    '380013': { area: 'VADAJ / SUBHASH BRIDGE', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-VDJ-013', distKm: 1.8 },
+    '380006': { area: 'ELLISBRIDGE / PALDI', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-ELL-006', distKm: 2.2 },
+    '380015': { area: 'AMBAWADI / POLYTECHNIC / SATELLITE', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-AMB-015', distKm: 2.7 },
+    '380052': { area: 'MEMNAGAR / GURUKUL ROAD', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-MEM-052', distKm: 3.4 },
+    '380054': { area: 'THALTEJ / DRIVE-IN ROAD', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-THA-054', distKm: 4.8 },
+    '380051': { area: 'BODAKDEV / S.G. HIGHWAY', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-BDK-051', distKm: 5.5 },
+    '380018': { area: 'SARASPUR / GOMTIPUR', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-SAR-018', distKm: 5.2 },
+    '380001': { area: 'OLD CITY / RELIEF ROAD', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-CTY-001', distKm: 2.8 },
+  };
+
+  const handlePincodeChange = (pin: string) => {
+    const cleanPin = pin.trim().slice(0, 6);
+    const mapping = AHMEDABAD_PIN_MAP[cleanPin];
+    if (mapping) {
+      setInfo((prev) => {
+        const fullAddr = `${prev.house_flat ? prev.house_flat + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${mapping.area}, ${mapping.city}, ${mapping.state} - ${cleanPin}`;
+        return {
+          ...prev,
+          pincode: cleanPin,
+          area: mapping.area,
+          city: mapping.city,
+          state: mapping.state,
+          digipin: mapping.digipin,
+          address: fullAddr.toUpperCase(),
+        };
+      });
+      if (errors.pincode) setErrors((e) => ({ ...e, pincode: '' }));
+    } else {
+      setInfo((prev) => ({
+        ...prev,
+        pincode: cleanPin,
+      }));
+    }
+  };
 
   // Financial States (Strict 0 default for unauthenticated/guest users)
   const [walletBalance, setWalletBalance] = useState(0);
@@ -1305,7 +1388,7 @@ function Checkout({
   const [applyLoyalty, setApplyLoyalty] = useState(false);
   const [isAddressLocked, setIsAddressLocked] = useState(false);
   const [monthlyOrdersCount, setMonthlyOrdersCount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'upi' | 'card' | 'sodexo' | 'cod'>('wallet');
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'upi' | 'card' | 'sodexo'>('wallet');
   const [refundPreference, setRefundPreference] = useState<'wallet' | 'original'>('wallet');
 
   // Compute Base Total from Cart Items
@@ -1696,7 +1779,7 @@ function Checkout({
               {
                 id: 'upi',
                 label: 'UPI (GPay / PhonePe / Paytm)',
-                desc: 'Zero transaction fee · Instant QR scan on arrival',
+                desc: 'Zero transaction fee · Instant secure gateway settlement',
               },
               {
                 id: 'card',
@@ -1706,12 +1789,7 @@ function Checkout({
               {
                 id: 'sodexo',
                 label: 'Sodexo / Pluxee Food Card',
-                desc: 'Supported for fresh food (Dependent on provider POS availability)',
-              },
-              {
-                id: 'cod',
-                label: 'Cash on Doorstep Delivery',
-                desc: 'Pay cash directly upon morning produce handover',
+                desc: 'Supported for fresh meal & fruit produce',
               },
             ].map((pm) => (
               <label
@@ -1787,16 +1865,27 @@ function Checkout({
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-5">
-        <h2 className="font-display text-base font-bold text-ink-900">Delivery details (Capital Letters)</h2>
+      <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-soft">
+        <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+          <div>
+            <h2 className="font-display text-base font-bold text-ink-900">Delivery Details &amp; Address Verification</h2>
+            <p className="text-xs text-ink-500">Enter PIN code first to automatically resolve your delivery area, city and state.</p>
+          </div>
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-800 border border-brand-200">
+            No COD · WhatsApp OTP Verification
+          </span>
+        </div>
+
         {submitError && (
           <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {submitError}
           </div>
         )}
-        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {/* 1. Full Name */}
           <div>
-            <label className="label" htmlFor="co-name">Full name (CAPITAL LETTERS) <span className="text-red-600" aria-hidden>*</span></label>
+            <label className="label" htmlFor="co-name">Full Name (CAPITAL LETTERS) <span className="text-red-600" aria-hidden>*</span></label>
             <input
               id="co-name"
               className="input-field uppercase tracking-wide font-medium"
@@ -1809,56 +1898,116 @@ function Checkout({
             />
             {errors.customer_name && <p className="field-error" role="alert">{errors.customer_name}</p>}
           </div>
+
+          {/* 2. Mobile for WhatsApp OTP */}
           <div>
-            <label className="label" htmlFor="co-mobile">Mobile number (10 Digits) <span className="text-red-600" aria-hidden>*</span></label>
-            <input
-              id="co-mobile"
-              type="tel"
-              className="input-field font-mono"
-              value={info.mobile}
-              onChange={(e) => update('mobile', e.target.value)}
-              aria-required="true"
-              aria-invalid={!!errors.mobile}
-              autoComplete="tel"
-              placeholder="98250 12345"
-              maxLength={14}
-            />
+            <label className="label" htmlFor="co-mobile">Mobile Number (For WhatsApp Delivery OTP) <span className="text-red-600" aria-hidden>*</span></label>
+            <div className="relative">
+              <input
+                id="co-mobile"
+                type="tel"
+                className="input-field font-mono pr-28"
+                value={info.mobile}
+                onChange={(e) => update('mobile', e.target.value)}
+                aria-required="true"
+                aria-invalid={!!errors.mobile}
+                autoComplete="tel"
+                placeholder="98250 12345"
+                maxLength={14}
+              />
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                WhatsApp OTP
+              </span>
+            </div>
             {errors.mobile && <p className="field-error" role="alert">{errors.mobile}</p>}
           </div>
+
+          {/* 3. PIN Code with Auto-Mapping */}
+          <div>
+            <label className="label" htmlFor="co-pin">PIN Code (Enter 1st for Auto-Area) <span className="text-red-600" aria-hidden>*</span></label>
+            <input
+              id="co-pin"
+              type="text"
+              className="input-field font-mono font-bold tracking-wider"
+              value={info.pincode}
+              onChange={(e) => handlePincodeChange(e.target.value)}
+              maxLength={6}
+              placeholder="e.g. 380009, 380052, 380054"
+            />
+            {errors.pincode && <p className="field-error" role="alert">{errors.pincode}</p>}
+          </div>
+
+          {/* 4. Resolved Area / City / State Display */}
+          <div>
+            <label className="label">Auto-Resolved City &amp; State</label>
+            <div className="flex items-center gap-2 rounded-xl bg-ink-50 px-3.5 py-2.5 border border-ink-200 text-xs font-bold text-ink-800">
+              <MapPin className="h-4 w-4 text-brand-700 shrink-0" />
+              <span>{info.area ? `${info.area}, ${info.city}, ${info.state}` : 'Enter PIN code to resolve automatically'}</span>
+            </div>
+          </div>
+
+          {/* 5. Flat / House No & Society */}
+          <div>
+            <label className="label" htmlFor="co-flat">Flat / House No. &amp; Society / Apartment <span className="text-red-600" aria-hidden>*</span></label>
+            <input
+              id="co-flat"
+              className="input-field uppercase tracking-wide font-medium"
+              value={info.house_flat}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setInfo((prev) => {
+                  const combined = `${val ? val + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${prev.area ? prev.area + ', ' : ''}${prev.city}, ${prev.state} - ${prev.pincode}`;
+                  return { ...prev, house_flat: val, address: combined.toUpperCase() };
+                });
+              }}
+              placeholder="E.G. B-402, SHIVALIK GREENS"
+            />
+          </div>
+
+          {/* 6. Landmark (Separate Block as requested) */}
+          <div>
+            <label className="label" htmlFor="co-landmark">Landmark <span className="text-red-600" aria-hidden>*</span></label>
+            <input
+              id="co-landmark"
+              className="input-field uppercase tracking-wide font-medium"
+              value={info.landmark}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setInfo((prev) => {
+                  const combined = `${prev.house_flat ? prev.house_flat + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${val ? 'NEAR ' + val + ', ' : ''}${prev.area ? prev.area + ', ' : ''}${prev.city}, ${prev.state} - ${prev.pincode}`;
+                  return { ...prev, landmark: val, address: combined.toUpperCase() };
+                });
+              }}
+              placeholder="E.G. OPP. SARDAR PATEL STADIUM"
+            />
+          </div>
+
+          {/* 7. Auto DIGIPIN Field */}
           <div className="sm:col-span-2">
             <div className="flex items-center justify-between">
-              <label className="label" htmlFor="co-address">Delivery address &amp; DIGIPIN <span className="text-red-600" aria-hidden>*</span></label>
-              {isAddressLocked && (
-                <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
-                  <Lock className="h-3 w-3" /> Address Locked by Household Group Owner
-                </span>
-              )}
+              <label className="label">Auto-Captured DIGIPIN (Postal Grid Code)</label>
+              <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Verified Postal Code
+              </span>
             </div>
-            <textarea
-              id="co-address"
-              rows={2}
-              readOnly={isAddressLocked}
-              className={`input-field uppercase tracking-wide font-medium resize-y ${isAddressLocked ? 'bg-ink-100/60 cursor-not-allowed text-ink-700' : ''}`}
-              value={info.address}
-              onChange={(e) => !isAddressLocked && update('address', e.target.value)}
-              aria-required="true"
-              aria-invalid={!!errors.address}
-              placeholder="FLAT / HOUSE NO, STREET, CITY, PIN CODE, DIGIPIN"
+            <input
+              type="text"
+              readOnly
+              className="input-field font-mono text-xs bg-ink-50/80 cursor-not-allowed font-bold text-brand-900"
+              value={info.digipin || 'Automatically assigned upon entering PIN code'}
             />
-            {errors.address && <p className="field-error" role="alert">{errors.address}</p>}
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-500">
-              <MapPin className="h-3.5 w-3.5" /> Structured postal mapping replaces inaccurate third-party map drops.
-            </p>
           </div>
+
+          {/* 8. Order Notes */}
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="co-notes">Order notes <span className="text-ink-400 font-normal">(optional)</span></label>
+            <label className="label" htmlFor="co-notes">Delivery &amp; Special Handling Notes <span className="text-ink-400 font-normal">(optional)</span></label>
             <textarea
               id="co-notes"
               rows={2}
-              className="input-field resize-y"
+              className="input-field resize-y font-semibold text-ink-900"
               value={info.notes}
               onChange={(e) => update('notes', e.target.value)}
-              placeholder="Any specific delivery instructions"
+              placeholder="e.g. Please ring bell twice. Deliver between 7:00 AM - 7:30 AM."
             />
           </div>
         </div>
@@ -1902,6 +2051,21 @@ function Checkout({
                 <p className="font-serif font-black italic text-ink-950 text-sm leading-relaxed tracking-wide">
                   "{info.address}"
                 </p>
+              </div>
+
+              {/* Order Delivery Instruction clearly differentiated in bold readable font */}
+              <div className="mt-3 rounded-xl bg-white p-3 border border-amber-300 shadow-2xs">
+                <p className="text-xs font-black uppercase tracking-wider text-forest-900">
+                  📋 Order Delivery Instructions on Bill:
+                </p>
+                <p className="mt-1 font-sans text-sm font-black text-ink-950 leading-snug">
+                  {info.notes ? `"${info.notes}"` : 'STANDARD MORNING DOORSTEP DELIVERY · VERIFY OTP ON ARRIVAL'}
+                </p>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-100/70 p-2.5 rounded-xl border border-emerald-200">
+                <span>💬</span>
+                <span>Delivery OTP will be sent to WhatsApp number ({info.mobile}) upon dispatch.</span>
               </div>
             </div>
 

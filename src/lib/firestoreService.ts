@@ -183,19 +183,37 @@ export type SurveyRow = SurveySubmission & {
 };
 
 export const INITIAL_PRODUCTS: Omit<Product, 'id'>[] = [
-  { name: 'Fresh Tomato', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 40, available_today: true, display_order: 1 },
-  { name: 'Red Onion', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 50, available_today: true, display_order: 2 },
-  { name: 'Farm Potato', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 35, available_today: true, display_order: 3 },
-  { name: 'Green Spinach (Palak)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=600&q=80', unit: 'bunch', price: 25, available_today: true, display_order: 4 },
-  { name: 'Crisp Carrot', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 45, available_today: true, display_order: 5 },
-  { name: 'Cauliflower', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=600&q=80', unit: 'piece', price: 40, available_today: false, display_order: 6 },
-  { name: 'Shimla Apple', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 180, available_today: true, display_order: 7 },
-  { name: 'Robusta Banana', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80', unit: 'dozen', price: 60, available_today: true, display_order: 8 },
-  { name: 'Sweet Orange (Mosambi)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 90, available_today: false, display_order: 9 },
-  { name: 'Pure Farm Milk', category: 'milk', image_url: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=600&q=80', unit: 'litre', price: 65, available_today: true, display_order: 10 },
-  { name: 'Farm Cow Milk', category: 'milk', image_url: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80', unit: 'litre', price: 70, available_today: true, display_order: 11 },
-  { name: 'Fresh Curd (Dahi)', category: 'milk', image_url: 'https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=600&q=80', unit: '500g', price: 45, available_today: true, display_order: 12 },
-  { name: 'Spiced Buttermilk (Chaas)', category: 'milk', image_url: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80', unit: 'litre', price: 35, available_today: true, display_order: 13 },
+  // Vegetables with weight breakdown
+  { name: 'Fresh Tomato (ટામેટા)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 40, available_today: true, display_order: 1 },
+  { name: 'Red Onion (ડુંગળી - Immediate Dispatch Only)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 50, available_today: true, display_order: 2 },
+  { name: 'Farm Potato (બટાકા - Immediate Dispatch Only)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 35, available_today: true, display_order: 3 },
+  { name: 'Fresh Methi Leaves (લીલી મેથી - 250g / 500g)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 60, available_today: true, display_order: 4 },
+  { name: 'Green Spinach Palak (તાજી પાલક - 250g / 500g)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 50, available_today: true, display_order: 5 },
+  { name: 'Cabbage Patta Gobi (કોબીજ)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 35, available_today: true, display_order: 6 },
+  { name: 'Cauliflower Phool Gobi (ફ્લાવર)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 45, available_today: true, display_order: 7 },
+  { name: 'Raw Green Banana (કાચા કેળા - શાક માટે)', category: 'vegetable', image_url: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 40, available_today: true, display_order: 8 },
+
+  // Fruits with piece, size, kg weight breakdowns
+  { name: 'Robusta Big Banana (મોટા કેળા - 1 Pc / 6 Pcs / 1 Dozen)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80', unit: 'dozen', price: 60, available_today: true, display_order: 9 },
+  { name: 'Kerala Nendran Banana (કેરાલા કેળા - Per Kg)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1603833665858-e61d17a86224?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 85, available_today: true, display_order: 10 },
+  { name: 'Elaichi Small Banana (એલચી કેળા - Per Kg)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 90, available_today: true, display_order: 11 },
+  { name: 'Royal Apple Shimla (સફરજન - Medium/Large)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 180, available_today: true, display_order: 12 },
+  { name: 'Sweet Orange Mosambi (મોસંબી)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 80, available_today: true, display_order: 13 },
+  { name: 'Nagpur Orange (સંતરા)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1582979512210-99b6a53386f9?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 95, available_today: true, display_order: 14 },
+  { name: 'Fresh Pineapple (અનાનસ - Per Piece / Whole)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=600&q=80', unit: 'piece', price: 75, available_today: true, display_order: 15 },
+  { name: 'Green Kiwi (કીવી - Pack of 3 / Size Grade)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1585059895524-72359e06133a?auto=format&fit=crop&w=600&q=80', unit: 'pack', price: 90, available_today: true, display_order: 16 },
+  { name: 'Sweet Chiku Sapota (ચીકુ)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1596450514735-2425897368ce?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 65, available_today: true, display_order: 17 },
+  { name: 'Muskmelon Kharbooja (શક્કરટેટી)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 50, available_today: true, display_order: 18 },
+  { name: 'Fresh Grapes (દ્રાક્ષ - Green Seedless)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1537640538966-79f369143f8f?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 110, available_today: true, display_order: 19 },
+  { name: 'Red Dragon Fruit (ડ્રેગન ફ્રુટ)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1527325678964-54921661f888?auto=format&fit=crop&w=600&q=80', unit: 'piece', price: 95, available_today: true, display_order: 20 },
+  { name: 'Ruby Pomegranate (દાડમ - Grade A)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 160, available_today: true, display_order: 21 },
+  { name: 'Combo Whole Fruit Harvest Basket (સંપૂર્ણ ફ્રૂટ કોમ્બો - 1.5kg / 2.5kg)', category: 'fruit', image_url: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=600&q=80', unit: 'kg', price: 240, available_today: true, display_order: 22 },
+
+  // Dairy Pouch & Packet Options with Detailed Description
+  { name: 'Desi Cow Milk (A2 ગાયનું દૂધ - 500ml Pouch)', category: 'milk', image_url: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80', unit: '500ml pouch', price: 35, available_today: true, display_order: 23 },
+  { name: 'Pure Farm Buffalo Milk (ભેંસનું દૂધ - 500ml Pouch)', category: 'milk', image_url: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=600&q=80', unit: '500ml pouch', price: 38, available_today: true, display_order: 24 },
+  { name: 'Fresh Cultured Curd Dahi (તાજું મોળું દહીં - 400g Seal Pack)', category: 'milk', image_url: 'https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=600&q=80', unit: 'pack', price: 40, available_today: true, display_order: 25 },
+  { name: 'Traditional Spiced Chaas (મસાલા છાશ - 500ml Pouch)', category: 'milk', image_url: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80', unit: '500ml pouch', price: 18, available_today: true, display_order: 26 },
 ];
 
 /**
