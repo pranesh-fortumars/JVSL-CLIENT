@@ -69,8 +69,8 @@ export function FreshDailyPage() {
                 Pure Farm Essentials Delivered Every Single Morning.
               </h1>
               <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-emerald-50/90 font-medium">
-                Operated under the Shakhwala business division by Jagatpati Vigneshwara LSD LLP (JVLSD). 
-                We eliminate stale warehouse hoarding through planned pre-order procurement—bringing natural vegetables, harvest fruits, and farm-fresh unadulterated milk directly to your doorstep.
+                Operated as JVLSD-FD Fresh Daily, franchisee partner of Shakhwala.com, by Jagatpati Vigneshwara LSD LLP (JVLSD). 
+                Our first venture is launched in Gurukul Road, Memnagar, and Thaltej, Ahmedabad—bringing natural vegetables, harvest fruits, and farm-fresh unadulterated milk directly to your doorstep with zero warehouse hoarding.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-4">

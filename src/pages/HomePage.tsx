@@ -48,9 +48,8 @@ export function HomePage() {
               <span className="block text-brand-700">&amp; holistic wellness.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-600">
-              Jagatpati Vigneshwara LSD LLP (JVLSD) is the parent organisation established to support sustainable, health-first business ecosystems. Through our specialised consumer verticals like{' '}
-              <strong className="font-semibold text-ink-900">Shakhwala</strong> and{' '}
-              <strong className="font-semibold text-ink-900">JVLSD-FD Fresh Daily</strong>, we deliver farm-fresh vegetables, fruits, and pure milk with a mission to eliminate food waste through planned advance procurement.
+              Jagatpati Vigneshwara LSD LLP (JVLSD) is the parent organisation established to support sustainable, health-first business ecosystems. Through our specialised consumer vertical{' '}
+              <strong className="font-semibold text-ink-900">JVLSD-FD Fresh Daily</strong>, as the franchisee partner of <strong className="font-semibold text-ink-900">Shakhwala.com</strong>, our first venture is proudly launched across Gurukul Road, Memnagar, and Thaltej in Ahmedabad. We deliver farm-fresh vegetables, fruits, and pure milk with a mission to eliminate food waste through planned advance procurement.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button onClick={() => navigate(PATHS.about)} className="btn-primary px-6 py-3 text-base">
