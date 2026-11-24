@@ -129,15 +129,15 @@ export function ShakhwalaPage() {
                 tag: 'Next-day pre-order',
                 title: 'Tomorrow morning, planned today.',
                 desc: 'Every product in the catalogue is selectable — even items that are unavailable today. Pre-orders help us procure against real demand and reduce waste.',
-                delivery: 'Tomorrow morning',
+                delivery: 'Tomorrow 7:00–9:00 AM',
                 tone: 'gold' as const,
               },
               {
                 icon: Truck,
-                tag: 'Same-day order',
+                tag: 'Same-day emergency order',
                 title: 'Fresh today, within 3 km.',
                 desc: 'Available products are shown normally; unavailable items appear greyed out and cannot be added to a same-day order. Same-day delivery is subject to availability.',
-                delivery: 'Today',
+                delivery: 'Today prompt',
                 tone: 'brand' as const,
               },
             ].map((m, i) => (
@@ -164,6 +164,42 @@ export function ShakhwalaPage() {
               </Reveal>
             ))}
           </div>
+
+          {/* Local Cart & Vendor Shopping Walkthrough Experience Card */}
+          <Reveal delay={200} className="mt-10">
+            <div className="rounded-3xl border border-gold-400/30 bg-gradient-to-r from-emerald-950/80 via-[#0a2f1b] to-emerald-950/80 p-6 sm:p-8 backdrop-blur-md shadow-soft">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="max-w-2xl">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-gold-400/20 px-3.5 py-1 text-xs font-bold text-gold-300 uppercase tracking-wider border border-gold-400/40">
+                    🛒 Intuitive Local Cart Experience
+                  </span>
+                  <h3 className="mt-3 font-display text-2xl font-black text-white sm:text-3xl">
+                    Shop Just Like At Your Local Handcart Vendor — But Digital &amp; Transparent.
+                  </h3>
+                  <p className="mt-3 text-sm sm:text-base leading-relaxed text-emerald-100/90 font-medium">
+                    Order with total flexibility: buy by exact budget (e.g. <em>"₹20 of coriander"</em>, <em>"₹50 of tomatoes"</em>), choose customary fractions (<em>250g, 500g, 1kg</em>), or count by piece and dozen (<em>6 or 12 bananas</em>). Our auto-calculator translates your budget into exact weight instantly, with zero hassle and verified WhatsApp delivery OTP on arrival.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate(PATHS.order)}
+                    className="btn bg-gold-500 hover:bg-gold-400 text-forest-950 font-black px-6 py-3 rounded-2xl shadow-lift flex items-center justify-center gap-2 text-sm"
+                  >
+                    <ShoppingBasket className="h-4 w-4" /> Try Cart Experience Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(PATHS.contact)}
+                    className="rounded-2xl border border-white/20 bg-white/10 hover:bg-white/20 px-6 py-3 text-xs font-bold text-white transition-all text-center"
+                  >
+                    Request Assisted Video Walkthrough
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
 
