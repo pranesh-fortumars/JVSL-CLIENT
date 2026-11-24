@@ -22,6 +22,10 @@ import {
   Sparkles,
   Search,
   Filter,
+  UserCheck,
+  Save,
+  RotateCcw,
+  LogIn,
 } from 'lucide-react';
 import {
   fetchProducts,
@@ -1363,6 +1367,17 @@ function Checkout({
   const [deliveryOtpGenerated, setDeliveryOtpGenerated] = useState<string>('');
   const { user, profile } = useAuth();
 
+  // 1st-Timer vs 2nd-Timer & Saved Draft State
+  const [saveDraftConsent, setSaveDraftConsent] = useState<boolean>(() => {
+    return localStorage.getItem('jvlsd_save_draft_consent') === 'true';
+  });
+  const [hasSavedDraft, setHasSavedDraft] = useState<boolean>(false);
+  const [previousOrdersCount, setPreviousOrdersCount] = useState<number>(() => {
+    const localCount = parseInt(localStorage.getItem('jvlsd_local_orders_count') || '0', 10);
+    return localCount;
+  });
+  const [showSecondTimerGateModal, setShowSecondTimerGateModal] = useState<boolean>(false);
+
   // Ahmedabad Pin code lookup database for automatic city/area/state & Digipin mapping
   const AHMEDABAD_PIN_MAP: Record<string, { area: string; city: string; state: string; digipin: string; distKm: number }> = {
     '380009': { area: 'NAVRANGPURA / LAKUDI / STADIUM', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-NAV-009', distKm: 0.5 },
@@ -1383,7 +1398,7 @@ function Checkout({
     if (mapping) {
       setInfo((prev) => {
         const fullAddr = `${prev.house_flat ? prev.house_flat + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${mapping.area}, ${mapping.city}, ${mapping.state} - ${cleanPin}`;
-        return {
+        const updated = {
           ...prev,
           pincode: cleanPin,
           area: mapping.area,
@@ -1392,6 +1407,12 @@ function Checkout({
           digipin: mapping.digipin,
           address: fullAddr.toUpperCase(),
         };
+        if (saveDraftConsent) {
+          try {
+            localStorage.setItem('jvlsd_checkout_draft', JSON.stringify(updated));
+          } catch (e) {}
+        }
+        return updated;
       });
       if (errors.pincode) setErrors((e) => ({ ...e, pincode: '' }));
     } else {
@@ -1483,6 +1504,28 @@ function Checkout({
 
   // Pre-fill from customer's saved profile or family locked address
   useEffect(() => {
+    // Check saved draft from previous session
+    try {
+      const saved = localStorage.getItem('jvlsd_checkout_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.customer_name || parsed.mobile || parsed.address)) {
+          setHasSavedDraft(true);
+        }
+      }
+    } catch (e) {}
+
+    // Check if user has ordered before locally or in profile
+    const localOrderHistory = localStorage.getItem('jvlsd_completed_orders');
+    if (localOrderHistory) {
+      try {
+        const parsedOrders = JSON.parse(localOrderHistory);
+        if (Array.isArray(parsedOrders) && parsedOrders.length > 0) {
+          setPreviousOrdersCount((prev) => Math.max(prev, parsedOrders.length));
+        }
+      } catch (e) {}
+    }
+
     if (profile) {
       const activeAddr = profile.addresses?.[0];
       const addrStr = activeAddr
@@ -1535,11 +1578,38 @@ function Checkout({
 
   const deliveryDate = mode === 'next_day' ? tomorrowISO() : todayISO();
 
+  const resumeFromDraft = () => {
+    try {
+      const saved = localStorage.getItem('jvlsd_checkout_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setInfo((prev) => ({
+          ...prev,
+          ...parsed,
+        }));
+        setHasSavedDraft(false);
+      }
+    } catch (e) {}
+  };
+
+  const clearSavedDraft = () => {
+    localStorage.removeItem('jvlsd_checkout_draft');
+    setHasSavedDraft(false);
+  };
+
   const update = (k: keyof typeof info, v: string) => {
     // Requirements: All Customer profile details capture strictly in CAPITAL LETTERS
     const sanitized = k === 'notes' ? v : v.toUpperCase();
-    setInfo((f) => ({ ...f, [k]: sanitized }));
+    const updated = { ...info, [k]: sanitized };
+    setInfo(updated);
     if (errors[k]) setErrors((e) => ({ ...e, [k]: '' }));
+
+    // Auto-save draft if permission granted
+    if (saveDraftConsent) {
+      try {
+        localStorage.setItem('jvlsd_checkout_draft', JSON.stringify(updated));
+      } catch (e) {}
+    }
   };
 
   const validate = () => {
@@ -1609,6 +1679,17 @@ function Checkout({
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) return;
+
+    // 2nd-Timer Rule Enforcement:
+    // If returning customer (has ordered previously or profile exists) and not logged in with completed profile
+    const isReturningCustomer = previousOrdersCount > 0 || monthlyOrdersCount > 0;
+    const isProfileIncomplete = !user || !profile || !profile.full_name || !profile.mobile || !(profile.addresses && profile.addresses.length > 0);
+
+    if (isReturningCustomer && isProfileIncomplete) {
+      setShowSecondTimerGateModal(true);
+      return;
+    }
+
     // Open mandatory Address Confirmation Modal before submission
     setShowConfirmModal(true);
   };
@@ -1646,6 +1727,21 @@ function Checkout({
         } catch (e) {}
       }
 
+      // Record local order history for 2nd-time tracking
+      try {
+        const existingHistory = JSON.parse(localStorage.getItem('jvlsd_completed_orders') || '[]');
+        existingHistory.push({
+          order_id: res?.id || `ORD-${Date.now()}`,
+          date: new Date().toISOString(),
+          customer_name: info.customer_name.trim(),
+          mobile: info.mobile.trim(),
+        });
+        localStorage.setItem('jvlsd_completed_orders', JSON.stringify(existingHistory));
+        localStorage.setItem('jvlsd_local_orders_count', String(existingHistory.length));
+        // Clear draft once ordered successfully
+        localStorage.removeItem('jvlsd_checkout_draft');
+      } catch (e) {}
+
       setShowConfirmModal(false);
       onPlaced(res?.id || `ORD-${Date.now()}`, info.customer_name.trim());
     } catch (err) {
@@ -1667,6 +1763,78 @@ function Checkout({
       </button>
 
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-950 sm:text-3xl">Checkout</h1>
+
+      {/* 1st-Timer vs 2nd-Timer Notice Banner */}
+      {!user && previousOrdersCount === 0 && (
+        <div className="mt-4 rounded-2xl bg-emerald-50/80 p-4 border border-emerald-300 text-xs text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-bold text-emerald-900">Welcome, 1st-Time Shopper!</p>
+              <p className="text-emerald-800 text-[11px] leading-snug">
+                Enjoy seamless guest checkout — no mandatory pre-registration required for your initial order. All applicable promotional discounts are automatically applied.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/login"
+            className="shrink-0 inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 underline text-xs"
+          >
+            Have an account? Sign in
+          </a>
+        </div>
+      )}
+
+      {/* Draft Resume Alert */}
+      {hasSavedDraft && (
+        <div className="mt-4 rounded-2xl bg-amber-50 p-4 border border-amber-300 text-xs text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-200 text-amber-900">
+              <RotateCcw className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-bold text-amber-950">You have unsaved details from your previous session</p>
+              <p className="text-amber-800 text-[11px]">Would you like to complete checkout from where you left off?</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resumeFromDraft}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-700 px-3.5 py-1.5 font-bold text-white hover:bg-amber-800 shadow-2xs text-xs"
+            >
+              Resume Draft
+            </button>
+            <button
+              type="button"
+              onClick={clearSavedDraft}
+              className="rounded-xl border border-amber-300 px-3 py-1.5 font-semibold text-amber-900 hover:bg-amber-100 text-xs"
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Returning 2nd-Time Customer Registration Callout */}
+      {!user && previousOrdersCount > 0 && (
+        <div className="mt-4 rounded-2xl bg-gold-50 p-4 border border-gold-300 text-xs text-ink-900 flex items-start gap-3 shadow-2xs">
+          <UserCheck className="h-5 w-5 shrink-0 text-gold-700 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <span className="font-bold text-ink-950">Welcome Back! (2nd Purchase Requirement):</span> Per store policy, customers placing their 2nd order must create an account and complete their profile details before final payment.
+            <div className="mt-2">
+              <a
+                href="/login"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-700 px-3.5 py-1.5 font-bold text-white hover:bg-brand-800 text-xs shadow-soft"
+              >
+                <LogIn className="h-3.5 w-3.5" /> Sign In / Register Account
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-5 rounded-2xl border border-ink-100 bg-white p-5">
         <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink-900">
@@ -2067,6 +2235,37 @@ function Checkout({
               placeholder="e.g. Please ring bell twice. Delivery slot: 8:00 AM - 9:00 AM."
             />
           </div>
+
+          {/* 9. Save Draft with Permission Option */}
+          <div className="sm:col-span-2 rounded-2xl bg-ink-50/70 p-3.5 border border-ink-200/80">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={saveDraftConsent}
+                onChange={(e) => {
+                  const allowed = e.target.checked;
+                  setSaveDraftConsent(allowed);
+                  localStorage.setItem('jvlsd_save_draft_consent', String(allowed));
+                  if (allowed) {
+                    try {
+                      localStorage.setItem('jvlsd_checkout_draft', JSON.stringify(info));
+                    } catch (err) {}
+                  } else {
+                    localStorage.removeItem('jvlsd_checkout_draft');
+                  }
+                }}
+                className="mt-0.5 rounded text-brand-700 focus:ring-brand-500 h-4 w-4"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-ink-900 flex items-center gap-1.5">
+                  <Save className="h-3.5 w-3.5 text-brand-700" /> Save entered information for quick completion
+                </span>
+                <p className="text-[11px] text-ink-500 mt-0.5 leading-snug">
+                  With your permission, we securely store your delivery address and contact details locally in your browser so you can pick up exactly from where you left off if you navigate away.
+                </p>
+              </div>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -2078,6 +2277,48 @@ function Checkout({
           Review &amp; Confirm Address <ArrowRight className="h-4 w-4" />
         </button>
       </div>
+
+      {/* 2nd-Timer Registration Enforcement Modal */}
+      {showSecondTimerGateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl animate-scale-in border border-gold-300">
+            <div className="flex items-center gap-3 text-brand-900">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-100 text-gold-800">
+                <UserCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-ink-950">Registration Required</h3>
+                <p className="text-xs text-ink-500">2nd-time purchase policy for verified households.</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-amber-50 p-4 border border-amber-200 text-xs text-amber-950 space-y-2">
+              <p className="font-bold text-amber-900">
+                You have previously placed an order with JVLSD Fresh Daily.
+              </p>
+              <p className="leading-relaxed">
+                While first-time customers can checkout as guests to explore easily, returning 2nd-time customers must register an account and complete customer profiling (Name, Mobile, Family details &amp; Delivery address) before final checkout and payment settlement.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-end gap-3 pt-3 border-t border-ink-100">
+              <button
+                type="button"
+                onClick={() => setShowSecondTimerGateModal(false)}
+                className="w-full sm:w-auto rounded-xl border border-ink-200 px-4 py-2.5 text-xs font-bold text-ink-700 hover:bg-ink-50"
+              >
+                Back to Review
+              </button>
+              <a
+                href="/login"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-700 px-5 py-2.5 text-xs font-bold text-white hover:bg-brand-800 shadow-soft"
+              >
+                <LogIn className="h-4 w-4" /> Sign In / Complete Registration
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mandatory Address Re-Confirmation Modal */}
       {showConfirmModal && (
