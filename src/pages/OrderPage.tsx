@@ -315,31 +315,45 @@ export function OrderPage() {
                       </div>
                     </div>
 
-                    {/* P5: Gujarati Seasonal Filters Bar */}
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3 text-xs">
-                      <span className="font-bold text-ink-800 flex items-center gap-1">
-                        <Leaf className="h-3.5 w-3.5 text-brand-700" /> Gujarati Seasonal Calendar:
-                      </span>
-                      {[
-                        { id: 'all', label: 'All Seasons' },
-                        { id: 'all_year', label: 'બારેમાસ (12 Months / Perennial)' },
-                        { id: 'winter', label: 'શિયાળો (Winter / Oct–Feb)' },
-                        { id: 'monsoon', label: 'ચોમાસુ (Monsoon / Jun–Sep)' },
-                        { id: 'summer', label: 'ઉનાળો (Summer / Mar–May)' },
-                      ].map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setSeasonFilter(s.id as any)}
-                          className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
-                            seasonFilter === s.id
-                              ? 'bg-emerald-800 text-gold-300 font-bold shadow-soft'
-                              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
-                          }`}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
+                    {/* P5: Gujarati Seasonal Filters Bar & Awareness Guidance */}
+                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-emerald-200/70">
+                        <div>
+                          <p className="text-xs font-bold text-forest-950 flex items-center gap-1.5">
+                            <Leaf className="h-3.5 w-3.5 text-brand-700" /> Seasonal Produce Awareness &amp; Calendar Guidance
+                          </p>
+                          <p className="text-[11px] text-ink-600 mt-0.5">
+                            Core essentials are available <strong>365 days</strong>. Use this calendar guide to discover seasonal fruits &amp; vegetables at their natural harvest peak.
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-emerald-800 text-white px-3 py-0.5 text-[10px] font-bold tracking-wider uppercase">
+                          ❄️ NO FROZEN VEGETABLES SOLD
+                        </span>
+                      </div>
+
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-bold text-ink-800 text-[11px]">Select Season:</span>
+                        {[
+                          { id: 'all', label: '365 Days Available (All Items)' },
+                          { id: 'all_year', label: 'બારેમાસ (Perennial)' },
+                          { id: 'winter', label: 'શિયાળો (Winter / Oct–Feb)' },
+                          { id: 'monsoon', label: 'ચોમાસુ (Monsoon / Jun–Sep)' },
+                          { id: 'summer', label: 'ઉનાળો (Summer / Mar–May)' },
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setSeasonFilter(s.id as any)}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                              seasonFilter === s.id
+                                ? 'bg-emerald-800 text-gold-300 font-bold shadow-soft'
+                                : 'bg-white text-emerald-950 border border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Offer banner */}
