@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 
-export function Logo({ className = 'h-11 w-11' }: { className?: string }) {
+export function Logo({ className = 'h-12 w-12' }: { className?: string }) {
   return (
     <div className={`relative shrink-0 flex items-center justify-center ${className}`}>
       <img
-        src="/jvlsd-verified-seal-master.jpg"
-        alt="Jagatpati Vigneshwara LSD LLP • Verified Seal Master"
-        className="h-full w-auto object-contain rounded-full drop-shadow-[0_2px_8px_rgba(212,175,55,0.35)]"
+        src="/jvlsd-emblem-round.png"
+        alt="Jagatpati Vigneshwara LSD LLP • Celestial Emblem"
+        className="h-full w-auto object-contain filter drop-shadow-[0_4px_12px_rgba(212,175,55,0.45)]"
       />
     </div>
   );
@@ -14,21 +14,26 @@ export function Logo({ className = 'h-11 w-11' }: { className?: string }) {
 
 export function Wordmark({ dark = false }: { dark?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5 sm:gap-3">
-      {/* JVLSD Verified Seal Master Emblem */}
+    <div className="flex items-center gap-3 select-none">
+      {/* JVLSD Pure Round Emblem without rectangular/pill enclosure */}
       <div className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 transition-transform duration-300 hover:scale-105 flex items-center justify-center">
         <img
-          src="/jvlsd-verified-seal-master.jpg"
-          alt="Jagatpati Vigneshwara LSD LLP • Verified Seal Master"
-          className="h-full w-auto object-contain rounded-full drop-shadow-[0_2px_8px_rgba(212,175,55,0.35)]"
+          src="/jvlsd-emblem-round.png"
+          alt="Jagatpati Vigneshwara LSD LLP"
+          className="h-full w-auto object-contain filter drop-shadow-[0_4px_12px_rgba(212,175,55,0.4)]"
         />
       </div>
 
       <div className="flex flex-col text-left justify-center">
-        <span className={`font-display text-base sm:text-lg font-black tracking-tight leading-tight ${dark ? 'text-white' : 'text-ink-950'}`}>
-          JVLSD
-        </span>
-        <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider leading-tight ${dark ? 'text-emerald-400' : 'text-brand-700'}`}>
+        <div className="flex items-center gap-1.5 leading-none">
+          <span className={`font-display text-lg sm:text-xl font-black tracking-tight ${dark ? 'text-white' : 'text-ink-950'}`}>
+            JVLSD
+          </span>
+          <span className={`text-[10px] font-black tracking-widest uppercase ${dark ? 'text-gold-300' : 'text-gold-600'}`}>
+            · FRESH DAILY
+          </span>
+        </div>
+        <span className={`text-[9px] sm:text-[10px] font-bold tracking-wider uppercase mt-1 leading-tight ${dark ? 'text-emerald-300' : 'text-brand-800'}`}>
           Jagatpati Vigneshwara LSD LLP
         </span>
       </div>
@@ -40,8 +45,8 @@ export function CelestialMasterBanner({ className = 'max-w-md w-full' }: { class
   return (
     <div className={`overflow-hidden rounded-3xl shadow-lift ring-1 ring-gold-400/30 ${className}`}>
       <img
-        src="/jvlsd-verified-seal-master.jpg"
-        alt="Jagatpati Vigneshwara LSD LLP • Verified Seal Master"
+        src="/jvlsd-celestial-master-logo.jpg"
+        alt="Jagatpati Vigneshwara LSD LLP • Master Corporate Identity"
         className="h-auto w-full object-cover"
       />
     </div>

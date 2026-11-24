@@ -9,7 +9,7 @@ export function Footer() {
       <div className="container-page py-16">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="lg:col-span-1">
-            <div className="rounded-2xl bg-white/[0.08] p-3 inline-block border border-white/10 backdrop-blur-sm shadow-soft">
+            <div className="inline-block py-1">
               <Wordmark dark />
             </div>
             <p className="mt-5 text-sm leading-relaxed text-ink-300 max-w-xs">
