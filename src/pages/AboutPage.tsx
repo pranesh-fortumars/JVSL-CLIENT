@@ -96,8 +96,8 @@ export function AboutPage() {
             <div className="mt-6 space-y-4 text-ink-600 leading-relaxed">
               <p>
                 JVLSD was established to create a professional, scalable platform for
-                everyday essentials — beginning with fresh vegetables, fruits and milk
-                delivered directly to households under the Shakhwala business section.
+                everyday essentials — beginning through with <strong className="font-bold text-ink-900">JVLSD-FD Fresh Daily Direct Delivery</strong>,
+                providing farm-fresh vegetables, fruits, and pure dairy essentials under the <strong className="font-bold text-ink-900">Shakhwala</strong> section, of which we are a proud Franchisee partner.
               </p>
               <p>
                 The organisation's structure deliberately separates the parent corporate
@@ -108,7 +108,7 @@ export function AboutPage() {
               <p>
                 Our initial focus is simple: help households plan their kitchen requirements
                 one day in advance, source fresh produce accordingly, and deliver it
-                reliably — so food waste is reduced and quality stays high.
+                reliably — so food waste is reduced, and quality and price remain at the reach of everyone.
               </p>
             </div>
           </Reveal>

@@ -116,10 +116,9 @@ export function HomePage() {
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-ink-600">
               Jagatpati Vigneshwara LSD LLP is the parent organisation behind a family of
-              business activities. Our first consumer-facing venture,{' '}
-              <strong className="font-semibold text-ink-900">Shakhwala</strong>, brings
-              fresh vegetables, fruits and milk directly to households — with an emphasis on
-              quality, authenticity and reducing food waste through advance planning.
+              business activities. Through <strong className="font-semibold text-ink-900">JVLSD-FD Fresh Daily</strong>,
+              as a franchisee partner of <strong className="font-semibold text-ink-900">Shakhwala</strong>, we deliver
+              fresh vegetables, fruits, and pure dairy essentials directly to households — keeping quality and price at the reach of everyone while eliminating food waste through planned advance procurement.
             </p>
             <p className="mt-4 text-ink-600 leading-relaxed">
               The platform is designed to grow: additional business divisions and categories
