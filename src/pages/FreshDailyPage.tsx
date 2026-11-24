@@ -115,7 +115,96 @@ export function FreshDailyPage() {
         </div>
       </section>
 
-      {/* 3 Core Product Verticals */}
+      {/* Local Vendor Customer Experience: Ending Daily Bargaining, Disputes & Losing Temper */}
+      <section className="py-16 sm:py-20 bg-gradient-to-b from-brand-50/50 via-white to-amber-50/40 border-y border-ink-100">
+        <div className="container-page">
+          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+            <div>
+              <span className="eyebrow text-forest-800">Peace of Mind For Every Household</span>
+              <h2 className="mt-3 font-display text-3xl font-black text-ink-950 sm:text-4xl leading-tight">
+                No More Arguing at the Handcart. No More Losing Temper Over Daily Bargaining.
+              </h2>
+              <div className="mt-5 space-y-4 text-sm sm:text-base leading-relaxed text-ink-700">
+                <p>
+                  Every morning, millions of Indian households go through the same stressful routine: standing in crowded street corners, debating erratic prices with roadside vendors, arguing over rigged weighing scales, and losing temper over inconsistent freshness.
+                </p>
+                <p>
+                  <strong>JVLSD-FD Fresh Daily completely eliminates this friction.</strong> You get farm-fresh produce weighed transparently to the exact gram, priced fairly with bold rate transparency, and delivered calmly to your doorstep with guaranteed WhatsApp verification.
+                </p>
+              </div>
+
+              {/* Contrast Points */}
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl bg-red-50/70 p-4 border border-red-200">
+                  <p className="text-xs font-black uppercase tracking-wider text-red-800 flex items-center gap-1.5">
+                    ❌ Street Vendor Frustrations
+                  </p>
+                  <ul className="mt-2 space-y-1.5 text-xs text-red-900/90 font-medium">
+                    <li>• Daily verbal arguments &amp; stressful bargaining</li>
+                    <li>• Stale leftover stock sprayed with tap water</li>
+                    <li>• Manipulation of manual balance scales</li>
+                    <li>• Mood swings, temper loss &amp; wasted morning time</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl bg-emerald-50/80 p-4 border border-emerald-300">
+                  <p className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                    ✓ JVLSD-FD Peaceful Living
+                  </p>
+                  <ul className="mt-2 space-y-1.5 text-xs text-emerald-950 font-medium">
+                    <li>• Fixed, bold prices &amp; transparent "Buy by ₹" budget</li>
+                    <li>• Digital precision weighment (250g, 500g, kg)</li>
+                    <li>• Harvested per order — 100% farm fresh, never frozen</li>
+                    <li>• Respectful, peaceful 7–9 AM doorstep delivery</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => navigate(PATHS.order)}
+                  className="btn-primary px-7 py-3 text-sm font-bold shadow-soft flex items-center gap-2"
+                >
+                  <ShoppingBasket className="h-4 w-4" /> Switch to Peaceful Morning Delivery <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Experience Visual Showcase */}
+            <div className="relative">
+              <div className="relative overflow-hidden rounded-3xl shadow-lift ring-1 ring-black/5 group">
+                <img
+                  src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80"
+                  alt="Traditional Indian Vegetable Market Customer Shopping"
+                  className="h-80 sm:h-96 w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-ink-950/70 via-ink-950/20 to-transparent" />
+                <div className="absolute bottom-5 left-5 right-5 text-white">
+                  <span className="rounded-full bg-gold-400 text-ink-950 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest shadow-md">
+                    Harmonious Living
+                  </span>
+                  <p className="mt-2 font-display text-lg font-bold">
+                    Respectful Household Supply Without Daily Conflict
+                  </p>
+                  <p className="text-xs text-emerald-100 mt-0.5">
+                    Restoring dignity, mutual trust, and calm mornings to your home.
+                  </p>
+                </div>
+              </div>
+
+              {/* Floating Testimonial Pill */}
+              <div className="absolute -bottom-5 -left-4 sm:-left-6 w-68 rounded-2xl border border-white/80 bg-white/95 p-3.5 shadow-lift backdrop-blur-md">
+                <p className="text-xs font-black text-ink-900">"No more disputes over ₹5 or ₹10"</p>
+                <p className="text-[11px] text-ink-600 mt-0.5">
+                  Clear weights, fixed rates &amp; zero argument mornings for elders and homemakers.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <section className="py-16 sm:py-20 bg-white">
         <div className="container-page">
           <div className="text-center max-w-2xl mx-auto">
