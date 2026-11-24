@@ -1347,19 +1347,30 @@ function Checkout({
   onPlaced: (orderId: string, customerName: string) => void;
 }) {
   const [info, setInfo] = useState({
+    first_name: '',
+    last_name: '',
     customer_name: '',
+    email: '',
     mobile: '',
+    telephone: '',
+    country: 'India',
+    state: 'GUJARAT',
+    city: 'AHMEDABAD',
+    street_address: '',
     pincode: '',
     house_flat: '',
     building_society: '',
     landmark: '',
     area: '',
-    city: 'AHMEDABAD',
-    state: 'GUJARAT',
     digipin: '',
     address: '',
     notes: '',
+    billing_same_as_shipping: true,
   });
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -1392,12 +1403,28 @@ function Checkout({
     '380001': { area: 'OLD CITY / RELIEF ROAD', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-CTY-001', distKm: 2.8 },
   };
 
+  const handleApplyCoupon = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponCode.trim()) {
+      setCouponMessage('Please enter a valid coupon code.');
+      return;
+    }
+    const code = couponCode.trim().toUpperCase();
+    if (code === 'WELCOME' || code === 'FIRST50' || code === 'JVLSD') {
+      setCouponApplied(true);
+      setCouponDiscount(50);
+      setCouponMessage('Coupon code applied successfully! ₹50 deducted.');
+    } else {
+      setCouponMessage(`Coupon code "${code}" is not valid or expired.`);
+    }
+  };
+
   const handlePincodeChange = (pin: string) => {
     const cleanPin = pin.trim().slice(0, 6);
     const mapping = AHMEDABAD_PIN_MAP[cleanPin];
     if (mapping) {
       setInfo((prev) => {
-        const fullAddr = `${prev.house_flat ? prev.house_flat + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${mapping.area}, ${mapping.city}, ${mapping.state} - ${cleanPin}`;
+        const fullAddr = `${prev.street_address ? prev.street_address + ', ' : ''}${prev.house_flat ? prev.house_flat + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${mapping.area}, ${mapping.city}, ${mapping.state} - ${cleanPin}`;
         const updated = {
           ...prev,
           pincode: cleanPin,
@@ -1492,7 +1519,7 @@ function Checkout({
     return 0;
   }, [mode, rawSubtotal]);
 
-  const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - loyaltyDeduction + cardFee + deliveryFee);
+  const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - couponDiscount - loyaltyDeduction + cardFee + deliveryFee);
 
   // Wallet deduction calculation
   const walletDeduction = useMemo(() => {
@@ -1532,6 +1559,10 @@ function Checkout({
         ? `${activeAddr.house_flat}, ${activeAddr.building_society}, ${activeAddr.area_road}, ${activeAddr.city} - ${activeAddr.pincode}${activeAddr.digipin ? ' (DIGIPIN: ' + activeAddr.digipin + ')' : ''}`
         : '';
 
+      const nameParts = (profile.full_name || '').trim().split(' ');
+      const fName = nameParts[0] || '';
+      const lName = nameParts.slice(1).join(' ') || '';
+
       // Check if user has domestic help address lock (directly or via family group)
       if (profile.family_group_id) {
         fetchFamilyGroup(profile.family_group_id).then((grp) => {
@@ -1542,6 +1573,7 @@ function Checkout({
               setInfo((prev) => ({
                 ...prev,
                 address: grp.household_address || prev.address || addrStr,
+                street_address: grp.household_address || prev.street_address || addrStr,
               }));
             }
           }
@@ -1553,10 +1585,37 @@ function Checkout({
 
       setInfo((prev) => ({
         ...prev,
+        first_name: prev.first_name || fName,
+        last_name: prev.last_name || lName,
         customer_name: prev.customer_name || profile.full_name || '',
+        email: prev.email || profile.email || user?.email || '',
+        telephone: prev.telephone || profile.mobile || '',
         mobile: prev.mobile || profile.mobile || '',
+        city: activeAddr?.city || prev.city || 'AHMEDABAD',
+        state: activeAddr?.state || prev.state || 'GUJARAT',
+        pincode: activeAddr?.pincode || prev.pincode || '',
+        digipin: activeAddr?.digipin || prev.digipin || '',
+        house_flat: activeAddr?.house_flat || prev.house_flat || '',
+        building_society: activeAddr?.building_society || prev.building_society || '',
+        landmark: activeAddr?.landmark || prev.landmark || '',
+        area: activeAddr?.area_road || prev.area || '',
+        street_address: prev.street_address || addrStr,
         address: prev.address || addrStr,
       }));
+    } else {
+      // For returning guest / 1st-timer who saved info locally: auto-populate seamlessly
+      try {
+        const saved = localStorage.getItem('jvlsd_checkout_draft');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && (parsed.customer_name || parsed.first_name || parsed.mobile || parsed.address)) {
+            setInfo((prev) => ({
+              ...prev,
+              ...parsed,
+            }));
+          }
+        }
+      } catch (e) {}
     }
     if (user?.uid) {
       fetchUserFinancials(user.uid).then((fin) => {
@@ -1614,12 +1673,17 @@ function Checkout({
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!info.customer_name.trim()) e.customer_name = 'Please enter your name in CAPITAL LETTERS.';
-    if (!info.mobile.trim()) e.mobile = 'Please enter your 10-digit mobile number.';
-    else if (!/^[6-9]\d{9}$/.test(info.mobile.trim().replace(/\D/g, ''))) {
-      e.mobile = 'Mobile number strictly 10 digits (India).';
-    }
-    if (!info.address.trim()) e.address = 'Please enter your delivery address with DIGIPIN/PIN.';
+    if (!info.first_name.trim() && !info.customer_name.trim()) e.first_name = 'Please enter first name.';
+    if (!info.last_name.trim() && !info.customer_name.trim()) e.last_name = 'Please enter last name.';
+    if (!info.email.trim()) e.email = 'Please enter email address.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(info.email.trim())) e.email = 'Please enter a valid email address.';
+
+    const phone = (info.telephone || info.mobile).trim().replace(/\D/g, '');
+    if (!phone) e.telephone = 'Please enter 10-digit telephone / mobile number.';
+    else if (!/^[6-9]\d{9}$/.test(phone)) e.telephone = 'Mobile/Telephone strictly 10 digits (India).';
+
+    if (!info.street_address.trim() && !info.address.trim()) e.street_address = 'Please enter your street address / apartment.';
+    if (!info.pincode.trim()) e.pincode = 'Please enter valid 6-digit PIN code.';
 
     // Geofencing validation for dispatch zones from Navrangpura Hub (23.0372° N, 72.5613° E)
     // 0 to 3 km: Free delivery
@@ -1698,10 +1762,14 @@ function Checkout({
     setSubmitting(true);
     setSubmitError(null);
     try {
+      const finalCustomerName = (info.customer_name || `${info.first_name} ${info.last_name}`).trim();
+      const finalMobile = (info.telephone || info.mobile).trim();
+      const finalAddress = info.address.trim() || `${info.street_address ? info.street_address + ', ' : ''}${info.house_flat ? info.house_flat + ', ' : ''}${info.building_society ? info.building_society + ', ' : ''}${info.area ? info.area + ', ' : ''}${info.city}, ${info.state} - ${info.pincode}`;
+
       const res = await createOrder({
-        customer_name: info.customer_name.trim(),
-        mobile: info.mobile.trim(),
-        address: info.address.trim(),
+        customer_name: finalCustomerName,
+        mobile: finalMobile,
+        address: finalAddress,
         mode,
         items: cartItems,
         expected_delivery: deliveryDate,
@@ -1733,8 +1801,8 @@ function Checkout({
         existingHistory.push({
           order_id: res?.id || `ORD-${Date.now()}`,
           date: new Date().toISOString(),
-          customer_name: info.customer_name.trim(),
-          mobile: info.mobile.trim(),
+          customer_name: finalCustomerName,
+          mobile: finalMobile,
         });
         localStorage.setItem('jvlsd_completed_orders', JSON.stringify(existingHistory));
         localStorage.setItem('jvlsd_local_orders_count', String(existingHistory.length));
@@ -1743,7 +1811,7 @@ function Checkout({
       } catch (e) {}
 
       setShowConfirmModal(false);
-      onPlaced(res?.id || `ORD-${Date.now()}`, info.customer_name.trim());
+      onPlaced(res?.id || `ORD-${Date.now()}`, finalCustomerName);
     } catch (err) {
       console.error(err);
       setSubmitError('We could not place your order just now. Please try again.');
@@ -1762,7 +1830,14 @@ function Checkout({
         <ArrowLeft className="h-4 w-4" /> Back to products
       </button>
 
-      <h1 className="mt-4 font-display text-2xl font-bold text-ink-950 sm:text-3xl">Checkout</h1>
+      {/* Rural Paradise Style Progress Stepper */}
+      <div className="mt-4 mb-6 flex items-center justify-center gap-2 text-xs font-semibold text-ink-500">
+        <span className="font-bold text-ink-950 border-b-2 border-gold-500 pb-0.5">Address</span>
+        <span className="text-ink-300">---------</span>
+        <span>Dispatch</span>
+        <span className="text-ink-300">---------</span>
+        <span>Review Order &amp; Make Payment</span>
+      </div>
 
       {/* 1st-Timer vs 2nd-Timer Notice Banner */}
       {!user && previousOrdersCount === 0 && (
@@ -1849,6 +1924,30 @@ function Checkout({
           ))}
         </ul>
 
+        {/* Coupon Code Section (Directly from reference page) */}
+        <div className="mt-4 rounded-2xl border border-ink-200 bg-white p-3.5 shadow-2xs">
+          <form onSubmit={handleApplyCoupon} className="flex gap-2">
+            <input
+              type="text"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder="Coupon code"
+              className="input-field py-2 text-xs uppercase font-mono tracking-wider flex-1"
+            />
+            <button
+              type="submit"
+              className="rounded-xl bg-[#2e7d32] px-5 py-2 text-xs font-bold text-white hover:bg-[#256629] shadow-soft shrink-0"
+            >
+              Apply
+            </button>
+          </form>
+          {couponMessage && (
+            <p className={`mt-2 text-[11px] font-semibold ${couponApplied ? 'text-emerald-700' : 'text-amber-800'}`}>
+              {couponMessage}
+            </p>
+          )}
+        </div>
+
         {/* Financial & Automated Checkout Breakdown */}
         <div className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-brand-50/40 p-5 shadow-soft">
           <div className="flex items-center justify-between text-xs font-bold text-emerald-900 border-b border-emerald-200/60 pb-3">
@@ -1928,6 +2027,14 @@ function Checkout({
                 {loyaltyDeduction > 0 ? `-₹${loyaltyDeduction.toFixed(2)}` : '₹0.00'}
               </span>
             </div>
+
+            {/* Coupon Code Discount Line */}
+            {couponDiscount > 0 && (
+              <div className="flex items-center justify-between text-xs text-emerald-800 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                <span>Coupon Code Discount ({couponCode}):</span>
+                <span className="font-mono font-bold">-₹{couponDiscount.toFixed(2)}</span>
+              </div>
+            )}
 
             {/* Credit Card Fee Display if Applicable */}
             {cardFee > 0 && (
@@ -2090,11 +2197,11 @@ function Checkout({
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-soft">
+      <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-5 sm:p-6 shadow-soft">
         <div className="flex items-center justify-between border-b border-ink-100 pb-3">
           <div>
-            <h2 className="font-display text-base font-bold text-ink-900">Delivery Details &amp; Address Verification</h2>
-            <p className="text-xs text-ink-500">Enter PIN code first to automatically resolve your delivery area, city and state.</p>
+            <h2 className="font-display text-base sm:text-lg font-bold text-ink-900">Shipping Address</h2>
+            <p className="text-xs text-ink-500">Provide recipient contact and delivery coordinates for verified doorstep dispatch.</p>
           </div>
           <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-800 border border-brand-200">
             No COD · WhatsApp OTP Verification
@@ -2108,34 +2215,161 @@ function Checkout({
         )}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          {/* 1. Full Name */}
+          {/* 1. First Name */}
           <div>
-            <label className="label" htmlFor="co-name">Full Name (CAPITAL LETTERS) <span className="text-red-600" aria-hidden>*</span></label>
+            <label className="label" htmlFor="co-first-name">First Name <span className="text-red-600" aria-hidden>*</span></label>
             <input
-              id="co-name"
+              id="co-first-name"
               className="input-field uppercase tracking-wide font-medium"
-              value={info.customer_name}
-              onChange={(e) => update('customer_name', e.target.value)}
-              aria-required="true"
-              aria-invalid={!!errors.customer_name}
-              autoComplete="name"
-              placeholder="E.G. SURESH SHAH"
+              value={info.first_name}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setInfo((prev) => ({
+                  ...prev,
+                  first_name: val,
+                  customer_name: `${val} ${prev.last_name}`.trim(),
+                }));
+                if (errors.first_name) setErrors((err) => ({ ...err, first_name: '' }));
+              }}
+              autoComplete="given-name"
+              placeholder="e.g. SURESH"
             />
-            {errors.customer_name && <p className="field-error" role="alert">{errors.customer_name}</p>}
+            {errors.first_name && <p className="field-error" role="alert">{errors.first_name}</p>}
           </div>
 
-          {/* 2. Mobile for WhatsApp OTP */}
+          {/* 2. Last Name */}
           <div>
-            <label className="label" htmlFor="co-mobile">Mobile Number (For WhatsApp Delivery OTP) <span className="text-red-600" aria-hidden>*</span></label>
+            <label className="label" htmlFor="co-last-name">Last Name <span className="text-red-600" aria-hidden>*</span></label>
+            <input
+              id="co-last-name"
+              className="input-field uppercase tracking-wide font-medium"
+              value={info.last_name}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setInfo((prev) => ({
+                  ...prev,
+                  last_name: val,
+                  customer_name: `${prev.first_name} ${val}`.trim(),
+                }));
+                if (errors.last_name) setErrors((err) => ({ ...err, last_name: '' }));
+              }}
+              autoComplete="family-name"
+              placeholder="e.g. SHAH"
+            />
+            {errors.last_name && <p className="field-error" role="alert">{errors.last_name}</p>}
+          </div>
+
+          {/* 3. Email */}
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="co-email">Email <span className="text-red-600" aria-hidden>*</span></label>
+            <input
+              id="co-email"
+              type="email"
+              className="input-field font-medium lowercase"
+              value={info.email}
+              onChange={(e) => {
+                const val = e.target.value.toLowerCase().trim();
+                setInfo((prev) => ({ ...prev, email: val }));
+                if (errors.email) setErrors((err) => ({ ...err, email: '' }));
+              }}
+              autoComplete="email"
+              placeholder="e.g. suresh.shah@gmail.com"
+            />
+            {errors.email && <p className="field-error" role="alert">{errors.email}</p>}
+          </div>
+
+          {/* 4. Address (Textarea style from reference page) */}
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="co-address">Address <span className="text-red-600" aria-hidden>*</span></label>
+            <textarea
+              id="co-address"
+              rows={3}
+              className="input-field resize-y font-medium uppercase"
+              value={info.street_address}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setInfo((prev) => {
+                  const combined = `${val ? val + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${prev.area ? prev.area + ', ' : ''}${prev.city}, ${prev.state} - ${prev.pincode}`;
+                  return { ...prev, street_address: val, address: combined.toUpperCase() };
+                });
+                if (errors.street_address) setErrors((err) => ({ ...err, street_address: '' }));
+              }}
+              placeholder="e.g. FLAT B-402, SHIVALIK GREENS APARTMENT, NEAR SARDAR PATEL STADIUM"
+            />
+            {errors.street_address && <p className="field-error" role="alert">{errors.street_address}</p>}
+          </div>
+
+          {/* 5. City */}
+          <div>
+            <label className="label" htmlFor="co-city">City <span className="text-red-600" aria-hidden>*</span></label>
+            <input
+              id="co-city"
+              className="input-field uppercase font-medium"
+              value={info.city}
+              onChange={(e) => update('city', e.target.value)}
+              placeholder="e.g. AHMEDABAD"
+            />
+          </div>
+
+          {/* 6. Country Dropdown */}
+          <div>
+            <label className="label" htmlFor="co-country">Country <span className="text-red-600" aria-hidden>*</span></label>
+            <select
+              id="co-country"
+              className="input-field font-medium"
+              value={info.country}
+              onChange={(e) => update('country', e.target.value)}
+            >
+              <option value="India">India</option>
+            </select>
+          </div>
+
+          {/* 7. State / Province Dropdown */}
+          <div>
+            <label className="label" htmlFor="co-state">State / Province <span className="text-red-600" aria-hidden>*</span></label>
+            <select
+              id="co-state"
+              className="input-field font-medium"
+              value={info.state}
+              onChange={(e) => update('state', e.target.value)}
+            >
+              <option value="GUJARAT">Gujarat</option>
+              <option value="MAHARASHTRA">Maharashtra</option>
+              <option value="RAJASTHAN">Rajasthan</option>
+              <option value="DELHI">Delhi</option>
+              <option value="MADHYA PRADESH">Madhya Pradesh</option>
+            </select>
+          </div>
+
+          {/* 8. ZIP Code with Auto-Mapping */}
+          <div>
+            <label className="label" htmlFor="co-pin">ZIP Code <span className="text-red-600" aria-hidden>*</span></label>
+            <input
+              id="co-pin"
+              type="text"
+              className="input-field font-mono font-bold tracking-wider"
+              value={info.pincode}
+              onChange={(e) => handlePincodeChange(e.target.value)}
+              maxLength={6}
+              placeholder="e.g. 380009"
+            />
+            {errors.pincode && <p className="field-error" role="alert">{errors.pincode}</p>}
+          </div>
+
+          {/* 9. Telephone */}
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="co-telephone">Telephone <span className="text-red-600" aria-hidden>*</span></label>
             <div className="relative">
               <input
-                id="co-mobile"
+                id="co-telephone"
                 type="tel"
                 className="input-field font-mono pr-28"
-                value={info.mobile}
-                onChange={(e) => update('mobile', e.target.value)}
-                aria-required="true"
-                aria-invalid={!!errors.mobile}
+                value={info.telephone || info.mobile}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setInfo((prev) => ({ ...prev, telephone: val, mobile: val }));
+                  if (errors.telephone) setErrors((err) => ({ ...err, telephone: '' }));
+                }}
                 autoComplete="tel"
                 placeholder="98250 12345"
                 maxLength={14}
@@ -2144,70 +2378,23 @@ function Checkout({
                 WhatsApp OTP
               </span>
             </div>
-            {errors.mobile && <p className="field-error" role="alert">{errors.mobile}</p>}
+            {errors.telephone && <p className="field-error" role="alert">{errors.telephone}</p>}
           </div>
 
-          {/* 3. PIN Code with Auto-Mapping */}
-          <div>
-            <label className="label" htmlFor="co-pin">PIN Code (Enter 1st for Auto-Area) <span className="text-red-600" aria-hidden>*</span></label>
-            <input
-              id="co-pin"
-              type="text"
-              className="input-field font-mono font-bold tracking-wider"
-              value={info.pincode}
-              onChange={(e) => handlePincodeChange(e.target.value)}
-              maxLength={6}
-              placeholder="e.g. 380009, 380052, 380054"
-            />
-            {errors.pincode && <p className="field-error" role="alert">{errors.pincode}</p>}
+          {/* 10. Billing Address is same as Shipping Address Checkbox */}
+          <div className="sm:col-span-2 pt-1">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-ink-900">
+              <input
+                type="checkbox"
+                checked={info.billing_same_as_shipping}
+                onChange={(e) => setInfo((prev) => ({ ...prev, billing_same_as_shipping: e.target.checked }))}
+                className="rounded text-brand-700 focus:ring-brand-500 h-4 w-4"
+              />
+              <span>Billing Address is same as Shipping Address</span>
+            </label>
           </div>
 
-          {/* 4. Resolved Area / City / State Display */}
-          <div>
-            <label className="label">Auto-Resolved City &amp; State</label>
-            <div className="flex items-center gap-2 rounded-xl bg-ink-50 px-3.5 py-2.5 border border-ink-200 text-xs font-bold text-ink-800">
-              <MapPin className="h-4 w-4 text-brand-700 shrink-0" />
-              <span>{info.area ? `${info.area}, ${info.city}, ${info.state}` : 'Enter PIN code to resolve automatically'}</span>
-            </div>
-          </div>
-
-          {/* 5. Flat / House No & Society */}
-          <div>
-            <label className="label" htmlFor="co-flat">Flat / House No. &amp; Society / Apartment <span className="text-red-600" aria-hidden>*</span></label>
-            <input
-              id="co-flat"
-              className="input-field uppercase tracking-wide font-medium"
-              value={info.house_flat}
-              onChange={(e) => {
-                const val = e.target.value.toUpperCase();
-                setInfo((prev) => {
-                  const combined = `${val ? val + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${prev.area ? prev.area + ', ' : ''}${prev.city}, ${prev.state} - ${prev.pincode}`;
-                  return { ...prev, house_flat: val, address: combined.toUpperCase() };
-                });
-              }}
-              placeholder="E.G. B-402, SHIVALIK GREENS"
-            />
-          </div>
-
-          {/* 6. Landmark (Separate Block as requested) */}
-          <div>
-            <label className="label" htmlFor="co-landmark">Landmark <span className="text-red-600" aria-hidden>*</span></label>
-            <input
-              id="co-landmark"
-              className="input-field uppercase tracking-wide font-medium"
-              value={info.landmark}
-              onChange={(e) => {
-                const val = e.target.value.toUpperCase();
-                setInfo((prev) => {
-                  const combined = `${prev.house_flat ? prev.house_flat + ', ' : ''}${prev.building_society ? prev.building_society + ', ' : ''}${val ? 'NEAR ' + val + ', ' : ''}${prev.area ? prev.area + ', ' : ''}${prev.city}, ${prev.state} - ${prev.pincode}`;
-                  return { ...prev, landmark: val, address: combined.toUpperCase() };
-                });
-              }}
-              placeholder="E.G. OPP. SARDAR PATEL STADIUM"
-            />
-          </div>
-
-          {/* 7. Auto DIGIPIN Field */}
+          {/* 11. Auto DIGIPIN Field & Resolved Area */}
           <div className="sm:col-span-2">
             <div className="flex items-center justify-between">
               <label className="label">Auto-Captured DIGIPIN (Postal Grid Code)</label>
@@ -2219,11 +2406,11 @@ function Checkout({
               type="text"
               readOnly
               className="input-field font-mono text-xs bg-ink-50/80 cursor-not-allowed font-bold text-brand-900"
-              value={info.digipin || 'Automatically assigned upon entering PIN code'}
+              value={info.digipin || 'Automatically assigned upon entering PIN / ZIP code'}
             />
           </div>
 
-          {/* 8. Order Notes */}
+          {/* 12. Order Notes */}
           <div className="sm:col-span-2">
             <label className="label" htmlFor="co-notes">Delivery &amp; Special Handling Notes <span className="text-ink-400 font-normal">(optional)</span></label>
             <textarea
@@ -2236,7 +2423,7 @@ function Checkout({
             />
           </div>
 
-          {/* 9. Save Draft with Permission Option */}
+          {/* 13. Save Draft with Permission Option */}
           <div className="sm:col-span-2 rounded-2xl bg-ink-50/70 p-3.5 border border-ink-200/80">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -2269,12 +2456,13 @@ function Checkout({
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between gap-4">
-        <p className="text-xs text-ink-500">
-          By placing this order you agree to be contacted for delivery coordination.
-        </p>
-        <button type="submit" className="btn-primary px-6 py-3" disabled={submitting}>
-          Review &amp; Confirm Address <ArrowRight className="h-4 w-4" />
+      <div className="mt-8 flex justify-end">
+        <button
+          type="submit"
+          className="rounded-xl bg-[#eab308] hover:bg-[#ca8a04] px-10 py-3.5 text-sm font-bold text-ink-950 shadow-soft transition-all"
+          disabled={submitting}
+        >
+          Continue
         </button>
       </div>
 
