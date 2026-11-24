@@ -33,9 +33,7 @@ export function ShakhwalaPage() {
               Shakhwala — freshness, delivered.
             </h1>
             <p className="mt-6 text-lg leading-relaxed text-ink-600">
-              Shakhwala is JVLSD's first consumer-facing business activity. Through the
-              JVLSD-FD Fresh Daily service, it brings fresh vegetables, fruits and milk
-              directly to households — with advance planning at its core.
+              Operated as a proud Shakhwala franchisee under the brand <strong className="font-semibold text-ink-900">JVLSD-FD Fresh Daily Direct Delivery</strong> — JVLSD's first consumer-facing venture connects with every household as a reliable, trusted family member. Through planned advance procurement, we bring unadulterated vegetables, fruits, and pure farm milk directly to kitchen doorsteps with zero waste.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button onClick={() => navigate(PATHS.order)} className="btn-primary px-6 py-3 text-base">
@@ -64,26 +62,29 @@ export function ShakhwalaPage() {
           <Reveal className="max-w-2xl">
             <span className="eyebrow">What Shakhwala offers</span>
             <h2 className="section-title mt-4">Three fresh categories, one reliable service.</h2>
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-300 px-3.5 py-1 text-xs font-bold text-emerald-900 shadow-2xs">
+              <span>🌿 100% Farm-Fresh Harvest Guarantee · <strong>NO FROZEN VEGETABLES SOLD</strong></span>
+            </div>
           </Reveal>
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
+          <div className="mt-8 grid gap-6 md:grid-cols-3">
             {[
               {
                 icon: Leaf,
                 title: 'Vegetables',
-                desc: 'Daily-sourced vegetables — from tomatoes and onions to leafy greens, gourds and more.',
-                points: ['Per-order sourcing', 'Quantity & frequency selection', 'Available for pre-order'],
+                desc: 'Daily farm-harvested vegetables in grams & kg weight breakdown — Methi, Palak, Cabbage, Cauliflower, gourds & kitchen essentials. Never frozen, never stored in stale warehouses.',
+                points: ['Weight breakdown in grams (250g, 500g) & kg', 'Strictly zero frozen produce', 'Available 365 days with seasonal harvest focus'],
               },
               {
                 icon: Apple,
                 title: 'Fruits',
-                desc: 'Seasonal fruits, picked fresh — apples, bananas, oranges, mangoes, pomegranates and grapes.',
-                points: ['Seasonal selection', 'Greyed-out if unavailable today', 'Always pre-orderable'],
+                desc: 'Whole fruit harvest & combos priced by size, piece count & kg weight — Kerala/Elaichi bananas, Royal apples, Pineapples, Kiwi packs, Mosambi, Oranges & Pomegranates.',
+                points: ['Count, piece & kg weight breakdown', 'Seasonal awareness calendar guidance', 'Wholesome fruit mix combo baskets'],
               },
               {
                 icon: Milk,
-                title: 'Milk',
-                desc: 'Pure farm milk delivered to your doorstep, with quantity and frequency preferences.',
-                points: ['Full-cream & toned', 'Daily, weekly or monthly', 'Consistent supply'],
+                title: 'Milk & Dairy Essentials',
+                desc: 'Pure farm cow/buffalo milk, curd (dahi) and spiced chaas in hygienic sealed pouches & packs with complete product details, fat content & freshness timestamps.',
+                points: ['500ml fresh pouches & sealed curd packs', 'Desi A2 cow milk & pure buffalo milk', 'Prompt morning 7:00–9:00 AM delivery'],
               },
             ].map((c, i) => (
               <Reveal key={c.title} delay={i * 100}>
