@@ -84,7 +84,7 @@ export const BITES_CATALOGUE: BiteItem[] = [
     categoryLabel: 'Nuts & Seeds',
     packSize: '250g Pouch',
     price: 245,
-    imageUrl: 'https://images.unsplash.com/photo-1508747703725-719777637510?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1508779018996-601e37fa274e?auto=format&fit=crop&w=600&q=80',
     description: 'Hand-selected, jumbo nutrient-dense almonds. Naturally packed with Vitamin E, protein, and healthy monounsaturated fats.',
     highlights: ['Jumbo Grade Selection', 'Natural Vitamin E', 'Brain & Heart Nutrition'],
   },
@@ -130,13 +130,13 @@ export function BitesPage() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => navigate(PATHS.order)}
-                className="btn-gold px-6 py-3 text-base text-ink-950 font-bold flex items-center gap-2"
+                className="btn-gold px-6 py-3 text-base text-ink-950 font-bold flex items-center gap-2 shadow-soft hover:shadow-lift"
               >
                 Order Fresh Daily <ArrowRight className="h-4 w-4" />
               </button>
               <button
                 onClick={() => navigate(PATHS.about)}
-                className="btn-outline border-white/30 text-white hover:bg-white/10 px-6 py-3 text-base"
+                className="rounded-2xl border-2 border-white/50 bg-white/10 hover:bg-white hover:text-ink-950 text-white font-bold px-6 py-3 text-base transition-all backdrop-blur-sm"
               >
                 About JVLSD House
               </button>
