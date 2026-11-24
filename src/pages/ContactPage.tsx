@@ -14,6 +14,7 @@ import { COMPANY_CONFIG } from '@/data/companyConfig';
 
 const SUBJECTS = [
   'General enquiry',
+  'Assisted Video Shopping / Walkthrough Request',
   'Fresh Daily order support',
   'Partnership / business',
   'Feedback',
