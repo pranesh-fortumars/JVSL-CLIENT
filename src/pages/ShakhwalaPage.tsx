@@ -135,9 +135,9 @@ export function ShakhwalaPage() {
               {
                 icon: Truck,
                 tag: 'Same-day emergency order',
-                title: 'Fresh today, within 3 km.',
-                desc: 'Available products are shown normally; unavailable items appear greyed out and cannot be added to a same-day order. Same-day delivery is subject to availability.',
-                delivery: 'Today prompt',
+                title: 'Fresh today · Emergency dispatch',
+                desc: 'Available products are shown normally. Same-Day Emergency Dispatch: Strictly within 3 km of Navrangpura Hub, with extra delivery charges ₹125 for value below ₹500 & above that ₹75 in 10 km radius as per DIGIPIN.',
+                delivery: 'Immediate dispatch',
                 tone: 'brand' as const,
               },
             ].map((m, i) => (

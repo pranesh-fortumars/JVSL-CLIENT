@@ -241,7 +241,7 @@ export function OrderPage() {
                 📅 Next-Day Pre-Order: Delivered 8:00–9:00 AM only · Free cancellation up to 10:00 PM tonight
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 border border-emerald-400/40 text-emerald-200">
-                ⚡ Same-Day Delivery: Any time &amp; immediate delivery within 10 km (₹125 below ₹500, ₹75 for ₹500+)
+                ⚡ Same-Day Emergency Dispatch: Strictly within 3 km of Navrangpura Hub, with extra delivery charges ₹125 for value below ₹500 &amp; above that ₹75 in 10 km radius as per DIGIPIN
               </span>
             </div>
           </div>
@@ -1014,7 +1014,7 @@ function ModeToggle({ mode, onChange }: { mode: OrderMode; onChange: (m: OrderMo
           onClick={() => onChange('same_day')}
           icon={Truck}
           title="Same-day order"
-          sub="Any time & immediate delivery · within 10 km"
+          sub="Same-Day Emergency Dispatch: Strictly within 3 km of Navrangpura Hub, with extra delivery charges ₹125 for value below ₹500 & above that ₹75 in 10 km radius as per DIGIPIN"
         />
       </div>
     </div>
