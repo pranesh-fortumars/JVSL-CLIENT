@@ -84,7 +84,7 @@ export function ShakhwalaPage() {
                 icon: Milk,
                 title: 'Milk & Dairy Essentials',
                 desc: 'Pure farm cow/buffalo milk, curd (dahi) and spiced chaas in hygienic sealed pouches & packs with complete product details, fat content & freshness timestamps.',
-                points: ['500ml fresh pouches & sealed curd packs', 'Desi A2 cow milk & pure buffalo milk', 'Prompt morning 7:00–9:00 AM delivery'],
+                points: ['500ml fresh pouches & sealed curd packs', 'Desi A2 cow milk & pure buffalo milk', 'Prompt morning 8:00–9:00 AM delivery'],
               },
             ].map((c, i) => (
               <Reveal key={c.title} delay={i * 100}>
@@ -129,7 +129,7 @@ export function ShakhwalaPage() {
                 tag: 'Next-day pre-order',
                 title: 'Tomorrow morning, planned today.',
                 desc: 'Every product in the catalogue is selectable — even items that are unavailable today. Pre-orders help us procure against real demand and reduce waste.',
-                delivery: 'Tomorrow 7:00–9:00 AM',
+                delivery: 'Tomorrow 8:00–9:00 AM only',
                 tone: 'gold' as const,
               },
               {

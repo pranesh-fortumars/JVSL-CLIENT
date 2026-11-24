@@ -102,7 +102,7 @@ export function FreshDailyPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-gold-300 shrink-0" />
-                  <span>Morning 7–9 AM Prompt Delivery</span>
+                  <span>Morning 8–9 AM Prompt Delivery</span>
                 </div>
               </div>
             </div>
@@ -155,7 +155,7 @@ export function FreshDailyPage() {
                     <li>• Fixed, bold prices &amp; transparent "Buy by ₹" budget</li>
                     <li>• Digital precision weighment (250g, 500g, kg)</li>
                     <li>• Harvested per order — 100% farm fresh, never frozen</li>
-                    <li>• Respectful, peaceful 7–9 AM doorstep delivery</li>
+                    <li>• Respectful, peaceful 8–9 AM doorstep delivery</li>
                   </ul>
                 </div>
               </div>
@@ -424,7 +424,7 @@ export function FreshDailyPage() {
               <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-2xl bg-brand-800 text-gold-300 font-display font-extrabold text-xl shadow-soft">
                 3
               </span>
-              <h3 className="mt-5 font-display text-lg font-bold text-ink-950">3. Morning 7–9 AM Doorstep Dispatch</h3>
+              <h3 className="mt-5 font-display text-lg font-bold text-ink-950">3. Morning 8–9 AM Doorstep Dispatch</h3>
               <p className="mt-2 text-xs sm:text-sm text-ink-600 leading-relaxed">
                 Delivered cleanly before cooking begins. Enjoy verified farm quality with LSD monthly subscription savings.
               </p>

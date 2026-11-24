@@ -60,7 +60,7 @@ const EMPTY: CustomerInfo = {
   postal_code: '',
   digipin: '',
   family_members: '1',
-  delivery_preference: 'Morning (7–9 AM)',
+  delivery_preference: 'Morning (8–9 AM)',
   notes: '',
 };
 
@@ -366,10 +366,8 @@ export function SurveyPage() {
                       value={info.delivery_preference}
                       onChange={(e) => updateInfo('delivery_preference', e.target.value)}
                     >
-                      <option>Morning (7–9 AM)</option>
-                      <option>Morning (9–11 AM)</option>
-                      <option>Evening (5–7 PM)</option>
-                      <option>Any time</option>
+                      <option>Morning (8–9 AM)</option>
+                      <option>Any time (Immediate Delivery)</option>
                     </select>
                   </Field>
                 </div>

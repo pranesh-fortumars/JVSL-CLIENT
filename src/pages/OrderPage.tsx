@@ -238,10 +238,10 @@ export function OrderPage() {
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs sm:text-sm font-semibold text-gold-300">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-400/20 px-3 py-1 border border-gold-400/40">
-                📅 Next-Day Pre-Order: Delivered prompt 7:00–9:00 AM · Free cancellation up to 10:00 PM tonight
+                📅 Next-Day Pre-Order: Delivered 8:00–9:00 AM only · Free cancellation up to 10:00 PM tonight
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 border border-emerald-400/40 text-emerald-200">
-                ⚡ Same-Day Emergency Dispatch: Strictly within 3 km of Navrangpura Hub
+                ⚡ Same-Day Delivery: Any time &amp; immediate delivery within 10 km (₹125 below ₹500, ₹75 for ₹500+)
               </span>
             </div>
           </div>
@@ -1007,14 +1007,14 @@ function ModeToggle({ mode, onChange }: { mode: OrderMode; onChange: (m: OrderMo
           onClick={() => onChange('next_day')}
           icon={CalendarClock}
           title="Next-day pre-order"
-          sub="Tomorrow morning · all products selectable"
+          sub="Tomorrow 8:00–9:00 AM only · all items selectable"
         />
         <ModeButton
           active={mode === 'same_day'}
           onClick={() => onChange('same_day')}
           icon={Truck}
           title="Same-day order"
-          sub="Today · within 3 km, available items only"
+          sub="Any time & immediate delivery · within 10 km"
         />
       </div>
     </div>
@@ -1460,7 +1460,18 @@ function Checkout({
     return 0;
   }, [paymentMethod, rawSubtotal, tieredDiscountAmount, promoDiscount, loyaltyDeduction]);
 
-  const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - loyaltyDeduction + cardFee);
+  // Same-Day Delivery Charges within 10km DIGIPIN radius:
+  // - Subtotal below ₹500: ₹125
+  // - Subtotal ₹500 & above: ₹75
+  // Next-day pre-order remains free
+  const deliveryFee = useMemo(() => {
+    if (mode === 'same_day') {
+      return rawSubtotal < 500 ? 125 : 75;
+    }
+    return 0;
+  }, [mode, rawSubtotal]);
+
+  const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - loyaltyDeduction + cardFee + deliveryFee);
 
   // Wallet deduction calculation
   const walletDeduction = useMemo(() => {
@@ -1587,9 +1598,7 @@ function Checkout({
     }
 
     if (calculatedDistance > 10.0) {
-      e.address = `Delivery address is approximately ${calculatedDistance.toFixed(1)} km away, which is outside our 10 km maximum service boundary.`;
-    } else if (mode === 'same_day' && calculatedDistance > 3.0) {
-      e.address = `Same-day emergency dispatch is restricted strictly to within 3.0 km (${calculatedDistance.toFixed(1)} km calculated). Please choose Next-Day Pre-Order for 3–10 km delivery.`;
+      e.address = `Delivery address is approximately ${calculatedDistance.toFixed(1)} km away, which is outside our 10 km maximum service boundary (as per DIGIPIN).`;
     }
 
     return e;
@@ -1760,6 +1769,23 @@ function Checkout({
               </div>
             )}
 
+            {/* Same-Day Delivery Charge Line Item */}
+            {mode === 'same_day' && (
+              <div className="flex items-center justify-between rounded-xl bg-amber-50/80 p-2.5 border border-amber-300 text-xs text-amber-950">
+                <div>
+                  <span className="font-bold flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-amber-700" /> Same-Day Immediate Delivery Charge (10 km radius as per DIGIPIN):
+                  </span>
+                  <p className="text-[10px] text-amber-800 mt-0.5">
+                    {rawSubtotal < 500
+                      ? '₹125 applied (Order value is below ₹500. Order ₹500+ for ₹75 delivery)'
+                      : '₹75 applied (Discounted delivery charge for orders of ₹500 and above)'}
+                  </p>
+                </div>
+                <span className="font-mono font-bold text-amber-900">+₹{deliveryFee.toFixed(2)}</span>
+              </div>
+            )}
+
             {/* Prepaid Wallet Deduction Toggle */}
             {paymentMethod === 'wallet' && (
               <div className="flex items-center justify-between rounded-xl bg-white/70 p-2.5 border border-ink-100">
@@ -1890,7 +1916,7 @@ function Checkout({
             </p>
             <p className="mt-1 font-display font-bold text-ink-900">{fmtDate(deliveryDate)}</p>
             <p className="text-xs text-ink-500">
-              {mode === 'next_day' ? 'Tomorrow morning' : 'Today, within 3 km'}
+              {mode === 'next_day' ? 'Tomorrow: 8:00 AM – 9:00 AM only' : 'Any time & immediate delivery (within 10 km DIGIPIN)'}
             </p>
           </div>
         </div>
@@ -2038,7 +2064,7 @@ function Checkout({
               className="input-field resize-y font-semibold text-ink-900"
               value={info.notes}
               onChange={(e) => update('notes', e.target.value)}
-              placeholder="e.g. Please ring bell twice. Deliver between 7:00 AM - 7:30 AM."
+              placeholder="e.g. Please ring bell twice. Delivery slot: 8:00 AM - 9:00 AM."
             />
           </div>
         </div>
@@ -2090,7 +2116,7 @@ function Checkout({
                   📋 Order Delivery Instructions on Bill:
                 </p>
                 <p className="mt-1 font-sans text-sm font-black text-ink-950 leading-snug">
-                  {info.notes ? `"${info.notes}"` : 'STANDARD MORNING DOORSTEP DELIVERY · VERIFY OTP ON ARRIVAL'}
+                  {info.notes ? `"${info.notes}"` : mode === 'next_day' ? 'NEXT-DAY 8:00 AM – 9:00 AM ONLY · VERIFY OTP ON ARRIVAL' : 'SAME-DAY IMMEDIATE DELIVERY · VERIFY OTP ON ARRIVAL'}
                 </p>
               </div>
 
