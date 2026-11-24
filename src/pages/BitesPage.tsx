@@ -84,7 +84,7 @@ export const BITES_CATALOGUE: BiteItem[] = [
     categoryLabel: 'Nuts & Seeds',
     packSize: '250g Pouch',
     price: 245,
-    imageUrl: 'https://images.unsplash.com/photo-1508061252966-f72fb98abc22?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1508747703725-719777637510?auto=format&fit=crop&w=600&q=80',
     description: 'Hand-selected, jumbo nutrient-dense almonds. Naturally packed with Vitamin E, protein, and healthy monounsaturated fats.',
     highlights: ['Jumbo Grade Selection', 'Natural Vitamin E', 'Brain & Heart Nutrition'],
   },
@@ -209,6 +209,11 @@ export function BitesPage() {
                   alt={item.name}
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80';
+                  }}
                 />
                 <span className="absolute top-3 left-3 rounded-full bg-ink-950/80 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-gold-300">
                   {item.categoryLabel}
