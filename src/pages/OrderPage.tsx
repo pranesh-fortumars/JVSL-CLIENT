@@ -34,12 +34,15 @@ import {
   fetchUserFinancials,
   fetchOrders,
   fetchFamilyGroup,
+  fetchSystemDiscountConfig,
+  sendSmsWhatsAppAlert,
   type Product,
   type OrderMode,
   type OrderItem,
   type OrderFeedback,
   type FamilyGroup,
   type CutVegPreference,
+  type SystemDiscountConfig,
 } from '@/lib/firestoreService';
 import { useAuth } from '@/lib/auth';
 import { SEASONAL_CATALOGUE, type SeasonalProduce } from '@/data/seasonalProduce';
@@ -1461,6 +1464,9 @@ function Checkout({
   const [monthlyOrdersCount, setMonthlyOrdersCount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'upi' | 'card' | 'sodexo'>('wallet');
   const [refundPreference, setRefundPreference] = useState<'wallet' | 'original'>('wallet');
+  const [hasMonthFirst500Order, setHasMonthFirst500Order] = useState<boolean>(false);
+  const [smaller100OrdersMonthCount, setSmaller100OrdersMonthCount] = useState<number>(0);
+  const [systemDiscountConfig, setSystemDiscountConfig] = useState<SystemDiscountConfig | null>(null);
 
   // Compute Base Total from Cart Items
   const rawSubtotal = useMemo(() => {
@@ -1468,17 +1474,40 @@ function Checkout({
   }, [cartItems]);
 
   // A: 20% Discount Rules configured per client instruction:
-  // - 20% discount on every 1st purchase above ₹500 and for regular monthly members
-  // - Admin control capability to toggle 20% discount for lower order values
-  const isFirstPurchaseAbove500 = monthlyOrdersCount === 0 && rawSubtotal >= 500;
-  const isRegularMonthlySubscriber = monthlyOrdersCount >= 1 && rawSubtotal >= 500;
+  // 1. 20% discount applies on first purchase ₹500 & above every month.
+  // 2. Only THEN can 20% discount be availed for smaller amounts (₹100+ purchases) any time in the month.
+  // 3. Controlled by Master / Store switch toggle activation / deactivation by Super Admin / Admin.
+  // 4. Also controlled by toggle for making less than 3 smaller ₹100+ purchases in a month.
+  const isMasterDiscountActive = systemDiscountConfig?.master_discount_switch ?? true;
 
   const tieredDiscountPercent = useMemo(() => {
-    if (rawSubtotal >= 500) return 20;
-    // Monthly orders top tier for active recurring households
-    if (monthlyOrdersCount >= 4) return 20;
+    if (!isMasterDiscountActive) return 0;
+
+    // Rule A: Current cart is ₹500 or above
+    if (rawSubtotal >= 500) {
+      return 20;
+    }
+
+    // Rule B: Current cart is a smaller ₹100+ purchase
+    if (rawSubtotal >= 100) {
+      const require500First = systemDiscountConfig?.require_first_purchase_500_for_100_tier ?? true;
+      const limitUnder3 = systemDiscountConfig?.limit_smaller_100_purchases_to_under_3 ?? true;
+
+      // Must have made a ₹500+ purchase this month first (if condition is active)
+      if (require500First && !hasMonthFirst500Order) {
+        return 0;
+      }
+
+      // Must have made less than 3 smaller ₹100+ purchases this month (if condition is active)
+      if (limitUnder3 && smaller100OrdersMonthCount >= 3) {
+        return 0;
+      }
+
+      return 20;
+    }
+
     return 0;
-  }, [monthlyOrdersCount, rawSubtotal]);
+  }, [isMasterDiscountActive, rawSubtotal, systemDiscountConfig, hasMonthFirst500Order, smaller100OrdersMonthCount]);
 
   const tieredDiscountAmount = useMemo(() => {
     if (tieredDiscountPercent <= 0 || rawSubtotal <= 0) return 0;
@@ -1617,6 +1646,11 @@ function Checkout({
         }
       } catch (e) {}
     }
+    // Fetch discount rule configurations
+    fetchSystemDiscountConfig().then((cfg) => {
+      setSystemDiscountConfig(cfg);
+    });
+
     if (user?.uid) {
       fetchUserFinancials(user.uid).then((fin) => {
         setWalletBalance(fin.walletBalance);
@@ -1626,11 +1660,22 @@ function Checkout({
         if (fin.promoBalance > 0) setApplyPromo(true);
       });
 
-      // Track monthly orders count for tiered discount eligibility
+      // Track monthly orders count and ₹500+ qualifying order for tiered discount eligibility
       fetchOrders(user.uid).then((orders) => {
         const thisMonth = new Date().toISOString().slice(0, 7);
-        const count = orders.filter((o) => (o.created_at || '').startsWith(thisMonth)).length;
-        setMonthlyOrdersCount(count);
+        const thisMonthOrders = orders.filter((o) => (o.created_at || '').startsWith(thisMonth));
+        setMonthlyOrdersCount(thisMonthOrders.length);
+
+        // Check if user has an order >= ₹500 this month
+        const has500 = thisMonthOrders.some((o) => (o.total_amount || 0) >= 500);
+        setHasMonthFirst500Order(has500);
+
+        // Check count of smaller orders (between ₹100 and ₹499) this month
+        const smaller100Count = thisMonthOrders.filter((o) => {
+          const amt = o.total_amount || 0;
+          return amt >= 100 && amt < 500;
+        }).length;
+        setSmaller100OrdersMonthCount(smaller100Count);
       });
     }
   }, [profile, user]);
@@ -1810,6 +1855,19 @@ function Checkout({
         localStorage.removeItem('jvlsd_checkout_draft');
       } catch (e) {}
 
+      // Send Audio alert + SMS/WhatsApp order confirmation
+      try {
+        await sendSmsWhatsAppAlert({
+          recipient_phone: finalMobile,
+          channel: 'both',
+          type: 'subscription_change',
+          title: 'Order Placed & Dispatched Alert',
+          message: `Namaste ${finalCustomerName}! Your JVLSD Fresh Daily order (#${(res?.id || `ORD-${Date.now()}`).slice(-8)}) has been successfully confirmed for delivery on ${deliveryDate}. Final payable: ₹${finalPayable.toFixed(2)}. Verified via WhatsApp OTP upon morning arrival.`,
+          action_target_id: res?.id,
+          approval_status: 'accepted',
+        });
+      } catch (e) {}
+
       setShowConfirmModal(false);
       onPlaced(res?.id || `ORD-${Date.now()}`, finalCustomerName);
     } catch (err) {
@@ -1969,9 +2027,17 @@ function Checkout({
                 <div>
                   <span className="font-bold text-ink-900">20% Volume Privilege Discount</span>
                   <p className="text-[10px] text-ink-500">
-                    {rawSubtotal >= 500
-                      ? '✓ 20% discount unlocked for orders of ₹500 and above!'
-                      : `Add ₹${(500 - rawSubtotal).toFixed(2)} more to cart to unlock 20% discount (Minimum order: ₹500).`}
+                    {!isMasterDiscountActive
+                      ? 'Discount switch is currently inactive per store operator master switch.'
+                      : rawSubtotal >= 500
+                      ? '✓ 20% discount unlocked for monthly first purchase ₹500 and above!'
+                      : rawSubtotal >= 100
+                      ? hasMonthFirst500Order
+                        ? smaller100OrdersMonthCount < 3
+                          ? `✓ 20% discount unlocked for ₹100+ purchase (${smaller100OrdersMonthCount}/3 used this month)!`
+                          : 'Limit reached: Maximum 3 smaller ₹100+ purchases with 20% discount allowed per month.'
+                        : 'Requires prior ₹500+ qualifying monthly purchase to unlock 20% on smaller ₹100+ purchases.'
+                      : `Add ₹${(500 - rawSubtotal).toFixed(2)} more to cart to unlock 20% discount.`}
                   </p>
                 </div>
                 <span className={`font-mono font-bold text-xs px-2.5 py-1 rounded-lg ${tieredDiscountPercent > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-ink-100 text-ink-600'}`}>

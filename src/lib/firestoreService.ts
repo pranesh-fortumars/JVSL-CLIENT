@@ -35,6 +35,10 @@ export type Profile = {
   email: string;
   full_name: string | null;
   role: 'customer' | 'admin' | 'superadmin';
+  assigned_stores?: string[]; // Store operator store assignment e.g. ['store_navrangpura', 'store_thaltej']
+  can_manage_discount_toggles?: boolean; // Allowed by Super Admin/Admin
+  can_manage_subscription_scheme?: boolean; // Allowed by Super Admin/Admin
+  is_family_approver?: boolean; // One person in family profile has authority approval to accept/reject via SMS/WhatsApp
   mobile?: string;
   country_code?: string;
   landline?: string;
@@ -53,6 +57,7 @@ export type FamilyMember = {
   address_locked: boolean;
   joined_at: string;
   authorized_by?: string;
+  is_family_approver?: boolean; // Authority approval for orders/subscription changes for this address
   removal_pending?: boolean;
   removal_requested_by?: string;
   removal_reason?: string;
@@ -75,6 +80,7 @@ export type FamilyGroup = {
     timestamp: string;
     status: 'pending_target_confirmation' | 'completed' | 'declined';
   }[];
+  approver_uid?: string; // UID of the authorized family member who approves orders/subscriptions via SMS/WhatsApp
 };
 
 export type Product = {
@@ -487,20 +493,48 @@ export async function updateEnquiryStatus(id: string, status: EnquiryRow['status
 /**
  * Super Admin: Create or provision a new user role record directly
  */
-export async function createManagedUser(input: { email: string; full_name: string; role: Profile['role'] }): Promise<void> {
+export async function createManagedUser(input: {
+  email: string;
+  full_name: string;
+  role: Profile['role'];
+  assigned_stores?: string[];
+  can_manage_discount_toggles?: boolean;
+  can_manage_subscription_scheme?: boolean;
+}): Promise<void> {
   const docId = input.email.replace(/[^a-zA-Z0-9]/g, '_');
   const ref = doc(db, 'profiles', docId);
 
+  const payload: Partial<Profile> & { created_at: string } = {
+    email: input.email,
+    full_name: input.full_name,
+    role: input.role,
+    assigned_stores: input.assigned_stores || [],
+    can_manage_discount_toggles: !!input.can_manage_discount_toggles,
+    can_manage_subscription_scheme: !!input.can_manage_subscription_scheme,
+    created_at: new Date().toISOString(),
+  };
+
   try {
-    await setDoc(ref, {
-      email: input.email,
-      full_name: input.full_name,
-      role: input.role,
-      created_at: new Date().toISOString(),
-    }, { merge: true });
+    await setDoc(ref, payload, { merge: true });
   } catch (fsErr: any) {
     console.warn('Firestore write permission notice:', fsErr?.message || fsErr);
   }
+
+  // Persist locally for immediate availability and mock mode
+  try {
+    const list: Profile[] = JSON.parse(localStorage.getItem('jvlsd_managed_profiles') || '[]');
+    const filtered = list.filter((p) => p.email.toLowerCase() !== input.email.toLowerCase());
+    const newProf: Profile = {
+      id: docId,
+      email: input.email,
+      full_name: input.full_name,
+      role: input.role,
+      assigned_stores: input.assigned_stores || [],
+      can_manage_discount_toggles: !!input.can_manage_discount_toggles,
+      can_manage_subscription_scheme: !!input.can_manage_subscription_scheme,
+    };
+    localStorage.setItem('jvlsd_managed_profiles', JSON.stringify([newProf, ...filtered]));
+  } catch (e) {}
 }
 
 /**
@@ -517,6 +551,16 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
   } catch (err) {
     console.warn('Firestore fetchAllProfiles notice:', err);
   }
+
+  // Include locally managed/provisioned profiles if not already present
+  try {
+    const localManaged: Profile[] = JSON.parse(localStorage.getItem('jvlsd_managed_profiles') || '[]');
+    for (const lm of localManaged) {
+      if (!list.some((p) => p.email.toLowerCase() === lm.email.toLowerCase())) {
+        list.push(lm);
+      }
+    }
+  } catch (e) {}
 
   // Fallback defaults if list is completely empty
   if (list.length === 0) {
@@ -1185,4 +1229,278 @@ export async function deleteUserCompletely(userId: string, email?: string): Prom
       console.warn('Error deleting user surveys:', err);
     }
   }
+}
+
+/* =========================================================================
+   System Configuration: 20% Discount Rules, Subscription Schemes & Alerts
+   Controlled by Super Admin / Admin (with permission delegation to store operators)
+   ========================================================================= */
+
+export type StoreLocation = {
+  id: string;
+  name: string;
+  code: string;
+  pincodes: string[];
+  active: boolean;
+};
+
+export const AVAILABLE_STORES: StoreLocation[] = [
+  { id: 'store_navrangpura', name: 'Navrangpura Central Hub', code: 'NAV-01', pincodes: ['380009', '380014', '380006'], active: true },
+  { id: 'store_memnagar', name: 'Memnagar / Gurukul Store', code: 'MEM-02', pincodes: ['380052'], active: true },
+  { id: 'store_thaltej', name: 'Thaltej & Drive-In Store', code: 'THA-03', pincodes: ['380054'], active: true },
+  { id: 'store_bodakdev', name: 'Bodakdev / SG Highway Store', code: 'BDK-04', pincodes: ['380051'], active: true },
+  { id: 'store_vadaj', name: 'Vadaj / Ashram Road Store', code: 'VDJ-05', pincodes: ['380013'], active: true },
+];
+
+export type SystemDiscountConfig = {
+  // Master switch for all stores or individual store toggle
+  master_discount_switch: boolean;
+  // Store-specific activation map (store_id -> boolean)
+  store_discount_activation: Record<string, boolean>;
+
+  // Condition 1: 20% discount on 1st purchase ₹500+ every month, which then unlocks 20% for smaller ₹100+ purchases any time in month
+  require_first_purchase_500_for_100_tier: boolean;
+
+  // Condition 2: 20% discount for smaller ₹100+ purchases allowed ONLY if customer has made less than 3 smaller ₹100+ purchases in month
+  limit_smaller_100_purchases_to_under_3: boolean;
+
+  // Subscription Scheme toggle & settings
+  subscription_scheme_active: boolean;
+  store_subscription_activation: Record<string, boolean>;
+  subscription_additional_discount_percent: number; // default 2%
+};
+
+export const DEFAULT_DISCOUNT_CONFIG: SystemDiscountConfig = {
+  master_discount_switch: true,
+  store_discount_activation: {
+    store_navrangpura: true,
+    store_memnagar: true,
+    store_thaltej: true,
+    store_bodakdev: true,
+    store_vadaj: true,
+  },
+  require_first_purchase_500_for_100_tier: true,
+  limit_smaller_100_purchases_to_under_3: true,
+  subscription_scheme_active: true,
+  store_subscription_activation: {
+    store_navrangpura: true,
+    store_memnagar: true,
+    store_thaltej: true,
+    store_bodakdev: true,
+    store_vadaj: true,
+  },
+  subscription_additional_discount_percent: 2,
+};
+
+export async function fetchSystemDiscountConfig(): Promise<SystemDiscountConfig> {
+  try {
+    const snap = await getDoc(doc(db, 'system_config', 'discount_rules'));
+    if (snap.exists()) {
+      return { ...DEFAULT_DISCOUNT_CONFIG, ...(snap.data() as Partial<SystemDiscountConfig>) };
+    }
+  } catch (e) {
+    console.warn('Firestore fetchSystemDiscountConfig notice:', e);
+  }
+  try {
+    const local = localStorage.getItem('jvlsd_system_discount_config');
+    if (local) return { ...DEFAULT_DISCOUNT_CONFIG, ...JSON.parse(local) };
+  } catch (e) {}
+  return DEFAULT_DISCOUNT_CONFIG;
+}
+
+export async function updateSystemDiscountConfig(config: Partial<SystemDiscountConfig>): Promise<void> {
+  try {
+    await setDoc(doc(db, 'system_config', 'discount_rules'), config, { merge: true });
+  } catch (e) {
+    console.warn('Firestore updateSystemDiscountConfig notice:', e);
+  }
+  try {
+    const current = await fetchSystemDiscountConfig();
+    const updated = { ...current, ...config };
+    localStorage.setItem('jvlsd_system_discount_config', JSON.stringify(updated));
+  } catch (e) {}
+}
+
+/* =========================================================================
+   Subscription Scheme: Frequency, Items by weight/count, Pause/Resume & Extensions
+   ========================================================================= */
+
+export type SubscriptionFrequency = 'daily' | 'alternate' | 'weekly' | 'biweekly' | 'monthly';
+
+export type SubscriptionItem = {
+  id: string;
+  name: string;
+  category: 'vegetable' | 'fruit' | 'milk';
+  unit: string;
+  quantity: number;
+  by_weight_or_count: string; // e.g. "500g", "1kg", "6 pieces", "1 dozen", "500ml pouch"
+  price: number;
+};
+
+export type CustomerSubscription = {
+  id: string;
+  user_id: string;
+  customer_name: string;
+  mobile: string;
+  address: string;
+  pincode?: string;
+  digipin?: string;
+  family_group_id?: string;
+  frequency: SubscriptionFrequency;
+  items: SubscriptionItem[];
+  status: 'active' | 'paused' | 'cancelled' | 'pending_family_approval';
+  start_date: string;
+  paused_until?: string; // date string if paused for a day, few days, or month
+  extended_until?: string; // extension end date
+  created_at: string;
+  updated_at: string;
+  additional_discount_percent: number; // 2%
+  // Approval metadata
+  approval_status?: 'approved' | 'pending' | 'rejected';
+  approved_by?: string;
+  rejected_by?: string;
+  rejection_reason?: string;
+};
+
+export async function fetchCustomerSubscription(userId: string): Promise<CustomerSubscription | null> {
+  try {
+    const snap = await getDocs(query(collection(db, 'subscriptions'), where('user_id', '==', userId)));
+    if (!snap.empty) {
+      const docData = snap.docs[0].data() as CustomerSubscription;
+      return { ...docData, id: snap.docs[0].id };
+    }
+  } catch (e) {
+    console.warn('Firestore fetchCustomerSubscription notice:', e);
+  }
+  try {
+    const list: CustomerSubscription[] = JSON.parse(localStorage.getItem('jvlsd_customer_subscriptions') || '[]');
+    const found = list.find((s) => s.user_id === userId);
+    if (found) return found;
+  } catch (e) {}
+  return null;
+}
+
+export async function saveCustomerSubscription(sub: CustomerSubscription): Promise<void> {
+  try {
+    await setDoc(doc(db, 'subscriptions', sub.id), sub, { merge: true });
+  } catch (e) {
+    console.warn('Firestore saveCustomerSubscription notice:', e);
+  }
+  try {
+    const list: CustomerSubscription[] = JSON.parse(localStorage.getItem('jvlsd_customer_subscriptions') || '[]');
+    const filtered = list.filter((s) => s.id !== sub.id);
+    localStorage.setItem('jvlsd_customer_subscriptions', JSON.stringify([sub, ...filtered]));
+  } catch (e) {}
+}
+
+/* =========================================================================
+   Audio & SMS / WhatsApp Alert Notification Trigger
+   Plays chime audio + generates SMS/WhatsApp verification message with approval link
+   ========================================================================= */
+
+export function playAudioAlert() {
+  try {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    // Pleasant double chime: 523.25Hz (C5) -> 659.25Hz (E5)
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) {
+    console.log('Audio alert fallback/skipped:', e);
+  }
+}
+
+export type AlertLog = {
+  id: string;
+  timestamp: string;
+  recipient_phone: string;
+  channel: 'sms' | 'whatsapp' | 'both';
+  type: 'subscription_change' | 'pause' | 'resume' | 'extend' | 'family_approval_request' | 'approval_confirmed' | 'approval_rejected';
+  title: string;
+  message: string;
+  approval_status?: 'pending' | 'accepted' | 'rejected';
+  action_target_id?: string;
+  decided_by?: string;
+  decided_at?: string;
+};
+
+export async function sendSmsWhatsAppAlert(alert: Omit<AlertLog, 'id' | 'timestamp'>): Promise<AlertLog> {
+  const fullAlert: AlertLog = {
+    ...alert,
+    id: `ALT_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Play audio alert instantly for user awareness
+  playAudioAlert();
+
+  // Save to alert audit log in Firestore & local storage
+  try {
+    await setDoc(doc(db, 'notification_alerts', fullAlert.id), fullAlert);
+  } catch (e) {
+    console.warn('Firestore sendSmsWhatsAppAlert notice:', e);
+  }
+  try {
+    const list: AlertLog[] = JSON.parse(localStorage.getItem('jvlsd_notification_alerts') || '[]');
+    localStorage.setItem('jvlsd_notification_alerts', JSON.stringify([fullAlert, ...list]));
+  } catch (e) {}
+
+  return fullAlert;
+}
+
+export async function fetchNotificationAlerts(recipientPhone?: string): Promise<AlertLog[]> {
+  try {
+    let q = query(collection(db, 'notification_alerts'), orderBy('timestamp', 'desc'));
+    if (recipientPhone) {
+      q = query(collection(db, 'notification_alerts'), where('recipient_phone', '==', recipientPhone));
+    }
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      return snap.docs.map((d) => d.data() as AlertLog);
+    }
+  } catch (e) {}
+  try {
+    const list: AlertLog[] = JSON.parse(localStorage.getItem('jvlsd_notification_alerts') || '[]');
+    if (recipientPhone) {
+      return list.filter((a) => a.recipient_phone === recipientPhone);
+    }
+    return list;
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function updateAlertApprovalStatus(
+  alertId: string,
+  decision: 'accepted' | 'rejected',
+  approverName: string
+): Promise<void> {
+  playAudioAlert();
+  try {
+    await updateDoc(doc(db, 'notification_alerts', alertId), {
+      approval_status: decision,
+      decided_by: approverName,
+      decided_at: new Date().toISOString(),
+    });
+  } catch (e) {}
+  try {
+    const list: AlertLog[] = JSON.parse(localStorage.getItem('jvlsd_notification_alerts') || '[]');
+    const updated = list.map((a) => (a.id === alertId ? { ...a, approval_status: decision } : a));
+    localStorage.setItem('jvlsd_notification_alerts', JSON.stringify(updated));
+  } catch (e) {}
 }

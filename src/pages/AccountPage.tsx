@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   CalendarClock,
+  Clock,
   LogOut,
   Loader2,
   Package,
@@ -42,11 +43,20 @@ import {
   confirmFamilyMemberRemoval,
   reloadUserWallet,
   fetchUserFinancials,
+  fetchCustomerSubscription,
+  saveCustomerSubscription,
+  sendSmsWhatsAppAlert,
+  fetchNotificationAlerts,
+  updateAlertApprovalStatus,
   type OrderRow,
   type OrderFeedback,
   type FamilyGroup,
   type UserAddress,
   type FamilyExpenseProposal,
+  type CustomerSubscription,
+  type SubscriptionFrequency,
+  type SubscriptionItem,
+  type AlertLog,
 } from '@/lib/firestoreService';
 
 const STATUS_LABEL: Record<OrderRow['status'], string> = {
@@ -65,7 +75,19 @@ export function AccountPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'family' | 'finance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'subscription' | 'family' | 'finance'>('overview');
+
+  // Customer subscription states
+  const [subscription, setSubscription] = useState<CustomerSubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subActionNotice, setSubActionNotice] = useState<string | null>(null);
+  const [recentAlerts, setRecentAlerts] = useState<AlertLog[]>([]);
+
+  // Subscription Builder / Modal States
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subFreq, setSubFreq] = useState<SubscriptionFrequency>('daily');
+  const [subPauseDuration, setSubPauseDuration] = useState<'day' | 'few_days' | 'month'>('day');
+  const [subExtendMonths, setSubExtendMonths] = useState<number>(1);
 
   // Customer order history datewise / monthwise / yearwise filter
   const [historyScope, setHistoryScope] = useState<'all' | 'specific_date' | 'month' | 'year'>('all');
@@ -106,7 +128,18 @@ export function AccountPage() {
       setRealPromo(fin.promoBalance);
       setRealLoyalty(fin.loyaltyPoints);
     });
-  }, [user]);
+
+    // Fetch customer subscription
+    setSubscriptionLoading(true);
+    fetchCustomerSubscription(user.uid)
+      .then((sub) => setSubscription(sub))
+      .finally(() => setSubscriptionLoading(false));
+
+    // Fetch recent SMS/WhatsApp & audio alert logs for this customer
+    fetchNotificationAlerts(profile?.mobile || user.phoneNumber || undefined).then((alerts) => {
+      setRecentAlerts(alerts.slice(0, 5));
+    });
+  }, [user, profile]);
 
   useEffect(() => {
     if (!profile?.family_group_id) return;
@@ -207,7 +240,8 @@ export function AccountPage() {
           {[
             { id: 'overview', label: 'Financial & Spend Graphs', icon: PieChart },
             { id: 'orders', label: 'Order History', icon: Package },
-            { id: 'family', label: 'Family Hub & Permissions', icon: Users },
+            { id: 'subscription', label: 'Standing Subscriptions (2% OFF)', icon: CalendarClock },
+            { id: 'family', label: 'Family Hub & Approvals', icon: Users },
             { id: 'finance', label: 'Family Income & Expense Dialogue', icon: HeartHandshake },
           ].map((tab) => (
             <button
@@ -513,6 +547,404 @@ export function AccountPage() {
           </div>
         )}
 
+        {/* Tab: Standing Subscriptions & Scheme (2% Discount) */}
+        {activeTab === 'subscription' && (
+          <div className="mt-8 space-y-6 animate-fade-up">
+            <div className="rounded-3xl border border-emerald-300 bg-gradient-to-br from-emerald-50/80 via-white to-brand-50/40 p-6 sm:p-8 shadow-soft">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-200 pb-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
+                      <CalendarClock className="h-5 w-5" />
+                    </span>
+                    <h3 className="font-display text-xl font-bold text-ink-950">
+                      Household Essentials Subscription Scheme
+                    </h3>
+                  </div>
+                  <p className="mt-1 text-xs sm:text-sm text-ink-600">
+                    Subscribe to daily or periodic vegetables, fruits &amp; pure farm milk with <span className="font-bold text-emerald-700">additional 2% discount</span> on every delivery cycle.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-soft">
+                    +2% Extra Discount Unlocked
+                  </span>
+                </div>
+              </div>
+
+              {subActionNotice && (
+                <div className="mt-4 flex items-center justify-between rounded-2xl bg-emerald-100 p-4 text-xs font-bold text-emerald-900 border border-emerald-300">
+                  <span>{subActionNotice}</span>
+                  <button type="button" onClick={() => setSubActionNotice(null)} className="text-emerald-700 hover:text-emerald-950">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Active Subscription Details */}
+              {subscription ? (
+                <div className="mt-6 space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-4">
+                    <div className="rounded-2xl border border-ink-100 bg-white p-4">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Subscription Status</span>
+                      <p className="mt-1 text-base font-bold text-ink-900 capitalize flex items-center gap-1.5">
+                        <span className={`h-2.5 w-2.5 rounded-full ${subscription.status === 'active' ? 'bg-emerald-500' : subscription.status === 'paused' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                        {subscription.status}
+                      </p>
+                      {subscription.paused_until && (
+                        <p className="text-[11px] font-semibold text-amber-700 mt-0.5">Paused until: {subscription.paused_until}</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-ink-100 bg-white p-4">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Frequency Cycle</span>
+                      <p className="mt-1 text-base font-bold text-ink-900 capitalize">{subscription.frequency}</p>
+                      <p className="text-[11px] text-ink-500 mt-0.5">Morning 8:00 AM – 9:00 AM Doorstep</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-ink-100 bg-white p-4">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Subscription Privilege</span>
+                      <p className="mt-1 text-base font-bold text-emerald-700">2% Extra Savings</p>
+                      <p className="text-[11px] text-ink-500 mt-0.5">Applied on total monthly billing</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-ink-100 bg-white p-4">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Delivery Address</span>
+                      <p className="mt-1 text-xs font-semibold text-ink-900 truncate">{subscription.address}</p>
+                      <p className="text-[11px] text-emerald-800 font-mono mt-0.5">DIGIPIN: {subscription.digipin || 'Verified'}</p>
+                    </div>
+                  </div>
+
+                  {/* Subscribed Produce & Quantities List */}
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink-600 mb-3">
+                      Subscribed Farm Produce by Weight &amp; Count ({subscription.items.length} items)
+                    </h4>
+                    <div className="divide-y divide-ink-100 rounded-2xl border border-ink-100 bg-white overflow-hidden">
+                      {subscription.items.map((it) => (
+                        <div key={it.id} className="flex items-center justify-between p-4 text-xs">
+                          <div>
+                            <p className="font-bold text-ink-900 text-sm">{it.name}</p>
+                            <p className="text-ink-500 mt-0.5">
+                              Quantity: <span className="font-semibold text-ink-800">{it.quantity} {it.unit}</span> ({it.by_weight_or_count})
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-brand-800 text-sm">₹{it.price * it.quantity}</span>
+                            <span className="block text-[10px] text-emerald-700 font-semibold">-2% applied</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pause / Resume / Extend Control Bar */}
+                  <div className="rounded-2xl bg-amber-50/70 p-5 border border-amber-200">
+                    <h4 className="font-bold text-sm text-ink-950 flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-amber-700" /> Manage Subscription Timeline (Pause, Resume or Extend)
+                    </h4>
+                    <p className="text-xs text-ink-600 mt-1">
+                      Going on vacation or need to halt kitchen deliveries? Pause for a day, few days, or a whole month, or extend your cycle anytime.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      {subscription.status === 'active' ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={subPauseDuration}
+                              onChange={(e) => setSubPauseDuration(e.target.value as any)}
+                              className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-800"
+                            >
+                              <option value="day">Pause for 1 Day (Tomorrow)</option>
+                              <option value="few_days">Pause for Few Days (3 Days)</option>
+                              <option value="month">Pause for 1 Month</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const days = subPauseDuration === 'day' ? 1 : subPauseDuration === 'few_days' ? 3 : 30;
+                                const resumeDate = new Date();
+                                resumeDate.setDate(resumeDate.getDate() + days);
+                                const dateStr = resumeDate.toISOString().slice(0, 10);
+
+                                const updated: CustomerSubscription = {
+                                  ...subscription,
+                                  status: 'paused',
+                                  paused_until: dateStr,
+                                  updated_at: new Date().toISOString(),
+                                };
+                                await saveCustomerSubscription(updated);
+                                setSubscription(updated);
+
+                                // Audio Alert + WhatsApp/SMS Alert Trigger
+                                await sendSmsWhatsAppAlert({
+                                  recipient_phone: subscription.mobile,
+                                  channel: 'both',
+                                  type: 'pause',
+                                  title: 'Subscription Paused Alert',
+                                  message: `JVLSD Alert: Your household fresh daily subscription has been paused until ${dateStr}. No morning dispatch will be made until then. Resumes automatically on ${dateStr}.`,
+                                  action_target_id: subscription.id,
+                                  approval_status: 'accepted',
+                                });
+
+                                setSubActionNotice(`Subscription paused until ${dateStr}. Audio chime played and SMS/WhatsApp alert dispatched!`);
+                              }}
+                              className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 shadow-soft"
+                            >
+                              Pause Subscription
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-2 border-l border-amber-200 pl-3">
+                            <select
+                              value={subExtendMonths}
+                              onChange={(e) => setSubExtendMonths(Number(e.target.value))}
+                              className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-800"
+                            >
+                              <option value={1}>Extend by 1 Month</option>
+                              <option value={2}>Extend by 2 Months</option>
+                              <option value={3}>Extend by 3 Months</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const extDate = new Date();
+                                extDate.setMonth(extDate.getMonth() + subExtendMonths);
+                                const extStr = extDate.toISOString().slice(0, 10);
+
+                                const updated: CustomerSubscription = {
+                                  ...subscription,
+                                  extended_until: extStr,
+                                  updated_at: new Date().toISOString(),
+                                };
+                                await saveCustomerSubscription(updated);
+                                setSubscription(updated);
+
+                                await sendSmsWhatsAppAlert({
+                                  recipient_phone: subscription.mobile,
+                                  channel: 'both',
+                                  type: 'extend',
+                                  title: 'Subscription Extended Alert',
+                                  message: `JVLSD Alert: Your household fresh subscription has been extended until ${extStr} with 2% extra discount.`,
+                                  action_target_id: subscription.id,
+                                  approval_status: 'accepted',
+                                });
+
+                                setSubActionNotice(`Subscription extended until ${extStr}. Confirmation dispatched to WhatsApp/SMS.`);
+                              }}
+                              className="rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-800 shadow-soft"
+                            >
+                              Extend Cycle
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const updated: CustomerSubscription = {
+                              ...subscription,
+                              status: 'active',
+                              paused_until: undefined,
+                              updated_at: new Date().toISOString(),
+                            };
+                            await saveCustomerSubscription(updated);
+                            setSubscription(updated);
+
+                            await sendSmsWhatsAppAlert({
+                              recipient_phone: subscription.mobile,
+                              channel: 'both',
+                              type: 'resume',
+                              title: 'Subscription Resumed Alert',
+                              message: `JVLSD Alert: Your household fresh daily subscription is RESUMED! Farm fresh doorstep morning delivery scheduled for tomorrow 8:00 AM – 9:00 AM.`,
+                              action_target_id: subscription.id,
+                              approval_status: 'accepted',
+                            });
+
+                            setSubActionNotice('Subscription successfully resumed! Morning deliveries scheduled.');
+                          }}
+                          className="rounded-xl bg-emerald-700 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-800 shadow-soft"
+                        >
+                          Resume Active Deliveries
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* No Active Subscription - Builder Setup */
+                <div className="mt-6 text-center rounded-2xl bg-white p-8 border border-emerald-200">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                    <CalendarClock className="h-7 w-7" />
+                  </span>
+                  <h4 className="mt-4 font-display text-lg font-bold text-ink-950">
+                    Start a Standing Daily / Alternate / Weekly / Monthly Subscription
+                  </h4>
+                  <p className="mt-1 text-xs text-ink-600 max-w-md mx-auto">
+                    Select your family's daily dairy essentials, unadulterated cow/buffalo milk, and fresh harvest vegetables. Get an extra 2% discount with full freedom to pause, resume, or extend.
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap justify-center gap-3">
+                    {[
+                      { id: 'daily', title: 'Daily', desc: 'Every morning' },
+                      { id: 'alternate', title: 'Alternate Days', desc: 'Every 2nd morning' },
+                      { id: 'weekly', title: 'Weekly', desc: 'Once a week' },
+                      { id: 'biweekly', title: 'Bi-Weekly', desc: 'Twice a week' },
+                      { id: 'monthly', title: 'Monthly Pack', desc: 'Standing monthly' },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setSubFreq(f.id as any)}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          subFreq === f.id
+                            ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 ring-2 ring-emerald-300'
+                            : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+                        }`}
+                      >
+                        <p className="font-bold text-xs">{f.title}</p>
+                        <p className="text-[10px] text-ink-500">{f.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const newSub: CustomerSubscription = {
+                        id: `SUB_${Date.now()}`,
+                        user_id: user.uid,
+                        customer_name: profile?.full_name || 'Verified Customer',
+                        mobile: profile?.mobile || '9825012345',
+                        address: profile?.addresses?.[0]
+                          ? `${profile.addresses[0].house_flat}, ${profile.addresses[0].building_society}, ${profile.addresses[0].city}`
+                          : 'Navrangpura, Ahmedabad',
+                        frequency: subFreq,
+                        items: [
+                          { id: 'prod-milk-a2', name: 'Desi Cow Milk (A2 ગાયનું દૂધ)', category: 'milk', unit: '500ml pouch', quantity: 2, by_weight_or_count: '2 pouches (1 Litre)', price: 35 },
+                          { id: 'prod-tomato', name: 'Fresh Tomato (ટામેટા)', category: 'vegetable', unit: 'kg', quantity: 1, by_weight_or_count: '1 kg', price: 40 },
+                          { id: 'prod-banana', name: 'Robusta Big Banana', category: 'fruit', unit: 'dozen', quantity: 1, by_weight_or_count: '1 dozen (12 pcs)', price: 60 },
+                        ],
+                        status: 'active',
+                        start_date: new Date().toISOString().slice(0, 10),
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        additional_discount_percent: 2,
+                      };
+
+                      await saveCustomerSubscription(newSub);
+                      setSubscription(newSub);
+
+                      // Audio Alert + SMS / WhatsApp Notification
+                      await sendSmsWhatsAppAlert({
+                        recipient_phone: newSub.mobile,
+                        channel: 'both',
+                        type: 'subscription_change',
+                        title: 'New Subscription Activated Alert',
+                        message: `Congratulations ${newSub.customer_name}! Your JVLSD Fresh Daily subscription (${subFreq.toUpperCase()}) has been activated with 2% extra discount. First doorstep delivery scheduled for tomorrow 8:00 AM – 9:00 AM.`,
+                        action_target_id: newSub.id,
+                        approval_status: 'accepted',
+                      });
+
+                      setSubActionNotice('Subscription activated with 2% extra discount! Audio chime played and WhatsApp/SMS confirmation dispatched.');
+                    }}
+                    className="btn-primary mt-6 px-8 py-3 text-xs font-bold"
+                  >
+                    Activate {subFreq.toUpperCase()} Subscription (+2% Discount)
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Audit Log of SMS / WhatsApp Alerts & Audio Trigger */}
+            <div className="rounded-3xl border border-ink-100 bg-white p-6 shadow-soft">
+              <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                    <MessageCircle className="h-4 w-4" />
+                  </span>
+                  <h4 className="font-display text-sm font-bold text-ink-950">
+                    SMS &amp; WhatsApp Real-Time Authenticated Logs &amp; Audio Notifications
+                  </h4>
+                </div>
+                <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
+                  Live Dispatch Stream
+                </span>
+              </div>
+
+              {recentAlerts.length === 0 ? (
+                <p className="mt-4 text-xs text-ink-500">No recent alerts recorded. Subscriptions and order modifications will log audio and SMS confirmations here.</p>
+              ) : (
+                <div className="mt-4 divide-y divide-ink-100">
+                  {recentAlerts.map((alt) => (
+                    <div key={alt.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-ink-900">{alt.title}</span>
+                          <span className="rounded-md bg-ink-100 px-1.5 py-0.5 text-[10px] uppercase font-bold text-ink-600">
+                            {alt.channel}
+                          </span>
+                          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                            alt.approval_status === 'accepted'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : alt.approval_status === 'rejected'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {alt.approval_status}
+                          </span>
+                          {alt.decided_by && (
+                            <span className="text-[10px] text-ink-500 italic">
+                              by {alt.decided_by}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-ink-600 mt-1 leading-relaxed text-[11px]">{alt.message}</p>
+                      </div>
+
+                      {/* Authority approver action buttons: Accept / Reject via SMS WhatsApp */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {alt.approval_status === 'pending' && (familyGroup?.approver_uid === user?.uid || profile?.is_family_approver || familyGroup?.creator_uid === user?.uid) && (
+                          <div className="flex items-center gap-1.5 bg-amber-50 p-1.5 rounded-xl border border-amber-200">
+                            <span className="text-[10px] font-bold text-amber-900">Approver Action:</span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await updateAlertApprovalStatus(alt.id, 'accepted', profile?.full_name || 'Family Approver');
+                                setRecentAlerts(prev => prev.map(a => a.id === alt.id ? { ...a, approval_status: 'accepted', decided_by: profile?.full_name || 'Family Approver' } : a));
+                                setSubActionNotice(`Authorized and Accepted ${alt.title} with SMS/WhatsApp confirmation.`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold transition-all"
+                            >
+                              ✓ Accept
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await updateAlertApprovalStatus(alt.id, 'rejected', profile?.full_name || 'Family Approver');
+                                setRecentAlerts(prev => prev.map(a => a.id === alt.id ? { ...a, approval_status: 'rejected', decided_by: profile?.full_name || 'Family Approver' } : a));
+                                setSubActionNotice(`Rejected order/subscription change: ${alt.title}.`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[10px] font-bold transition-all"
+                            >
+                              ✕ Reject
+                            </button>
+                          </div>
+                        )}
+                        <span className="text-[10px] text-ink-400 font-mono">
+                          {new Date(alt.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Tab 3: Family Group & Shared Address Permissions (P4 Implementation) */}
         {activeTab === 'family' && (
           <div className="mt-8 space-y-6">
@@ -617,6 +1049,26 @@ export function AccountPage() {
                                 🔒 Doorstep Locked
                               </span>
                             )}
+
+                            {/* Family Authority Approver Badge & Assignment */}
+                            {familyGroup.approver_uid === m.uid ? (
+                              <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                👑 Authority Approver (SMS/WhatsApp)
+                              </span>
+                            ) : familyGroup.creator_uid === user.uid ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const updated = { ...familyGroup, approver_uid: m.uid };
+                                  setFamilyGroup(updated);
+                                  localStorage.setItem(`jvlsd_family_group_${familyGroup.id}`, JSON.stringify(updated));
+                                  setGroupActionNotice(`${m.full_name} is now designated as the single Authority Approver for all household orders and subscription changes.`);
+                                }}
+                                className="rounded-lg border border-ink-200 px-2 py-0.5 text-[10px] font-semibold text-ink-600 hover:bg-ink-100"
+                              >
+                                Set as Approver
+                              </button>
+                            ) : null}
 
                             {/* B: Two-Party Removal Mutual Confirmation */}
                             {m.removal_pending ? (

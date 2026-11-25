@@ -36,11 +36,16 @@ import {
   updateSurveyStatus as syncUpdateSurveyStatus,
   updateEnquiryStatus as syncUpdateEnquiryStatus,
   fetchMasterFranchiseeRoyaltyLedger,
+  fetchSystemDiscountConfig,
+  updateSystemDiscountConfig,
+  AVAILABLE_STORES,
   type OrderRow,
   type SurveyRow,
   type EnquiryRow,
   type Profile,
   type MasterFranchiseeRoyaltyEntry,
+  type SystemDiscountConfig,
+  type StoreLocation,
 } from '@/lib/firestoreService';
 import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
@@ -1615,10 +1620,17 @@ function SuperAdminAccessPanel() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
+  // System Discount & Subscription Config State
+  const [discountConfig, setDiscountConfig] = useState<SystemDiscountConfig | null>(null);
+  const [savingConfig, setSavingConfig] = useState(false);
+
   // Form to create / provision new admin or user
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'customer' | 'superadmin'>('admin');
+  const [newAssignedStores, setNewAssignedStores] = useState<string[]>(['store_navrangpura']);
+  const [newCanManageDiscounts, setNewCanManageDiscounts] = useState(false);
+  const [newCanManageSubscriptions, setNewCanManageSubscriptions] = useState(false);
   const [creating, setCreating] = useState(false);
 
   // Search & Role filtering for Super Admin user list
@@ -1628,8 +1640,12 @@ function SuperAdminAccessPanel() {
   const loadProfiles = useCallback(async () => {
     setLoading(true);
     try {
-      const p = await fetchAllProfiles();
+      const [p, cfg] = await Promise.all([
+        fetchAllProfiles(),
+        fetchSystemDiscountConfig(),
+      ]);
       setProfiles(p);
+      setDiscountConfig(cfg);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1689,8 +1705,11 @@ function SuperAdminAccessPanel() {
         email: newEmail.trim().toLowerCase(),
         full_name: newName.trim(),
         role: newRole,
+        assigned_stores: newRole === 'admin' ? newAssignedStores : [],
+        can_manage_discount_toggles: newRole === 'admin' ? newCanManageDiscounts : false,
+        can_manage_subscription_scheme: newRole === 'admin' ? newCanManageSubscriptions : false,
       });
-      setMsg({ text: `Account for ${newEmail} provisioned as ${newRole}. They can now sign in using the login/admin page.`, type: 'success' });
+      setMsg({ text: `Account for ${newEmail} provisioned as ${newRole} with assigned store hub permissions.`, type: 'success' });
       setNewEmail('');
       setNewName('');
       loadProfiles();
@@ -1762,6 +1781,189 @@ function SuperAdminAccessPanel() {
         </div>
       )}
 
+      {/* Master 20% Discount Rules & Subscription Scheme Switches (Super Admin / Admin Only) */}
+      {discountConfig && (
+        <div className="rounded-3xl border border-gold-400/50 bg-white p-6 shadow-soft space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-100 pb-4">
+            <div>
+              <span className="rounded-full bg-gold-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-gold-900 border border-gold-300">
+                Exclusive Admin &amp; Super Admin Control Switchboard
+              </span>
+              <h3 className="mt-1 font-display text-lg font-bold text-ink-950 flex items-center gap-2">
+                <BadgeIndianRupee className="h-5 w-5 text-gold-600" />
+                20% Discount Rules &amp; Store Partner Activation Switchboard
+              </h3>
+              <p className="text-xs text-ink-500">
+                Only Admin &amp; Super Admin can toggle these rules on/off. Store operators and partners cannot activate/deactivate unless explicitly delegated.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-bold ${discountConfig.master_discount_switch ? 'text-emerald-700' : 'text-ink-400'}`}>
+                {discountConfig.master_discount_switch ? 'Master Switch: ON' : 'Master Switch: OFF'}
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  const updated = { ...discountConfig, master_discount_switch: !discountConfig.master_discount_switch };
+                  setDiscountConfig(updated);
+                  await updateSystemDiscountConfig(updated);
+                  setMsg({ text: `Master 20% discount switch toggled ${updated.master_discount_switch ? 'ON' : 'OFF'}.`, type: 'success' });
+                }}
+                className={`p-1.5 rounded-xl transition-colors ${
+                  discountConfig.master_discount_switch ? 'text-emerald-700 bg-emerald-50' : 'text-ink-400 bg-ink-100'
+                }`}
+              >
+                {discountConfig.master_discount_switch ? <ToggleRight className="h-8 w-8 text-emerald-600" /> : <ToggleLeft className="h-8 w-8 text-ink-400" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Condition 1 Toggle */}
+            <div className="rounded-2xl border border-ink-200 bg-ink-50/60 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-xs text-ink-900">
+                    Condition 1: ₹500+ First Purchase Monthly Prerequisite
+                  </p>
+                  <p className="text-[11px] text-ink-600 mt-1 leading-relaxed">
+                    20% discount applies to all first purchase ₹500 &amp; above every month. Only after this initial ₹500+ order can the 20% discount be availed for smaller amounts (₹100+ purchases) any time in the month.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const updated = {
+                      ...discountConfig,
+                      require_first_purchase_500_for_100_tier: !discountConfig.require_first_purchase_500_for_100_tier,
+                    };
+                    setDiscountConfig(updated);
+                    await updateSystemDiscountConfig(updated);
+                    setMsg({ text: `Condition 1 prerequisite updated to ${updated.require_first_purchase_500_for_100_tier ? 'ACTIVE' : 'DEACTIVATED'}.`, type: 'success' });
+                  }}
+                  className="shrink-0 p-1 rounded-xl"
+                >
+                  {discountConfig.require_first_purchase_500_for_100_tier ? (
+                    <ToggleRight className="h-7 w-7 text-emerald-600" />
+                  ) : (
+                    <ToggleLeft className="h-7 w-7 text-ink-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Condition 2 Toggle */}
+            <div className="rounded-2xl border border-ink-200 bg-ink-50/60 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-xs text-ink-900">
+                    Condition 2: Maximum 3 Smaller ₹100+ Purchases Cap
+                  </p>
+                  <p className="text-[11px] text-ink-600 mt-1 leading-relaxed">
+                    Making less than 3 smaller ₹100+ purchases in a month only get 20% discount. Once 3 smaller discounted purchases are reached, discount turns off for remaining small orders.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const updated = {
+                      ...discountConfig,
+                      limit_smaller_100_purchases_to_under_3: !discountConfig.limit_smaller_100_purchases_to_under_3,
+                    };
+                    setDiscountConfig(updated);
+                    await updateSystemDiscountConfig(updated);
+                    setMsg({ text: `Condition 2 (less than 3 smaller orders cap) updated to ${updated.limit_smaller_100_purchases_to_under_3 ? 'ACTIVE' : 'DEACTIVATED'}.`, type: 'success' });
+                  }}
+                  className="shrink-0 p-1 rounded-xl"
+                >
+                  {discountConfig.limit_smaller_100_purchases_to_under_3 ? (
+                    <ToggleRight className="h-7 w-7 text-emerald-600" />
+                  ) : (
+                    <ToggleLeft className="h-7 w-7 text-ink-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Subscription Scheme Toggle */}
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:col-span-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
+                    <CalendarClock className="h-4 w-4 text-emerald-700" /> Standing Subscription Scheme (+2% Extra Discount)
+                  </p>
+                  <p className="text-[11px] text-emerald-800 mt-1 leading-relaxed">
+                    Allows customers to select dairy products, fruits &amp; vegetables by weight/count for Daily, Alternate, Weekly, Bi-Weekly, and Monthly subscription cycles. Grants an additional 2% discount with full capability to pause (1 day, few days, 1 month) or extend.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const updated = {
+                      ...discountConfig,
+                      subscription_scheme_active: !discountConfig.subscription_scheme_active,
+                    };
+                    setDiscountConfig(updated);
+                    await updateSystemDiscountConfig(updated);
+                    setMsg({ text: `Subscription scheme toggle updated to ${updated.subscription_scheme_active ? 'ACTIVE' : 'DEACTIVATED'}.`, type: 'success' });
+                  }}
+                  className="shrink-0 p-1 rounded-xl"
+                >
+                  {discountConfig.subscription_scheme_active ? (
+                    <ToggleRight className="h-7 w-7 text-emerald-600" />
+                  ) : (
+                    <ToggleLeft className="h-7 w-7 text-ink-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Store-By-Store Operator Activation & Deselection */}
+          <div className="border-t border-ink-100 pt-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-ink-600 mb-3">
+              Per-Store Partner Activation &amp; Deselection Switches
+            </h4>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {AVAILABLE_STORES.map((st) => {
+                const isStoreActive = discountConfig.store_discount_activation[st.id] ?? true;
+                return (
+                  <div key={st.id} className="flex items-center justify-between rounded-xl border border-ink-200 bg-white p-3">
+                    <div>
+                      <p className="font-bold text-xs text-ink-900">{st.name}</p>
+                      <p className="text-[10px] text-ink-500 font-mono">Code: {st.code} · PINs: {st.pincodes.join(', ')}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const updated = {
+                          ...discountConfig,
+                          store_discount_activation: {
+                            ...discountConfig.store_discount_activation,
+                            [st.id]: !isStoreActive,
+                          },
+                        };
+                        setDiscountConfig(updated);
+                        await updateSystemDiscountConfig(updated);
+                        setMsg({ text: `${st.name} 20% discount activation toggled ${!isStoreActive ? 'ON' : 'OFF'}.`, type: 'success' });
+                      }}
+                      className="p-1"
+                    >
+                      {isStoreActive ? (
+                        <ToggleRight className="h-6 w-6 text-emerald-600" />
+                      ) : (
+                        <ToggleLeft className="h-6 w-6 text-ink-400" />
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Provision new account form */}
       <div className="rounded-3xl border border-ink-100 bg-white p-6 shadow-soft">
         <h3 className="flex items-center gap-2 font-display text-base font-bold text-ink-900">
@@ -1771,49 +1973,115 @@ function SuperAdminAccessPanel() {
           Create an Admin, Super Admin, or Customer identity to hand over to team members or managers.
         </p>
 
-        <form onSubmit={handleCreateAccount} className="mt-5 grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="label">Full Name</label>
-            <input
-              type="text"
-              required
-              className="input-field"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="E.g. Rajesh Shah"
-            />
-          </div>
-          <div>
-            <label className="label">Email Address</label>
-            <input
-              type="email"
-              required
-              className="input-field"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="staff@jvlsd.in"
-            />
-          </div>
-          <div>
-            <label className="label">Assign Role</label>
-            <div className="flex gap-2">
+        <form onSubmit={handleCreateAccount} className="mt-5 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="label">Full Name</label>
+              <input
+                type="text"
+                required
+                className="input-field"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="E.g. Rajesh Shah"
+              />
+            </div>
+            <div>
+              <label className="label">Email Address</label>
+              <input
+                type="email"
+                required
+                className="input-field"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="staff@jvlsd.in"
+              />
+            </div>
+            <div>
+              <label className="label">Assign Role</label>
               <select
                 className="input-field"
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value as any)}
               >
-                <option value="admin">Admin (Staff / Operations)</option>
+                <option value="admin">Admin (Staff / Store Operator)</option>
                 <option value="superadmin">Super Admin (Full Platform Owner)</option>
                 <option value="customer">Customer</option>
               </select>
-              <button
-                type="submit"
-                disabled={creating}
-                className="btn-primary shrink-0 px-4 text-xs"
-              >
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Provision'}
-              </button>
             </div>
+          </div>
+
+          {/* Store Operator Assignment & Delegated Toggle Permissions (Selected by Admin/Super Admin) */}
+          {newRole === 'admin' && (
+            <div className="rounded-2xl bg-amber-50/70 p-4 border border-amber-200 space-y-3 text-xs">
+              <p className="font-bold text-amber-950">
+                Store Operator Franchisee Assignment &amp; Delegated Toggle Permissions:
+              </p>
+              <p className="text-[11px] text-amber-900 leading-snug">
+                By default, discount toggles are controlled ONLY by you (Admin / Super Admin). You can optionally assign specific store locations and permit this store operator to manage toggles.
+              </p>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-ink-600 mb-1.5">
+                  Assigned Store Hubs:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABLE_STORES.map((st) => {
+                    const isSel = newAssignedStores.includes(st.id);
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => {
+                          setNewAssignedStores((prev) =>
+                            isSel ? prev.filter((id) => id !== st.id) : [...prev, st.id]
+                          );
+                        }}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition-all ${
+                          isSel
+                            ? 'bg-brand-700 text-white border-brand-700 shadow-soft'
+                            : 'bg-white text-ink-700 border-ink-200 hover:bg-ink-50'
+                        }`}
+                      >
+                        {isSel ? '✓ ' : ''}{st.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer font-semibold text-ink-900">
+                  <input
+                    type="checkbox"
+                    checked={newCanManageDiscounts}
+                    onChange={(e) => setNewCanManageDiscounts(e.target.checked)}
+                    className="rounded text-brand-700 focus:ring-brand-500 h-4 w-4"
+                  />
+                  <span>Delegate 20% Discount Toggle Control to this Operator</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer font-semibold text-ink-900">
+                  <input
+                    type="checkbox"
+                    checked={newCanManageSubscriptions}
+                    onChange={(e) => setNewCanManageSubscriptions(e.target.checked)}
+                    className="rounded text-brand-700 focus:ring-brand-500 h-4 w-4"
+                  />
+                  <span>Delegate Subscription Scheme Management</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={creating}
+              className="btn-primary px-6 py-2.5 text-xs font-bold"
+            >
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Provision Account & Set Permissions'}
+            </button>
           </div>
         </form>
       </div>
@@ -1864,7 +2132,8 @@ function SuperAdminAccessPanel() {
                 <tr>
                   <th className="py-3 px-3">Name</th>
                   <th className="py-3 px-3">Email</th>
-                  <th className="py-3 px-3">Current Role</th>
+                  <th className="py-3 px-3">Current Role &amp; Stores</th>
+                  <th className="py-3 px-3">Toggle Permissions</th>
                   <th className="py-3 px-3">Change Role</th>
                   <th className="py-3 px-3 text-right">Delete &amp; Purge</th>
                 </tr>
@@ -1875,17 +2144,38 @@ function SuperAdminAccessPanel() {
                     <td className="py-3 px-3 font-semibold text-ink-900">{p.full_name || '—'}</td>
                     <td className="py-3 px-3 font-mono text-ink-600">{p.email}</td>
                     <td className="py-3 px-3">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                          p.role === 'superadmin'
-                            ? 'bg-gold-100 text-gold-900 border border-gold-300'
-                            : p.role === 'admin'
-                            ? 'bg-brand-100 text-brand-900'
-                            : 'bg-ink-100 text-ink-700'
-                        }`}
-                      >
-                        {p.role}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                            p.role === 'superadmin'
+                              ? 'bg-gold-100 text-gold-900 border border-gold-300'
+                              : p.role === 'admin'
+                              ? 'bg-brand-100 text-brand-900'
+                              : 'bg-ink-100 text-ink-700'
+                          }`}
+                        >
+                          {p.role}
+                        </span>
+                        {p.assigned_stores && p.assigned_stores.length > 0 && (
+                          <span className="text-[10px] text-ink-500 font-medium">
+                            Hubs: {p.assigned_stores.map(id => AVAILABLE_STORES.find(s => s.id === id)?.name || id).join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex flex-col gap-1 text-[10px]">
+                        {p.can_manage_discount_toggles ? (
+                          <span className="text-emerald-700 font-bold">✓ 20% Discount Control</span>
+                        ) : (
+                          <span className="text-ink-400">✕ No Discount Toggle</span>
+                        )}
+                        {p.can_manage_subscription_scheme ? (
+                          <span className="text-emerald-700 font-bold">✓ Subscription Scheme Control</span>
+                        ) : (
+                          <span className="text-ink-400">✕ No Sub Scheme Toggle</span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3">
                       <select
