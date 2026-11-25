@@ -48,6 +48,9 @@ import {
   sendSmsWhatsAppAlert,
   fetchNotificationAlerts,
   updateAlertApprovalStatus,
+  cancelOrderWithAccounting,
+  fetchCustomerLienProfile,
+  type CustomerLienProfile,
   type OrderRow,
   type OrderFeedback,
   type FamilyGroup,
@@ -120,6 +123,8 @@ export function AccountPage() {
   const [realWallet, setRealWallet] = useState<number>(0);
   const [realPromo, setRealPromo] = useState<number>(0);
   const [realLoyalty, setRealLoyalty] = useState<number>(0);
+  const [customerLien, setCustomerLien] = useState<CustomerLienProfile | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -135,10 +140,12 @@ export function AccountPage() {
       .then((sub) => setSubscription(sub))
       .finally(() => setSubscriptionLoading(false));
 
-    // Fetch recent SMS/WhatsApp & audio alert logs for this customer
-    fetchNotificationAlerts(profile?.mobile || user.phoneNumber || undefined).then((alerts) => {
-      setRecentAlerts(alerts.slice(0, 5));
-    });
+    // Fetch customer lien & observation profile
+    if (profile?.mobile || user.uid) {
+      fetchCustomerLienProfile(profile?.mobile || user.uid).then((lp) => {
+        setCustomerLien(lp);
+      }).catch(() => {});
+    }
   }, [user, profile]);
 
   useEffect(() => {
@@ -351,6 +358,41 @@ export function AccountPage() {
         {/* Tab 2: Orders */}
         {activeTab === 'orders' && (
           <div className="mt-8">
+            {/* Caution & Lien Notice on Account Hub */}
+            {customerLien?.is_cautious_marked && (
+              <div className="mb-6 rounded-3xl bg-rose-50 border-2 border-rose-300 p-5 shadow-soft">
+                <div className="flex items-start gap-3.5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-600 text-white font-black text-lg">
+                    ⚠️
+                  </span>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-display font-black text-sm uppercase tracking-wider text-rose-950">
+                        Intimated as: BE CAUTIOUS
+                      </h4>
+                      {customerLien.is_in_lien_period && (
+                        <span className="rounded-full bg-rose-600 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                          6-Month Lien Observation Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-rose-900 leading-relaxed">
+                      Your address has recorded multiple undelivered delivery attempts due to non-availability with no instructions left on where to deliver next door ({customerLien.incidents.length} recorded incidents).
+                      {customerLien.is_in_lien_period ? (
+                        <>
+                          {' '}Per store rules, you are currently under a 6-month observation period (valid until{' '}
+                          <span className="font-bold font-mono">
+                            {new Date(customerLien.lien_end_date || '').toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                          ). Delivery fee is adjusted to <span className="font-bold">₹100 (≤3km)</span> or <span className="font-bold">₹150 (3-10km range)</span> per order during observation. If future morning deliveries complete smoothly without missed deliveries, standard charges will be restored.
+                        </>
+                      ) : null}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-ink-900">Your Fresh Daily Orders</h2>
@@ -511,6 +553,31 @@ export function AccountPage() {
                               {order.feedback || fbSubmittedOrders.has(order.id) ? 'Feedback Given ★' : 'Rate Delivery & Quality'}
                             </button>
                           )}
+
+                          {/* Cancellation Button with Refund Accounting */}
+                          {(order.status === 'new' || order.status === 'confirmed') && (
+                            <button
+                              type="button"
+                              disabled={cancellingOrderId === order.id}
+                              onClick={async () => {
+                                if (window.confirm(`Are you sure you want to cancel order #${order.id.slice(-6)}? As per store policy:\n• The discount amount will be accounted for and deducted from the refund\n• Any delivery charge collected is strictly NON-REFUNDABLE.`)) {
+                                  setCancellingOrderId(order.id);
+                                  try {
+                                    const refund = await cancelOrderWithAccounting(order.id, profile?.full_name || 'Customer');
+                                    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled' as const, refund_accounting: refund } : o));
+                                    alert(`Order cancelled successfully. Net produce refund of ₹${refund?.net_refund_credited.toFixed(2)} has been credited. Delivery charge of ₹${refund?.delivery_charge_retained} is retained.`);
+                                  } catch (e) {
+                                    alert('Failed to cancel order.');
+                                  } finally {
+                                    setCancellingOrderId(null);
+                                  }
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-800 hover:bg-rose-100 transition-colors shadow-soft"
+                            >
+                              {cancellingOrderId === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Cancel Order'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
@@ -539,6 +606,31 @@ export function AccountPage() {
                           </span>
                         ))}
                       </div>
+
+                      {/* Refund Accounting Breakdown Banner if Cancelled */}
+                      {order.status === 'cancelled' && order.refund_accounting && (
+                        <div className="mt-3 rounded-2xl bg-rose-50/80 p-3.5 border border-rose-200 text-xs text-rose-950">
+                          <div className="flex items-center justify-between font-bold text-rose-900 border-b border-rose-200/60 pb-2">
+                            <span>Cancellation Refund Settlement:</span>
+                            <span className="font-mono text-emerald-800 font-extrabold">Net Refund Credited: ₹{order.refund_accounting.net_refund_credited.toFixed(2)}</span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                            <div>
+                              <span className="text-ink-500">Produce Total:</span>
+                              <p className="font-semibold text-ink-900">₹{order.refund_accounting.refunded_produce_amount.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <span className="text-ink-500">Discount Deduction:</span>
+                              <p className="font-semibold text-rose-700">-₹{order.refund_accounting.discount_accounted_deduction.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <span className="text-ink-500">Delivery Charge (Retained):</span>
+                              <p className="font-semibold text-amber-800">₹{order.refund_accounting.delivery_charge_retained.toFixed(2)} (Non-Refundable)</p>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-[10px] text-ink-500 italic">{order.refund_accounting.notes}</p>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

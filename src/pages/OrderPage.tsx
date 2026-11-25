@@ -36,6 +36,8 @@ import {
   fetchFamilyGroup,
   fetchSystemDiscountConfig,
   sendSmsWhatsAppAlert,
+  fetchCustomerLienProfile,
+  type CustomerLienProfile,
   type Product,
   type OrderMode,
   type OrderItem,
@@ -1392,6 +1394,9 @@ function Checkout({
   });
   const [showSecondTimerGateModal, setShowSecondTimerGateModal] = useState<boolean>(false);
 
+  // Customer Lien & Observation Status (Undelivered Repeated Incidences)
+  const [lienProfile, setLienProfile] = useState<CustomerLienProfile | null>(null);
+
   // Ahmedabad Pin code lookup database for automatic city/area/state & Digipin mapping
   const AHMEDABAD_PIN_MAP: Record<string, { area: string; city: string; state: string; digipin: string; distKm: number }> = {
     '380009': { area: 'NAVRANGPURA / LAKUDI / STADIUM', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-NAV-009', distKm: 0.5 },
@@ -1537,16 +1542,43 @@ function Checkout({
     return 0;
   }, [paymentMethod, rawSubtotal, tieredDiscountAmount, promoDiscount, loyaltyDeduction]);
 
-  // Same-Day Delivery Charges within 10km DIGIPIN radius:
-  // - Subtotal below ₹500: ₹125
-  // - Subtotal ₹500 & above: ₹75
-  // Next-day pre-order remains free
+  // Distance estimation from Navrangpura Hub (23.0372° N, 72.5613° E)
+  const estimatedDistanceKm = useMemo(() => {
+    const pinMatch = info.address.match(/\b(380\d{3})\b/);
+    const pin = pinMatch ? pinMatch[1] : info.pincode;
+    if (pin && AHMEDABAD_PIN_MAP[pin]) {
+      return AHMEDABAD_PIN_MAP[pin].distKm;
+    }
+    if (
+      info.address.toUpperCase().includes('MEMNAGAR') ||
+      info.address.toUpperCase().includes('THALTEJ') ||
+      info.address.toUpperCase().includes('BODAKDEV') ||
+      info.address.toUpperCase().includes('SARASPUR')
+    ) {
+      return 4.5;
+    }
+    return 1.5; // Default within 3km Navrangpura core
+  }, [info.address, info.pincode, AHMEDABAD_PIN_MAP]);
+
+  // Delivery Charges with Lien Period / Caution Rules:
+  // - If customer is in 6-month lien observation period (due to 3+ quarter or 5+ annual undelivered incidents):
+  //   * Within 3 km: ₹100 penalty delivery charge
+  //   * 3 to 10 km: ₹150 penalty delivery charge
+  // - Otherwise, standard rules apply:
+  //   * Same-day emergency dispatch: ₹125 below ₹500, ₹75 above ₹500
+  //   * Next-day pre-order: Free (unless in lien period, where ₹100 / ₹150 applies)
   const deliveryFee = useMemo(() => {
+    if (lienProfile?.is_in_lien_period) {
+      return estimatedDistanceKm <= 3.0
+        ? lienProfile.penalty_delivery_fee_3km || 100
+        : lienProfile.penalty_delivery_fee_3_10km || 150;
+    }
+
     if (mode === 'same_day') {
       return rawSubtotal < 500 ? 125 : 75;
     }
     return 0;
-  }, [mode, rawSubtotal]);
+  }, [lienProfile, estimatedDistanceKm, mode, rawSubtotal]);
 
   const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - couponDiscount - loyaltyDeduction + cardFee + deliveryFee);
 
@@ -1646,10 +1678,13 @@ function Checkout({
         }
       } catch (e) {}
     }
-    // Fetch discount rule configurations
-    fetchSystemDiscountConfig().then((cfg) => {
-      setSystemDiscountConfig(cfg);
-    });
+    // Load customer lien & observation profile if phone or user is available
+    const activePhone = profile?.mobile || info.mobile || user?.uid;
+    if (activePhone) {
+      fetchCustomerLienProfile(activePhone).then((lp) => {
+        setLienProfile(lp);
+      }).catch(() => {});
+    }
 
     if (user?.uid) {
       fetchUserFinancials(user.uid).then((fin) => {
@@ -1820,6 +1855,9 @@ function Checkout({
         expected_delivery: deliveryDate,
         notes: info.notes.trim() || undefined,
         user_id: user?.uid ?? undefined,
+        subtotal: rawSubtotal,
+        delivery_charge: deliveryFee,
+        discount_amount: tieredDiscountAmount + promoDiscount + couponDiscount + loyaltyDeduction,
         total_amount: finalPayable,
         payment_method: paymentMethod === 'wallet' ? 'Prepaid Wallet' : paymentMethod === 'upi' ? 'UPI' : paymentMethod === 'card' ? 'Credit/Debit Card' : paymentMethod === 'sodexo' ? 'Sodexo/Pluxee' : 'Cash on Delivery',
       });
@@ -1969,6 +2007,49 @@ function Checkout({
         </div>
       )}
 
+      {/* Customer Caution & 6-Month Lien Period Notification Banner */}
+      {lienProfile?.is_cautious_marked && (
+        <div className="mt-4 rounded-2xl bg-rose-50 border-2 border-rose-300 p-4 text-xs shadow-soft animate-fade-in">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white font-black">
+              ⚠️
+            </span>
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-display font-extrabold text-sm uppercase tracking-wider text-rose-950 bg-rose-200/80 px-2 py-0.5 rounded-md">
+                  Account Status: BE CAUTIOUS
+                </span>
+                {lienProfile.is_in_lien_period && (
+                  <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                    6-Month Lien Observation Active
+                  </span>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-rose-900 leading-relaxed font-medium">
+                Our logistics records indicate multiple past undelivered attempts due to non-availability with no instructions on where to deliver next door.
+                {lienProfile.is_in_lien_period ? (
+                  <>
+                    {' '}During this 6-month lien observation period (until{' '}
+                    <span className="font-bold">
+                      {new Date(lienProfile.lien_end_date || '').toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                    ), an adjusted delivery charge of <span className="font-bold">₹100 (within 3km)</span> or <span className="font-bold">₹150 (3-10km range)</span> applies.
+                    Once orders complete without missed deliveries, standard rates will be restored.
+                  </>
+                ) : (
+                  ' Please ensure someone is present or leave specific doorstep delivery notes below.'
+                )}
+              </p>
+              <div className="mt-2 flex items-center gap-3 text-[11px] text-rose-800 font-semibold">
+                <span>Total Recorded Incidences: {lienProfile.incidents.length}</span>
+                <span>•</span>
+                <span>Current Distance: ~{estimatedDistanceKm.toFixed(1)} km ({estimatedDistanceKm <= 3 ? '≤ 3km tier: ₹100' : '3-10km tier: ₹150'})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 rounded-2xl border border-ink-100 bg-white p-5">
         <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink-900">
           <ShoppingBasket className="h-4 w-4 text-brand-600" /> Order summary
@@ -2110,20 +2191,33 @@ function Checkout({
               </div>
             )}
 
-            {/* Same-Day Delivery Charge Line Item */}
-            {mode === 'same_day' && (
-              <div className="flex items-center justify-between rounded-xl bg-amber-50/80 p-2.5 border border-amber-300 text-xs text-amber-950">
+            {/* Delivery Charge Line Item (Including Caution/Lien Observation Penalties) */}
+            {deliveryFee > 0 && (
+              <div className={`flex items-center justify-between rounded-xl p-2.5 border text-xs ${
+                lienProfile?.is_in_lien_period
+                  ? 'bg-rose-50/90 border-rose-300 text-rose-950'
+                  : 'bg-amber-50/80 border-amber-300 text-amber-950'
+              }`}>
                 <div>
                   <span className="font-bold flex items-center gap-1.5">
-                    <Truck className="h-3.5 w-3.5 text-amber-700" /> Same-Day Immediate Delivery Charge (10 km radius as per DIGIPIN):
+                    <Truck className={`h-3.5 w-3.5 ${lienProfile?.is_in_lien_period ? 'text-rose-700' : 'text-amber-700'}`} />
+                    {lienProfile?.is_in_lien_period
+                      ? 'Lien Period Delivery Charge (6-Month Observation Penalty):'
+                      : 'Same-Day Immediate Delivery Charge (10 km radius as per DIGIPIN):'}
                   </span>
-                  <p className="text-[10px] text-amber-800 mt-0.5">
-                    {rawSubtotal < 500
-                      ? '₹125 applied (Order value is below ₹500. Order ₹500+ for ₹75 delivery)'
-                      : '₹75 applied (Discounted delivery charge for orders of ₹500 and above)'}
+                  <p className="text-[10px] mt-0.5 leading-snug">
+                    {lienProfile?.is_in_lien_period ? (
+                      estimatedDistanceKm <= 3.0
+                        ? `₹100 applied (Within 3 km penalty tier for accounts under 6-month lien observation). Note: Delivery charges are strictly non-refundable upon cancellation.`
+                        : `₹150 applied (3-10 km range penalty tier for accounts under 6-month lien observation). Note: Delivery charges are strictly non-refundable upon cancellation.`
+                    ) : rawSubtotal < 500 ? (
+                      '₹125 applied (Order value is below ₹500. Order ₹500+ for ₹75 delivery). Non-refundable upon cancellation.'
+                    ) : (
+                      '₹75 applied (Discounted delivery charge for orders of ₹500 and above). Non-refundable upon cancellation.'
+                    )}
                   </p>
                 </div>
-                <span className="font-mono font-bold text-amber-900">+₹{deliveryFee.toFixed(2)}</span>
+                <span className="font-mono font-bold shrink-0 ml-2">+₹{deliveryFee.toFixed(2)}</span>
               </div>
             )}
 

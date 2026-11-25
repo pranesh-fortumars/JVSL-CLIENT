@@ -38,8 +38,12 @@ import {
   fetchMasterFranchiseeRoyaltyLedger,
   fetchSystemDiscountConfig,
   updateSystemDiscountConfig,
+  recordUndeliveredIncident,
+  fetchCustomerLienProfile,
+  cancelOrderWithAccounting,
   AVAILABLE_STORES,
   type OrderRow,
+  type CustomerLienProfile,
   type SurveyRow,
   type EnquiryRow,
   type Profile,
@@ -931,6 +935,44 @@ function OrderDetail({ order, onUpdate }: { order: OrderRow; onUpdate: (s: Order
               Mark as {s}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Undelivered Incident & Cancellation Actions */}
+      <div className="pt-3 border-t border-ink-100 space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
+          <span>⚠️</span> Delivery Exception &amp; Refund Management
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              if (window.confirm(`Log undelivered attempt for ${order.customer_name} due to non-availability with no instructions? If repeated 3 times in a quarter or >5 in a year, account is automatically placed under a 6-month lien observation with ₹100/₹150 delivery fee.`)) {
+                const updatedLien = await recordUndeliveredIncident(order);
+                alert(`Undelivered incidence recorded. Total incidents: ${updatedLien.incidents.length}. Status: ${updatedLien.is_cautious_marked ? 'BE CAUTIOUS (Lien Active)' : 'Normal observation'}.`);
+                onUpdate('cancelled');
+              }
+            }}
+            className="rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 px-3.5 py-2 text-xs font-bold text-rose-800 transition-all shadow-2xs"
+          >
+            Mark Undelivered (Non-Availability / No Instructions)
+          </button>
+
+          {order.status !== 'cancelled' && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (window.confirm(`Cancel order #${order.id.slice(-6)}? This will account for any discount refund deduction while keeping delivery charges strictly non-refundable.`)) {
+                  const refund = await cancelOrderWithAccounting(order.id, 'Store Admin');
+                  alert(`Order cancelled. Net produce refund of ₹${refund?.net_refund_credited.toFixed(2)} processed. Retained delivery charge: ₹${refund?.delivery_charge_retained}.`);
+                  onUpdate('cancelled');
+                }
+              }}
+              className="rounded-xl border border-ink-200 bg-white hover:bg-ink-50 px-3.5 py-2 text-xs font-bold text-ink-700 transition-all shadow-2xs"
+            >
+              Cancel Order with Accounting
+            </button>
+          )}
         </div>
       </div>
     </div>

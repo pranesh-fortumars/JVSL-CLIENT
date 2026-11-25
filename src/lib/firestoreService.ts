@@ -153,8 +153,48 @@ export type Order = {
   expected_delivery: string;
   notes?: string;
   user_id?: string;
+  subtotal?: number;
+  delivery_charge?: number;
+  discount_amount?: number;
   total_amount?: number;
   payment_method?: string;
+  undelivered_reason?: 'non_availability_no_instruction' | 'customer_refused' | 'address_unreachable' | 'cancelled_by_customer';
+  refund_accounting?: {
+    refunded_produce_amount: number;
+    discount_accounted_deduction: number;
+    delivery_charge_retained: number; // Delivery charge strictly NOT refunded
+    net_refund_credited: number;
+    refunded_at: string;
+    refund_channel: string;
+    notes: string;
+  };
+};
+
+export type UndeliveredIncident = {
+  id: string;
+  order_id: string;
+  customer_phone: string;
+  customer_name: string;
+  incident_date: string; // ISO string
+  quarter_key: string; // e.g. "2026-Q1"
+  year_key: string; // e.g. "2026"
+  reason: 'non_availability_no_instruction';
+  details: string;
+};
+
+export type CustomerLienProfile = {
+  phone_or_uid: string;
+  customer_name: string;
+  incidents: UndeliveredIncident[];
+  is_cautious_marked: boolean; // Flagged as "be cautious"
+  is_in_lien_period: boolean; // Active 6-month lien period
+  lien_start_date?: string;
+  lien_end_date?: string; // Exactly 6 months after trigger
+  quarterly_incident_counts: Record<string, number>; // e.g. { "2026-Q1": 3 }
+  yearly_incident_count: number;
+  penalty_delivery_fee_3km: number; // Rs 100 for <= 3km
+  penalty_delivery_fee_3_10km: number; // Rs 150 for 3-10km
+  observation_notes: string;
 };
 
 export type OrderFeedback = {
@@ -455,6 +495,242 @@ export async function fetchEnquiries(): Promise<EnquiryRow[]> {
     console.warn('Error in fetchEnquiries:', err);
     return [];
   }
+}
+
+/**
+ * Helper to compute quarter key: e.g. "2026-Q1", "2026-Q2"
+ */
+export function getQuarterKey(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0 to 11
+  const q = Math.floor(month / 3) + 1;
+  return `${year}-Q${q}`;
+}
+
+/**
+ * Fetch or compute Customer Lien Profile & Observation Status:
+ * Business Rules:
+ * 1. Undelivered multiple times due to non-availability with no instruction of where to deliver next door.
+ * 2. If repeated about 3 times in any quarter OR more than 5 incidents by year-end:
+ *    - Marked & highlighted intimated as "BE CAUTIOUS".
+ *    - Entered into 6-month lien & observation period.
+ *    - Delivery charge penalty during this 6-month lien:
+ *      * Rs 100/- for <= 3 km radius orders
+ *      * Rs 150/- for 3 to 10 km radius orders
+ * 3. If found fine after 6-month observation, retains standard delivery charges.
+ */
+export async function fetchCustomerLienProfile(phoneOrUid: string): Promise<CustomerLienProfile> {
+  const cleanKey = phoneOrUid.trim().replace(/\D/g, '') || phoneOrUid.trim();
+
+  let profile: CustomerLienProfile = {
+    phone_or_uid: cleanKey,
+    customer_name: '',
+    incidents: [],
+    is_cautious_marked: false,
+    is_in_lien_period: false,
+    quarterly_incident_counts: {},
+    yearly_incident_count: 0,
+    penalty_delivery_fee_3km: 100,
+    penalty_delivery_fee_3_10km: 150,
+    observation_notes: '',
+  };
+
+  try {
+    const snap = await getDoc(doc(db, 'customer_liens', cleanKey));
+    if (snap.exists()) {
+      profile = { ...profile, ...(snap.data() as CustomerLienProfile) };
+    }
+  } catch (e) {}
+
+  // Local storage fallback / sync
+  try {
+    const stored = localStorage.getItem(`jvlsd_lien_${cleanKey}`);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      profile = { ...profile, ...parsed };
+    }
+  } catch (e) {}
+
+  // Check if lien period has expired (> 6 months)
+  if (profile.is_in_lien_period && profile.lien_end_date) {
+    const now = new Date().getTime();
+    const expiry = new Date(profile.lien_end_date).getTime();
+    if (now > expiry) {
+      // 6 month observation completed satisfactorily: lift penalty and restore normal rates
+      profile.is_in_lien_period = false;
+      profile.observation_notes = '6-Month lien observation period completed with good standing. Standard delivery fees restored.';
+      try {
+        localStorage.setItem(`jvlsd_lien_${cleanKey}`, JSON.stringify(profile));
+      } catch (e) {}
+    }
+  }
+
+  return profile;
+}
+
+/**
+ * Record an undelivered incidence (due to customer non-availability without alternate doorstep instruction)
+ */
+export async function recordUndeliveredIncident(order: OrderRow, details: string = 'Customer unavailable and no alternate next-door delivery instruction provided.'): Promise<CustomerLienProfile> {
+  const cleanKey = (order.mobile || order.user_id || '').trim().replace(/\D/g, '');
+  const now = new Date();
+  const qKey = getQuarterKey(now);
+  const yKey = String(now.getFullYear());
+
+  const currentProfile = await fetchCustomerLienProfile(cleanKey);
+  currentProfile.customer_name = order.customer_name || currentProfile.customer_name;
+
+  const newIncident: UndeliveredIncident = {
+    id: 'inc_' + Date.now(),
+    order_id: order.id,
+    customer_phone: order.mobile,
+    customer_name: order.customer_name,
+    incident_date: now.toISOString(),
+    quarter_key: qKey,
+    year_key: yKey,
+    reason: 'non_availability_no_instruction',
+    details,
+  };
+
+  const updatedIncidents = [newIncident, ...currentProfile.incidents];
+  currentProfile.incidents = updatedIncidents;
+
+  // Recalculate quarterly & yearly counts
+  const qCount = updatedIncidents.filter((i) => i.quarter_key === qKey).length;
+  const yCount = updatedIncidents.filter((i) => i.year_key === yKey).length;
+
+  currentProfile.quarterly_incident_counts[qKey] = qCount;
+  currentProfile.yearly_incident_count = yCount;
+
+  // Criteria: repeated 3 times in any quarter OR more than 5 times in year
+  if (qCount >= 3 || yCount > 5) {
+    currentProfile.is_cautious_marked = true;
+    currentProfile.is_in_lien_period = true;
+    currentProfile.lien_start_date = now.toISOString();
+    // Exactly 6 months observation period
+    const sixMonthsLater = new Date(now);
+    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+    currentProfile.lien_end_date = sixMonthsLater.toISOString();
+    currentProfile.observation_notes = `Flagged 'BE CAUTIOUS' due to ${qCount >= 3 ? `${qCount} undelivered incidences in ${qKey}` : `${yCount} undelivered incidences in ${yKey}`}. Placed under 6-month lien observation with ₹100 (≤3km) / ₹150 (3-10km) delivery charge.`;
+
+    // Send warning notification via Audio & WhatsApp/SMS
+    try {
+      await sendSmsWhatsAppAlert({
+        recipient_phone: order.mobile,
+        channel: 'both',
+        type: 'subscription_change',
+        title: '⚠️ BE CAUTIOUS: Delivery Notice & 6-Month Observation',
+        message: `Alert for ${order.customer_name}: Your delivery on ${now.toLocaleDateString('en-IN')} could not be completed due to non-availability with no next-door delivery instruction (Incident #${qCount} this quarter). As per store policy, account is marked 'BE CAUTIOUS' with a 6-month observation lien. A delivery charge of ₹100 (within 3km) / ₹150 (3-10km) will apply for the next 6 months. Standard charges will be restored if deliveries proceed smoothly.`,
+        action_target_id: order.id,
+        approval_status: 'accepted',
+      });
+    } catch (e) {}
+  } else {
+    currentProfile.observation_notes = `${qCount} of 3 quarterly incidents recorded (${yCount} annual). Please provide next-door delivery instructions if away.`;
+  }
+
+  // Persist in Firestore & Local storage
+  try {
+    await setDoc(doc(db, 'customer_liens', cleanKey), currentProfile, { merge: true });
+  } catch (e) {}
+
+  try {
+    localStorage.setItem(`jvlsd_lien_${cleanKey}`, JSON.stringify(currentProfile));
+  } catch (e) {}
+
+  return currentProfile;
+}
+
+/**
+ * Cancel Order with Refund Accounting:
+ * Rule:
+ * 1. Discount amount refund accounted on order cancellation.
+ * 2. Delivery charge is strictly NOT refunded if collected.
+ */
+export async function cancelOrderWithAccounting(
+  orderId: string,
+  cancelledBy: string = 'customer',
+  reason: string = 'Order cancelled by customer'
+): Promise<OrderRow['refund_accounting']> {
+  playAudioAlert();
+
+  let orderSnap: any = null;
+  let orderData: OrderRow | null = null;
+
+  try {
+    orderSnap = await getDoc(doc(db, 'orders', orderId));
+    if (orderSnap.exists()) {
+      orderData = { id: orderSnap.id, ...(orderSnap.data() as Omit<OrderRow, 'id'>) };
+    }
+  } catch (e) {}
+
+  // Local fallback
+  if (!orderData) {
+    try {
+      const list: OrderRow[] = JSON.parse(localStorage.getItem('jvlsd_completed_orders') || '[]');
+      const found = list.find((o) => o.id === orderId);
+      if (found) orderData = found;
+    } catch (e) {}
+  }
+
+  const produceTotal = orderData?.subtotal || (orderData?.items ? orderData.items.reduce((s, it) => s + (it.price || 0) * it.quantity, 0) : (orderData?.total_amount || 0));
+  const discountGiven = orderData?.discount_amount || 0;
+  const deliveryCharge = orderData?.delivery_charge || 0; // Strictly NOT refunded
+
+  // Refund calculation:
+  // Net refund to wallet/original mode = Produce amount - discount accounted deduction.
+  // Delivery fee remains with the logistics partner / platform.
+  const netRefund = Math.max(0, (produceTotal - discountGiven));
+
+  const refundRecord: NonNullable<OrderRow['refund_accounting']> = {
+    refunded_produce_amount: produceTotal,
+    discount_accounted_deduction: discountGiven,
+    delivery_charge_retained: deliveryCharge,
+    net_refund_credited: netRefund,
+    refunded_at: new Date().toISOString(),
+    refund_channel: 'Prepaid Wallet / Source Account',
+    notes: `Refund processed: ₹${produceTotal} produce less ₹${discountGiven} discount adjustment. Delivery charge of ₹${deliveryCharge} is strictly non-refundable. Net credited: ₹${netRefund}.`,
+  };
+
+  // Update order in Firestore
+  try {
+    await updateDoc(doc(db, 'orders', orderId), {
+      status: 'cancelled',
+      refund_accounting: refundRecord,
+      undelivered_reason: 'cancelled_by_customer',
+    });
+  } catch (e) {}
+
+  // Update local storage
+  try {
+    const list: OrderRow[] = JSON.parse(localStorage.getItem('jvlsd_completed_orders') || '[]');
+    const updated = list.map((o) => (o.id === orderId ? { ...o, status: 'cancelled' as const, refund_accounting: refundRecord } : o));
+    localStorage.setItem('jvlsd_completed_orders', JSON.stringify(updated));
+  } catch (e) {}
+
+  // Credit wallet if member has wallet
+  if (orderData?.user_id && netRefund > 0) {
+    try {
+      await reloadUserWallet(orderData.user_id, netRefund, `Refund for cancelled order #${orderId.slice(-6)} (Delivery fee of ₹${deliveryCharge} retained)`);
+    } catch (e) {}
+  }
+
+  // Send WhatsApp / SMS Confirmation of Cancellation & Non-Refunded Delivery Charge
+  if (orderData?.mobile) {
+    try {
+      await sendSmsWhatsAppAlert({
+        recipient_phone: orderData.mobile,
+        channel: 'both',
+        type: 'subscription_change',
+        title: 'Order Cancellation & Refund Settlement',
+        message: `Namaste ${orderData.customer_name}. Order #${orderId.slice(-6)} has been cancelled. Net produce refund of ₹${netRefund} (accounting for applied discount) has been processed. Note: As per policy, delivery charge of ₹${deliveryCharge} is retained and non-refundable.`,
+        action_target_id: orderId,
+        approval_status: 'accepted',
+      });
+    } catch (e) {}
+  }
+
+  return refundRecord;
 }
 
 /**
@@ -972,19 +1248,30 @@ export async function fetchUserFinancials(userId: string) {
 export async function reloadUserWallet(
   userId: string,
   amount: number,
-  isInitialLoad: boolean = false
+  isInitialLoadOrDescription?: boolean | string,
+  customDescription?: string
 ): Promise<number> {
   const current = await fetchUserFinancials(userId);
 
-  if (isInitialLoad || current.transactions.filter(t => t.type === 'reload').length === 0) {
-    if (amount < 1000) {
-      throw new Error('Initial wallet loading requires a minimum of ₹1,000.');
-    }
-  } else {
-    // If balance has dropped to or below ₹300, subsequent loading must be at least ₹300
-    const minSubsequent = current.walletBalance <= 300 ? 300 : 200;
-    if (amount < minSubsequent) {
-      throw new Error(`Minimum subsequent wallet reload amount is ₹${minSubsequent}.`);
+  const isInitialLoad = typeof isInitialLoadOrDescription === 'boolean' ? isInitialLoadOrDescription : false;
+  const descriptionText = typeof isInitialLoadOrDescription === 'string'
+    ? isInitialLoadOrDescription
+    : customDescription || `Prepaid wallet reload (+₹${amount})`;
+
+  // If this is a refund, skip minimum load constraints
+  const isRefund = descriptionText.toLowerCase().includes('refund');
+
+  if (!isRefund) {
+    if (isInitialLoad || current.transactions.filter(t => t.type === 'reload').length === 0) {
+      if (amount < 1000) {
+        throw new Error('Initial wallet loading requires a minimum of ₹1,000.');
+      }
+    } else {
+      // If balance has dropped to or below ₹300, subsequent loading must be at least ₹300
+      const minSubsequent = current.walletBalance <= 300 ? 300 : 200;
+      if (amount < minSubsequent) {
+        throw new Error(`Minimum subsequent wallet reload amount is ₹${minSubsequent}.`);
+      }
     }
   }
 
@@ -992,9 +1279,9 @@ export async function reloadUserWallet(
   const newEntry: WalletLedgerEntry = {
     id: 'tx_' + Date.now(),
     user_id: userId,
-    type: 'reload',
+    type: isRefund ? 'refund' : 'reload',
     amount,
-    description: `Prepaid wallet reload (+₹${amount})`,
+    description: descriptionText,
     created_at: new Date().toISOString(),
   };
 
