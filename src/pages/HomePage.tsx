@@ -16,6 +16,8 @@ import {
 import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
 import { MascotDuoStanding, MascotLiveStanding } from '@/components/Logo';
+import { KitchenEmpathyBanner } from '@/components/KitchenEmpathyBanner';
+import { useAuth } from '@/lib/auth';
 
 const HERO_IMG =
   'https://images.pexels.com/photos/17161099/pexels-photo-17161099.jpeg?auto=compress&cs=tinysrgb&h=900&w=1400';
@@ -25,10 +27,21 @@ const DAIRY_IMG =
   'https://images.pexels.com/photos/69170/pexels-photo-69170.jpeg?auto=compress&cs=tinysrgb&h=800&w=1000';
 
 export function HomePage() {
+  const { user, profile } = useAuth();
+
   return (
     <div>
+      {/* Top Moving Empathy Banner: Shown prominently when user is logged in (also viewable by visitors) */}
+      <div className="pt-[calc(var(--header-h)+0.75rem)] pb-2 px-4 sm:px-8 lg:px-12 max-w-7xl mx-auto">
+        {user ? (
+          <KitchenEmpathyBanner userName={profile?.full_name || user.displayName} />
+        ) : (
+          <KitchenEmpathyBanner />
+        )}
+      </div>
+
       {/* Hero */}
-      <section className="relative overflow-hidden pt-[calc(var(--header-h)+1rem)] pb-20 sm:pt-32 sm:pb-28">
+      <section className="relative overflow-hidden pt-6 pb-20 sm:pt-10 sm:pb-28">
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-brand-50/80 via-white to-white" />
         <div
           className="absolute -right-32 -top-24 -z-10 h-[32rem] w-[32rem] rounded-full bg-gradient-to-br from-brand-300/30 to-brand-100/10 blur-3xl animate-float"
