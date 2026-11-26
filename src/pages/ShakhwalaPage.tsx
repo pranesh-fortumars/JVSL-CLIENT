@@ -39,7 +39,7 @@ export function ShakhwalaPage() {
               <button onClick={() => navigate(PATHS.order)} className="btn-primary px-6 py-3 text-base">
                 <ShoppingBasket className="h-5 w-5" /> Order Fresh Daily
               </button>
-              <button onClick={() => navigate(PATHS.freshDaily)} className="btn-outline px-6 py-3 text-base">
+              <button onClick={() => navigate(PATHS.survey)} className="btn-outline px-6 py-3 text-base">
                 Take the survey
               </button>
             </div>

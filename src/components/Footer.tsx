@@ -36,7 +36,9 @@ export function Footer() {
                 { label: 'Home', path: PATHS.home },
                 { label: 'About JVLSD', path: PATHS.about },
                 { label: 'Shakhwala', path: PATHS.shakhwala },
-                { label: 'Fresh Daily Survey', path: PATHS.freshDaily },
+                { label: 'Fresh Daily', path: PATHS.freshDaily },
+                { label: 'Bites & Beyond', path: PATHS.bites },
+                { label: 'Survey', path: PATHS.survey },
                 { label: 'Order Now', path: PATHS.order },
                 { label: 'Contact', path: PATHS.contact },
               ].map((l) => (
