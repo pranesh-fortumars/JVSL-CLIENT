@@ -1527,17 +1527,303 @@ export type StoreLocation = {
   id: string;
   name: string;
   code: string;
+  city: string;
+  state: string;
   pincodes: string[];
+  operator_name?: string;
+  operator_phone?: string;
+  operator_email?: string;
   active: boolean;
+  is_first_unit?: boolean; // Flag for JVLSD-FD 1st Unit / Central Hub
+  opened_date?: string;
+};
+
+export type FranchiseeFinancialPeriod = {
+  period_key: string; // e.g. "2026-11", "2026-Q4"
+  store_id: string;
+  store_name: string;
+  city: string;
+  state: string;
+  operator_name: string;
+  total_orders: number;
+  gross_revenue: number; // Total customer order billing
+  cost_of_produce_goods: number; // Wholesale procurement cost (~65%)
+  packaging_and_logistics_expense: number; // Cold chain, cut boxes, delivery (~10%)
+  operating_expenses: number; // Local store overhead, utilities (~5%)
+  total_expenses: number;
+  net_profit: number; // Gross Revenue - Total Expenses
+  jvlsd_parent_share_60: number; // 60% portion to JVLSD-FD 1st Unit
+  unit_operator_share_40: number; // 40% portion with person running the unit
+  settlement_status: 'pending' | 'settled' | 'processing';
+  settled_at?: string;
 };
 
 export const AVAILABLE_STORES: StoreLocation[] = [
-  { id: 'store_navrangpura', name: 'Navrangpura Central Hub', code: 'NAV-01', pincodes: ['380009', '380014', '380006'], active: true },
-  { id: 'store_memnagar', name: 'Memnagar / Gurukul Store', code: 'MEM-02', pincodes: ['380052'], active: true },
-  { id: 'store_thaltej', name: 'Thaltej & Drive-In Store', code: 'THA-03', pincodes: ['380054'], active: true },
-  { id: 'store_bodakdev', name: 'Bodakdev / SG Highway Store', code: 'BDK-04', pincodes: ['380051'], active: true },
-  { id: 'store_vadaj', name: 'Vadaj / Ashram Road Store', code: 'VDJ-05', pincodes: ['380013'], active: true },
+  // Primary City: Ahmedabad, Gujarat (Replicable Foundation)
+  {
+    id: 'store_navrangpura',
+    name: 'Navrangpura Central Hub (1st Unit)',
+    code: 'NAV-01',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincodes: ['380009', '380014', '380006'],
+    operator_name: 'JVLSD-FD Central Operations',
+    operator_phone: '9825112233',
+    operator_email: 'navrangpura@jvlsd.in',
+    active: true,
+    is_first_unit: true,
+    opened_date: '2025-01-01',
+  },
+  {
+    id: 'store_memnagar',
+    name: 'Memnagar / Gurukul Store',
+    code: 'MEM-02',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincodes: ['380052'],
+    operator_name: 'Rajesh Shah (Franchisee Partner)',
+    operator_phone: '9898123456',
+    operator_email: 'memnagar@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2025-03-15',
+  },
+  {
+    id: 'store_thaltej',
+    name: 'Thaltej & Drive-In Store',
+    code: 'THA-03',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincodes: ['380054'],
+    operator_name: 'Pooja Patel (Franchisee Partner)',
+    operator_phone: '9879234567',
+    operator_email: 'thaltej@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2025-06-01',
+  },
+  {
+    id: 'store_bodakdev',
+    name: 'Bodakdev / SG Highway Store',
+    code: 'BDK-04',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincodes: ['380051'],
+    operator_name: 'Amit Dave (Franchisee Partner)',
+    operator_phone: '9824345678',
+    operator_email: 'bodakdev@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2025-09-10',
+  },
+  {
+    id: 'store_vadaj',
+    name: 'Vadaj / Ashram Road Store',
+    code: 'VDJ-05',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincodes: ['380013'],
+    operator_name: 'Ketan Trivedi (Franchisee Partner)',
+    operator_phone: '9825456789',
+    operator_email: 'vadaj@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2025-11-20',
+  },
+
+  // Expansion Tier 1: Multiple Cities in Same State (Gujarat Replication)
+  {
+    id: 'store_surat_vesu',
+    name: 'Surat Vesu & VIP Road Unit',
+    code: 'SUR-01',
+    city: 'Surat',
+    state: 'Gujarat',
+    pincodes: ['395007', '395009'],
+    operator_name: 'Hitesh Jariwala (Franchisee Partner)',
+    operator_phone: '9825098765',
+    operator_email: 'surat@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2026-02-01',
+  },
+  {
+    id: 'store_vadodara_alkapuri',
+    name: 'Vadodara Alkapuri & Old Padra Unit',
+    code: 'BRD-01',
+    city: 'Vadodara',
+    state: 'Gujarat',
+    pincodes: ['390007', '390020'],
+    operator_name: 'Nilesh Amin (Franchisee Partner)',
+    operator_phone: '9825123987',
+    operator_email: 'vadodara@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2026-04-15',
+  },
+  {
+    id: 'store_rajkot_kalawad',
+    name: 'Rajkot Kalawad Road Unit',
+    code: 'RAJ-01',
+    city: 'Rajkot',
+    state: 'Gujarat',
+    pincodes: ['360005', '360001'],
+    operator_name: 'Bhavin Vora (Franchisee Partner)',
+    operator_phone: '9825345123',
+    operator_email: 'rajkot@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2026-07-01',
+  },
+
+  // Expansion Tier 2: Multiple States Pan-India Replication Blueprint
+  {
+    id: 'store_mumbai_bandra',
+    name: 'Mumbai Bandra West Unit',
+    code: 'MUM-01',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    pincodes: ['400050', '400052'],
+    operator_name: 'Sunita Mehra (Franchisee Partner)',
+    operator_phone: '9820112244',
+    operator_email: 'mumbai@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2026-09-01',
+  },
+  {
+    id: 'store_pune_kothrud',
+    name: 'Pune Kothrud & Baner Unit',
+    code: 'PUN-01',
+    city: 'Pune',
+    state: 'Maharashtra',
+    pincodes: ['411038', '411045'],
+    operator_name: 'Vikram Deshmukh (Franchisee Partner)',
+    operator_phone: '9822334455',
+    operator_email: 'pune@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2026-10-15',
+  },
+  {
+    id: 'store_bengaluru_indiranagar',
+    name: 'Bengaluru Indiranagar & Koramangala Unit',
+    code: 'BLR-01',
+    city: 'Bengaluru',
+    state: 'Karnataka',
+    pincodes: ['560038', '560034'],
+    operator_name: 'Arjun Rao (Franchisee Partner)',
+    operator_phone: '9845012345',
+    operator_email: 'bengaluru@jvlsd.in',
+    active: true,
+    is_first_unit: false,
+    opened_date: '2026-11-01',
+  },
 ];
+
+/**
+ * Fetch list of all managed stores across cities/states
+ */
+export async function fetchAllManagedStores(): Promise<StoreLocation[]> {
+  try {
+    const snap = await getDocs(collection(db, 'stores'));
+    if (!snap.empty) {
+      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<StoreLocation, 'id'>) }));
+    }
+  } catch (e) {}
+
+  try {
+    const local = localStorage.getItem('jvlsd_managed_stores');
+    if (local) {
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+
+  return AVAILABLE_STORES;
+}
+
+/**
+ * Super Admin: Provision or Update a Franchisee Store Unit
+ */
+export async function saveManagedStore(store: StoreLocation): Promise<void> {
+  try {
+    await setDoc(doc(db, 'stores', store.id), store, { merge: true });
+  } catch (e) {
+    console.warn('Firestore saveManagedStore notice:', e);
+  }
+
+  try {
+    const current = await fetchAllManagedStores();
+    const filtered = current.filter((s) => s.id !== store.id);
+    const updated = [store, ...filtered];
+    localStorage.setItem('jvlsd_managed_stores', JSON.stringify(updated));
+  } catch (e) {}
+}
+
+/**
+ * Multi-Franchisee 60% / 40% Net Profit Share Accounting Engine
+ * Business Plan Rule:
+ * - Each online store unit operates as an independent Revenue - Cost - Profit Center.
+ * - Replicated across multiple pincodes, multiple cities in same state, and multiple states Pan-India.
+ * - Net Profit Share:
+ *   * 60% portion to JVLSD-FD 1st Unit (Parent / Central Entity)
+ *   * 40% portion to Person running the Franchisee Unit (Store Operator)
+ */
+export function calculateFranchiseeUnitPnL(
+  store: StoreLocation,
+  orders: OrderRow[],
+  periodKey: string = 'All-Time'
+): FranchiseeFinancialPeriod {
+  // Filter orders mapped to this store's pincodes or explicit assigned store
+  const unitOrders = orders.filter((o) => {
+    if (o.status === 'cancelled') return false;
+    const pin = o.pincode || (o.address.match(/\b(380\d{3}|395\d{3}|390\d{3}|360\d{3}|400\d{3}|411\d{3}|560\d{3})\b/) || [])[1];
+    if (pin && store.pincodes.includes(pin)) return true;
+    if (store.id === 'store_navrangpura') {
+      // Primary default hub for unassigned or central orders
+      return true;
+    }
+    return false;
+  });
+
+  const grossRevenue = unitOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
+  // Accounting Cost Centers (Standardized retail produce execution benchmarks):
+  // 1. Direct Wholesale Farm Procurement Cost: 62% of gross revenue
+  const costOfProduce = Math.round(grossRevenue * 0.62 * 100) / 100;
+
+  // 2. Packaging, Cold-Chain & Local Dispatch: 11% of gross revenue
+  const packagingAndLogistics = Math.round(grossRevenue * 0.11 * 100) / 100;
+
+  // 3. Local Store Operational Overhead (electricity, sanitization, tech handling): 7% of gross revenue
+  const operatingExpenses = Math.round(grossRevenue * 0.07 * 100) / 100;
+
+  const totalExpenses = Math.round((costOfProduce + packagingAndLogistics + operatingExpenses) * 100) / 100;
+  const netProfit = Math.max(0, Math.round((grossRevenue - totalExpenses) * 100) / 100);
+
+  // 60% to JVLSD-FD 1st Unit / 40% to Unit Operator
+  const jvlsdShare60 = Math.round(netProfit * 0.60 * 100) / 100;
+  const operatorShare40 = Math.round(netProfit * 0.40 * 100) / 100;
+
+  return {
+    period_key: periodKey,
+    store_id: store.id,
+    store_name: store.name,
+    city: store.city,
+    state: store.state,
+    operator_name: store.operator_name || 'Unit Franchisee Partner',
+    total_orders: unitOrders.length,
+    gross_revenue: grossRevenue,
+    cost_of_produce_goods: costOfProduce,
+    packaging_and_logistics_expense: packagingAndLogistics,
+    operating_expenses: operatingExpenses,
+    total_expenses: totalExpenses,
+    net_profit: netProfit,
+    jvlsd_parent_share_60: jvlsdShare60,
+    unit_operator_share_40: operatorShare40,
+    settlement_status: 'pending',
+  };
+}
 
 export type SystemDiscountConfig = {
   // Master switch for all stores or individual store toggle

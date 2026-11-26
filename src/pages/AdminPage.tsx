@@ -41,6 +41,9 @@ import {
   recordUndeliveredIncident,
   fetchCustomerLienProfile,
   cancelOrderWithAccounting,
+  fetchAllManagedStores,
+  saveManagedStore,
+  calculateFranchiseeUnitPnL,
   AVAILABLE_STORES,
   type OrderRow,
   type CustomerLienProfile,
@@ -50,15 +53,16 @@ import {
   type MasterFranchiseeRoyaltyEntry,
   type SystemDiscountConfig,
   type StoreLocation,
+  type FranchiseeFinancialPeriod,
 } from '@/lib/firestoreService';
 import { navigate, PATHS } from '@/lib/router';
 import { useAuth } from '@/lib/auth';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { Wordmark } from '@/components/Logo';
-import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet, Sparkles, ToggleLeft, ToggleRight, Calendar, Filter, RotateCcw, BadgeIndianRupee } from 'lucide-react';
+import { ShieldCheck, UserPlus, Key, Trash2, Download, FileSpreadsheet, Sparkles, ToggleLeft, ToggleRight, Calendar, Filter, RotateCcw, BadgeIndianRupee, Store, Building2, Coins, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { isMockModeActive, setMockModeActive } from '@/lib/mockData';
 
-type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'superadmin';
+type Tab = 'overview' | 'orders' | 'surveys' | 'enquiries' | 'franchisee_network' | 'superadmin';
 
 type ActiveDetail =
   | { type: 'order'; data: OrderRow }
@@ -195,6 +199,7 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
     { id: 'orders', label: 'Orders', icon: ShoppingBasket, badge: stats.newOrders },
     { id: 'surveys', label: 'Surveys', icon: ClipboardList, badge: stats.newSurveys },
     { id: 'enquiries', label: 'Enquiries', icon: MessageSquare, badge: stats.newEnquiries },
+    { id: 'franchisee_network', label: 'Franchisee P&L (60/40 Share)', icon: Store },
     ...(isSuperAdmin
       ? [{ id: 'superadmin' as Tab, label: 'Access & Role Manager (Owner)', icon: ShieldCheck }]
       : []),
@@ -326,6 +331,9 @@ function Dashboard({ onSignOut, isSuperAdmin }: { onSignOut: () => void; isSuper
                 onUpdate={updateEnquiryStatus}
                 onSelectEnquiry={(enquiry) => setActiveDetail({ type: 'enquiry', data: enquiry })}
               />
+            )}
+            {tab === 'franchisee_network' && (
+              <FranchiseeNetworkPanel orders={orders} />
             )}
             {tab === 'superadmin' && isSuperAdmin && (
               <SuperAdminAccessPanel />
@@ -1653,6 +1661,592 @@ function InfoTile({ icon: Icon, label, value }: { icon: React.ElementType; label
 function fmtDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/* ---------- Franchisee Network 60% / 40% Net Profit Share Panel ---------- */
+
+function FranchiseeNetworkPanel({ orders }: { orders: OrderRow[] }) {
+  const [stores, setStores] = useState<StoreLocation[]>(AVAILABLE_STORES);
+  const [selectedCity, setSelectedCity] = useState<string>('all');
+  const [selectedState, setSelectedState] = useState<string>('all');
+  const [activePeriod, setActivePeriod] = useState<string>('2026-11');
+  const [showAddStoreModal, setShowAddStoreModal] = useState<boolean>(false);
+
+  // Form for provisioning a new franchisee unit
+  const [newStoreName, setNewStoreName] = useState('');
+  const [newStoreCode, setNewStoreCode] = useState('');
+  const [newStoreCity, setNewStoreCity] = useState('Ahmedabad');
+  const [newStoreState, setNewStoreState] = useState('Gujarat');
+  const [newStorePincodes, setNewStorePincodes] = useState('');
+  const [newStoreOperator, setNewStoreOperator] = useState('');
+  const [newStorePhone, setNewStorePhone] = useState('');
+  const [newStoreEmail, setNewStoreEmail] = useState('');
+  const [savingStore, setSavingStore] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAllManagedStores().then((s) => {
+      if (s && s.length > 0) setStores(s);
+    });
+  }, []);
+
+  const cities = useMemo(() => {
+    const list = Array.from(new Set(stores.map((s) => s.city)));
+    return list;
+  }, [stores]);
+
+  const states = useMemo(() => {
+    const list = Array.from(new Set(stores.map((s) => s.state)));
+    return list;
+  }, [stores]);
+
+  const filteredStores = useMemo(() => {
+    return stores.filter((s) => {
+      if (selectedCity !== 'all' && s.city !== selectedCity) return false;
+      if (selectedState !== 'all' && s.state !== selectedState) return false;
+      return true;
+    });
+  }, [stores, selectedCity, selectedState]);
+
+  // Calculate P&L reports for every filtered store
+  const storePnLReports: FranchiseeFinancialPeriod[] = useMemo(() => {
+    return filteredStores.map((s) => calculateFranchiseeUnitPnL(s, orders, activePeriod));
+  }, [filteredStores, orders, activePeriod]);
+
+  // Network roll-up totals
+  const networkTotals = useMemo(() => {
+    return storePnLReports.reduce(
+      (acc, r) => ({
+        totalOrders: acc.totalOrders + r.total_orders,
+        grossRevenue: acc.grossRevenue + r.gross_revenue,
+        produceCost: acc.produceCost + r.cost_of_produce_goods,
+        logisticsCost: acc.logisticsCost + r.packaging_and_logistics_expense,
+        operatingCost: acc.operatingCost + r.operating_expenses,
+        totalExpenses: acc.totalExpenses + r.total_expenses,
+        netProfit: acc.netProfit + r.net_profit,
+        jvlsdParentShare: acc.jvlsdParentShare + r.jvlsd_parent_share_60,
+        unitOperatorsShare: acc.unitOperatorsShare + r.unit_operator_share_40,
+      }),
+      {
+        totalOrders: 0,
+        grossRevenue: 0,
+        produceCost: 0,
+        logisticsCost: 0,
+        operatingCost: 0,
+        totalExpenses: 0,
+        netProfit: 0,
+        jvlsdParentShare: 0,
+        unitOperatorsShare: 0,
+      }
+    );
+  }, [storePnLReports]);
+
+  const handleCreateStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStoreName.trim() || !newStoreCode.trim() || !newStoreCity.trim()) {
+      alert('Please fill required store details.');
+      return;
+    }
+    setSavingStore(true);
+    try {
+      const pinArray = newStorePincodes
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      const storeId = `store_${newStoreCode.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now().toString().slice(-4)}`;
+      const newLoc: StoreLocation = {
+        id: storeId,
+        name: newStoreName.trim(),
+        code: newStoreCode.trim().toUpperCase(),
+        city: newStoreCity.trim(),
+        state: newStoreState.trim(),
+        pincodes: pinArray.length > 0 ? pinArray : ['380009'],
+        operator_name: newStoreOperator.trim() || 'Franchisee Operator',
+        operator_phone: newStorePhone.trim() || '9825112233',
+        operator_email: newStoreEmail.trim() || `${newStoreCode.toLowerCase()}@jvlsd.in`,
+        active: true,
+        is_first_unit: false,
+        opened_date: new Date().toISOString().slice(0, 10),
+      };
+
+      await saveManagedStore(newLoc);
+      setStores((prev) => [newLoc, ...prev]);
+      setNotice(`Franchisee Unit "${newLoc.name}" created with independent P&L and 60% JVLSD / 40% Partner net profit share.`);
+      setShowAddStoreModal(false);
+      setNewStoreName('');
+      setNewStoreCode('');
+      setNewStorePincodes('');
+      setNewStoreOperator('');
+      setNewStorePhone('');
+      setNewStoreEmail('');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save store.');
+    } finally {
+      setSavingStore(false);
+    }
+  };
+
+  const exportNetworkCSV = () => {
+    const rows = [
+      [
+        'Store ID',
+        'Store Name',
+        'Unit Code',
+        'City',
+        'State',
+        'Franchisee Operator',
+        'Pincodes Covered',
+        'Period',
+        'Total Orders',
+        'Gross Revenue (INR)',
+        'Produce Cost (62%)',
+        'Logistics & Packaging (11%)',
+        'Store Operations (7%)',
+        'Total Expenses',
+        'Net Profit (INR)',
+        'JVLSD-FD 1st Unit 60% Share (INR)',
+        'Unit Operator 40% Share (INR)',
+        'Settlement Status',
+      ],
+      ...storePnLReports.map((r) => {
+        const storeObj = stores.find((s) => s.id === r.store_id);
+        return [
+          r.store_id,
+          r.store_name,
+          storeObj?.code || '',
+          r.city,
+          r.state,
+          r.operator_name,
+          (storeObj?.pincodes || []).join('; '),
+          r.period_key,
+          String(r.total_orders),
+          r.gross_revenue.toFixed(2),
+          r.cost_of_produce_goods.toFixed(2),
+          r.packaging_and_logistics_expense.toFixed(2),
+          r.operating_expenses.toFixed(2),
+          r.total_expenses.toFixed(2),
+          r.net_profit.toFixed(2),
+          r.jvlsd_parent_share_60.toFixed(2),
+          r.unit_operator_share_40.toFixed(2),
+          r.settlement_status,
+        ];
+      }),
+    ];
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `JVLSD_Franchisee_Network_60_40_PnL_${activePeriod}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-up">
+      {/* Network Header Banner */}
+      <div className="rounded-3xl border border-gold-400/50 bg-gradient-to-r from-ink-950 via-[#0a2318] to-ink-950 p-6 sm:p-8 text-white shadow-soft">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold-500/20 text-gold-300 border border-gold-400/30">
+              <Store className="h-7 w-7 text-gold-300" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-gold-400/25 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-gold-300 border border-gold-400/40">
+                  Business Plan &amp; Multi-Franchisee Expansion Model
+                </span>
+                <span className="text-xs text-emerald-300 font-bold">
+                  Rule: 60% Net Profit to JVLSD-FD 1st Unit · 40% to Unit Operator
+                </span>
+              </div>
+              <h2 className="mt-2 font-display text-2xl font-bold text-white">
+                Multi-Store P&amp;L &amp; Franchisee Revenue-Expense Sharing
+              </h2>
+              <p className="mt-1 text-xs sm:text-sm text-emerald-100/80 leading-relaxed max-w-3xl">
+                Each online store operates as an independent Revenue - Cost Expense - Profit Center. Replicable across multiple pincodes in the same city, multiple cities across Gujarat, and scaled to multiple states Pan-India.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowAddStoreModal(true)}
+              className="btn-gold px-4 py-2.5 text-xs font-bold flex items-center gap-1.5 shadow-soft"
+            >
+              <UserPlus className="h-4 w-4" /> Provision Franchisee Unit
+            </button>
+            <button
+              type="button"
+              onClick={exportNetworkCSV}
+              className="rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 px-4 py-2.5 text-xs font-bold text-white transition-all flex items-center gap-1.5 backdrop-blur-sm"
+            >
+              <Download className="h-4 w-4 text-gold-300" /> Export P&amp;L CSV
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {notice && (
+        <div className="rounded-2xl bg-emerald-50 border border-emerald-300 p-4 text-xs font-bold text-emerald-950 flex items-center justify-between">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="text-emerald-700 hover:text-emerald-950">✕</button>
+        </div>
+      )}
+
+      {/* Network Roll-Up Key Metric Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="card p-5 border-l-4 border-l-brand-600">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Total Network Revenue</p>
+          <p className="mt-1 font-display text-2xl font-black text-ink-950">
+            ₹{networkTotals.grossRevenue.toFixed(2)}
+          </p>
+          <p className="mt-1 text-xs text-ink-500">{networkTotals.totalOrders} total orders placed across {filteredStores.length} units</p>
+        </div>
+
+        <div className="card p-5 border-l-4 border-l-rose-500">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Total Network Expenses</p>
+          <p className="mt-1 font-display text-2xl font-black text-rose-700">
+            ₹{networkTotals.totalExpenses.toFixed(2)}
+          </p>
+          <p className="mt-1 text-xs text-ink-500">Produce: ₹{networkTotals.produceCost.toFixed(0)} · Logistics: ₹{networkTotals.logisticsCost.toFixed(0)}</p>
+        </div>
+
+        <div className="card p-5 border-l-4 border-l-emerald-600 bg-emerald-50/40">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-900">JVLSD-FD 1st Unit (60%)</p>
+            <span className="rounded-md bg-emerald-600 text-white font-extrabold text-[10px] px-1.5 py-0.5">Parent 60%</span>
+          </div>
+          <p className="mt-1 font-display text-2xl font-black text-emerald-900">
+            ₹{networkTotals.jvlsdParentShare.toFixed(2)}
+          </p>
+          <p className="mt-1 text-xs text-emerald-800 font-medium">Net profit share credited to 1st Unit</p>
+        </div>
+
+        <div className="card p-5 border-l-4 border-l-gold-500 bg-gold-50/40">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-gold-950">Unit Operators Pool (40%)</p>
+            <span className="rounded-md bg-gold-500 text-ink-950 font-extrabold text-[10px] px-1.5 py-0.5">Operator 40%</span>
+          </div>
+          <p className="mt-1 font-display text-2xl font-black text-gold-900">
+            ₹{networkTotals.unitOperatorsShare.toFixed(2)}
+          </p>
+          <p className="mt-1 text-xs text-gold-800 font-medium">Distributed to persons running each unit</p>
+        </div>
+      </div>
+
+      {/* Hierarchy Filter Bar: State, City & Financial Period */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-soft">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-brand-700" />
+          <span className="font-display text-sm font-bold text-ink-950">Replication Hierarchy Filters:</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div>
+            <label className="text-[10px] font-bold text-ink-500 uppercase mr-1">State:</label>
+            <select
+              value={selectedState}
+              onChange={(e) => {
+                setSelectedState(e.target.value);
+                setSelectedCity('all');
+              }}
+              className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink-800"
+            >
+              <option value="all">All States (Pan-India)</option>
+              {states.map((st) => (
+                <option key={st} value={st}>{st}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-ink-500 uppercase mr-1">City:</label>
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink-800"
+            >
+              <option value="all">All Cities in State</option>
+              {cities.map((ct) => (
+                <option key={ct} value={ct}>{ct}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-ink-500 uppercase mr-1">Period:</label>
+            <select
+              value={activePeriod}
+              onChange={(e) => setActivePeriod(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink-800"
+            >
+              <option value="2026-11">November 2026</option>
+              <option value="2026-10">October 2026</option>
+              <option value="2026-Q4">Q4 2026</option>
+              <option value="2026-Q3">Q3 2026</option>
+              <option value="All-Time">All-Time Cumulative</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Franchisee Stores Financial Ledger Table */}
+      <div className="rounded-3xl border border-ink-100 bg-white p-6 shadow-soft">
+        <div className="flex items-center justify-between border-b border-ink-100 pb-4">
+          <div>
+            <h3 className="font-display text-base font-bold text-ink-950">
+              Franchisee Units: Independent Revenue, Expense &amp; Net Profit Share Ledger
+            </h3>
+            <p className="mt-0.5 text-xs text-ink-500">
+              Showing {storePnLReports.length} units across {selectedCity === 'all' ? 'all cities' : selectedCity}, {selectedState === 'all' ? 'Pan-India' : selectedState}.
+            </p>
+          </div>
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-800 border border-brand-200">
+            60% JVLSD / 40% Operator Net Profit Split Active
+          </span>
+        </div>
+
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-ink-100 text-ink-400 font-bold uppercase tracking-wider">
+              <tr>
+                <th className="py-3 px-3">Unit / Location</th>
+                <th className="py-3 px-3">Region &amp; Pincodes</th>
+                <th className="py-3 px-3">Operator Partner</th>
+                <th className="py-3 px-3 text-right">Gross Revenue</th>
+                <th className="py-3 px-3 text-right">Total Expenses</th>
+                <th className="py-3 px-3 text-right font-extrabold text-ink-900">Net Profit</th>
+                <th className="py-3 px-3 text-right text-emerald-700 bg-emerald-50/50">JVLSD 1st Unit (60%)</th>
+                <th className="py-3 px-3 text-right text-gold-800 bg-gold-50/50">Operator (40%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {storePnLReports.map((pnl) => {
+                const storeObj = stores.find((s) => s.id === pnl.store_id);
+                return (
+                  <tr key={pnl.store_id} className="hover:bg-ink-50/60 transition-colors">
+                    <td className="py-3.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-ink-950">{pnl.store_name}</span>
+                        {storeObj?.is_first_unit && (
+                          <span className="rounded-md bg-brand-700 px-1.5 py-0.5 text-[9px] font-black uppercase text-white">
+                            1st Unit / Parent
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-ink-500 font-mono">Code: {storeObj?.code}</p>
+                    </td>
+                    <td className="py-3.5 px-3">
+                      <p className="font-semibold text-ink-800">{pnl.city}, {pnl.state}</p>
+                      <p className="text-[10px] text-ink-500 font-mono">Pins: {(storeObj?.pincodes || []).join(', ')}</p>
+                    </td>
+                    <td className="py-3.5 px-3">
+                      <p className="font-semibold text-ink-900">{pnl.operator_name}</p>
+                      <p className="text-[10px] text-ink-500">{storeObj?.operator_phone}</p>
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-bold text-ink-900">
+                      ₹{pnl.gross_revenue.toFixed(2)}
+                      <span className="block text-[10px] text-ink-400 font-sans">{pnl.total_orders} orders</span>
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono text-rose-700">
+                      ₹{pnl.total_expenses.toFixed(2)}
+                      <span className="block text-[9px] text-ink-400 font-sans">
+                        (Prod: ₹{pnl.cost_of_produce_goods.toFixed(0)})
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-extrabold text-ink-950">
+                      ₹{pnl.net_profit.toFixed(2)}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-extrabold text-emerald-800 bg-emerald-50/60">
+                      ₹{pnl.jvlsd_parent_share_60.toFixed(2)}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-extrabold text-gold-900 bg-gold-50/60">
+                      ₹{pnl.unit_operator_share_40.toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="border-t-2 border-ink-200 bg-ink-50/80 font-bold text-xs">
+              <tr>
+                <td className="py-3 px-3 uppercase tracking-wider text-ink-900" colSpan={3}>
+                  Consolidated Network Total ({storePnLReports.length} Units)
+                </td>
+                <td className="py-3 px-3 text-right font-mono text-ink-900">
+                  ₹{networkTotals.grossRevenue.toFixed(2)}
+                </td>
+                <td className="py-3 px-3 text-right font-mono text-rose-700">
+                  ₹{networkTotals.totalExpenses.toFixed(2)}
+                </td>
+                <td className="py-3 px-3 text-right font-mono text-ink-950 font-black">
+                  ₹{networkTotals.netProfit.toFixed(2)}
+                </td>
+                <td className="py-3 px-3 text-right font-mono text-emerald-900 bg-emerald-100/60 font-black">
+                  ₹{networkTotals.jvlsdParentShare.toFixed(2)}
+                </td>
+                <td className="py-3 px-3 text-right font-mono text-gold-950 bg-gold-100/60 font-black">
+                  ₹{networkTotals.unitOperatorsShare.toFixed(2)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal: Provision New Franchisee Store Unit */}
+      {showAddStoreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-7 shadow-2xl border border-ink-100">
+            <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Store className="h-5 w-5 text-brand-600" />
+                <h4 className="font-display text-base font-bold text-ink-950">
+                  Provision New Franchisee Online Store Unit
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddStoreModal(false)}
+                className="h-8 w-8 rounded-lg bg-ink-100 text-ink-600 flex items-center justify-center hover:bg-ink-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mt-2 text-xs text-ink-600">
+              Replicate the JVLSD-FD model in a new location, pincode, city, or state. Operates as an independent P&amp;L center with automatic 60% JVLSD / 40% Operator net profit distribution.
+            </p>
+
+            <form onSubmit={handleCreateStore} className="mt-4 space-y-3.5 text-xs">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">Store Unit Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStoreName}
+                    onChange={(e) => setNewStoreName(e.target.value)}
+                    placeholder="e.g. Surat Adajan Hub"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="label">Unit Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStoreCode}
+                    onChange={(e) => setNewStoreCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. SUR-02"
+                    className="input-field uppercase font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">City</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStoreCity}
+                    onChange={(e) => setNewStoreCity(e.target.value)}
+                    placeholder="e.g. Surat / Vadodara / Pune"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="label">State</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStoreState}
+                    onChange={(e) => setNewStoreState(e.target.value)}
+                    placeholder="e.g. Gujarat / Maharashtra"
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Assigned Pincodes (Comma Separated)</label>
+                <input
+                  type="text"
+                  required
+                  value={newStorePincodes}
+                  onChange={(e) => setNewStorePincodes(e.target.value)}
+                  placeholder="e.g. 395009, 395007"
+                  className="input-field font-mono"
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">Person Running Unit (Franchisee Partner)</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStoreOperator}
+                    onChange={(e) => setNewStoreOperator(e.target.value)}
+                    placeholder="e.g. Paresh Mehta"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="label">Operator Contact Phone</label>
+                  <input
+                    type="tel"
+                    required
+                    value={newStorePhone}
+                    onChange={(e) => setNewStorePhone(e.target.value)}
+                    placeholder="e.g. 9825123456"
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Operator Email Address</label>
+                <input
+                  type="email"
+                  value={newStoreEmail}
+                  onChange={(e) => setNewStoreEmail(e.target.value)}
+                  placeholder="e.g. operator@jvlsd.in"
+                  className="input-field"
+                />
+              </div>
+
+              <div className="rounded-2xl bg-amber-50 p-3 border border-amber-200 text-[11px] text-amber-900 leading-snug">
+                <span className="font-bold">Net Profit Share Agreement:</span> Net profit generated by this unit will automatically split <span className="font-bold">60% to JVLSD-FD 1st Unit</span> and <span className="font-bold">40% to this designated operator</span> upon period closure.
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddStoreModal(false)}
+                  className="btn-outline px-4 py-2 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStore}
+                  className="btn-primary px-5 py-2 text-xs font-bold"
+                >
+                  {savingStore ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Launch & Replicate Unit'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ---------- Super Admin Access & Role Manager ---------- */
