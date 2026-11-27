@@ -54,14 +54,141 @@ export type FamilyMemberRole =
   | 'housemaid'
   | 'helper'
   | 'driver'
+  | 'caretaker'
+  | 'personal_security'
+  | 'family_manager'
   | 'officestaff'
   | 'domestic_help'; // backward compatibility
+
+export type MemberClassification = 'family' | 'family_support_staff';
+
+export type HouseholdSizeType =
+  | 'S' // Single / Bachelor [01]
+  | 'NF_NW' // Nuclear family / newly wed [02]
+  | 'L' // Large [04]
+  | 'XL' // Extra Large [06]
+  | 'JF_EF' // Joint Family / Extended family [08+]
+  | 'FF_FG' // Family function / Family Gathering [10+]
+  | 'P'; // Party
+
+export interface HouseholdScaleDefinition {
+  code: HouseholdSizeType;
+  badge: string;
+  label: string;
+  countRange: string;
+  memberCountMin: number;
+  icon: string;
+  bgGradient: string;
+  textColor: string;
+  borderColor: string;
+  description: string;
+}
+
+export const HOUSEHOLD_SCALE_DEFINITIONS: Record<HouseholdSizeType, HouseholdScaleDefinition> = {
+  S: {
+    code: 'S',
+    badge: 'S',
+    label: 'Single / Bachelor',
+    countRange: '01 Person',
+    memberCountMin: 1,
+    icon: '👤',
+    bgGradient: 'from-sky-500 to-blue-600',
+    textColor: 'text-sky-700',
+    borderColor: 'border-sky-300',
+    description: 'Quick pantry, essential daily 250g vegetables & milk.',
+  },
+  NF_NW: {
+    code: 'NF_NW',
+    badge: 'NF / NW',
+    label: 'Nuclear Family / Newly Wed',
+    countRange: '02 Persons',
+    memberCountMin: 2,
+    icon: '👫',
+    bgGradient: 'from-emerald-500 to-teal-600',
+    textColor: 'text-emerald-700',
+    borderColor: 'border-emerald-300',
+    description: 'Balanced daily kitchen basket, morning tea & fresh salads.',
+  },
+  L: {
+    code: 'L',
+    badge: 'L',
+    label: 'Large Household',
+    countRange: '04 Persons',
+    memberCountMin: 4,
+    icon: '👨‍👩‍👧‍👦',
+    bgGradient: 'from-amber-500 to-orange-600',
+    textColor: 'text-amber-800',
+    borderColor: 'border-amber-300',
+    description: 'Daily curries, morning breakfast milk, snacks & variety veggies.',
+  },
+  XL: {
+    code: 'XL',
+    badge: 'XL',
+    label: 'Extra Large Household',
+    countRange: '06 Persons',
+    memberCountMin: 6,
+    icon: '🏡',
+    bgGradient: 'from-purple-500 to-indigo-600',
+    textColor: 'text-purple-800',
+    borderColor: 'border-purple-300',
+    description: 'High volume produce, multi-generation daily kitchen baskets.',
+  },
+  JF_EF: {
+    code: 'JF_EF',
+    badge: 'JF / EF',
+    label: 'Joint / Extended Family',
+    countRange: '08+ Persons',
+    memberCountMin: 8,
+    icon: '🏰',
+    bgGradient: 'from-rose-500 to-pink-600',
+    textColor: 'text-rose-800',
+    borderColor: 'border-rose-300',
+    description: 'Multi-family joint kitchen, wholesale farm-fresh morning drops.',
+  },
+  FF_FG: {
+    code: 'FF_FG',
+    badge: 'FF / FG',
+    label: 'Family Function / Gathering',
+    countRange: '10+ Persons',
+    memberCountMin: 10,
+    icon: '🎉',
+    bgGradient: 'from-amber-400 via-rose-500 to-purple-600',
+    textColor: 'text-amber-900',
+    borderColor: 'border-amber-400',
+    description: 'Special weekend feasts, festival pooja & festive kitchen baskets.',
+  },
+  P: {
+    code: 'P',
+    badge: 'P',
+    label: 'Party & Celebration Feast',
+    countRange: 'Special Event',
+    memberCountMin: 15,
+    icon: '✨',
+    bgGradient: 'from-fuchsia-600 to-pink-600',
+    textColor: 'text-fuchsia-800',
+    borderColor: 'border-fuchsia-300',
+    description: 'Custom celebration volumes & specialized culinary baskets.',
+  },
+};
+
+/**
+ * Computes household size classification from total member count
+ */
+export function computeHouseholdScale(count: number): HouseholdScaleDefinition {
+  if (count <= 1) return HOUSEHOLD_SCALE_DEFINITIONS.S;
+  if (count === 2 || count === 3) return HOUSEHOLD_SCALE_DEFINITIONS.NF_NW;
+  if (count >= 4 && count <= 5) return HOUSEHOLD_SCALE_DEFINITIONS.L;
+  if (count >= 6 && count <= 7) return HOUSEHOLD_SCALE_DEFINITIONS.XL;
+  if (count >= 8 && count <= 9) return HOUSEHOLD_SCALE_DEFINITIONS.JF_EF;
+  return HOUSEHOLD_SCALE_DEFINITIONS.FF_FG;
+}
 
 export type FamilyMember = {
   uid: string;
   full_name: string;
   mobile: string;
   role: FamilyMemberRole;
+  classification?: MemberClassification; // 'family' | 'family_support_staff'
   can_order: boolean;
   address_locked: boolean;
   joined_at: string;
@@ -87,6 +214,8 @@ export type FamilyGroup = {
   creator_uid: string;
   member_uids?: string[];
   members: FamilyMember[];
+  household_scale?: HouseholdSizeType;
+  custom_scale_override?: HouseholdSizeType; // e.g. for Party P or Family Function
   created_at: string;
   removal_audit_log?: {
     id: string;
@@ -982,8 +1111,9 @@ export async function joinFamilyGroupByCode(
 
   // Add new member if not already in group
   if (!targetGroup.members.some((m) => m.uid === user.uid)) {
-    const isDomesticOrStaff = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(role);
-    const isOwnerOrDirectFamily = role === 'family_member';
+    const isDomesticOrStaff = ['housemaid', 'helper', 'driver', 'caretaker', 'personal_security', 'family_manager', 'officestaff', 'domestic_help'].includes(role);
+    const isOwnerOrDirectFamily = role === 'family_member' || role === 'owner';
+    const classification: MemberClassification = isDomesticOrStaff ? 'family_support_staff' : 'family';
 
     // Backend verification: syncing with DIGIPIN for double verification
     const verifiedDigipin = user.digipin || targetGroup.household_digipin;
@@ -993,6 +1123,7 @@ export async function joinFamilyGroupByCode(
       full_name: user.name,
       mobile: user.mobile,
       role,
+      classification,
       // If direct family, ordering is approved; if domestic help/driver/staff, master must approve once
       is_approved: isOwnerOrDirectFamily,
       can_order: isOwnerOrDirectFamily,
@@ -1008,6 +1139,9 @@ export async function joinFamilyGroupByCode(
       additional_addresses: [],
     };
     targetGroup.members.push(newMember);
+
+    // Recalculate household scale
+    targetGroup.household_scale = computeHouseholdScale(targetGroup.members.length).code;
     const updatedMemberUids = Array.from(new Set([...(targetGroup as any).member_uids || [], user.uid]));
 
     try {
@@ -1075,7 +1209,8 @@ export async function addFamilyMemberDirectly(
   const group = await fetchFamilyGroup(groupId);
   if (!group) return null;
 
-  const isDomesticOrStaff = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(memberData.role);
+  const isDomesticOrStaff = ['housemaid', 'helper', 'driver', 'caretaker', 'personal_security', 'family_manager', 'officestaff', 'domestic_help'].includes(memberData.role);
+  const classification: MemberClassification = isDomesticOrStaff ? 'family_support_staff' : 'family';
   const tempUid = 'mem_' + memberData.mobile.replace(/\D/g, '') || `mem_${Date.now()}`;
 
   const newMember: FamilyMember = {
@@ -1083,6 +1218,7 @@ export async function addFamilyMemberDirectly(
     full_name: memberData.fullName.toUpperCase(),
     mobile: memberData.mobile.replace(/\D/g, ''),
     role: memberData.role,
+    classification,
     joined_at: new Date().toISOString(),
     is_approved: true, // directly approved since added by master
     can_order: true,
@@ -1098,6 +1234,9 @@ export async function addFamilyMemberDirectly(
   // Remove existing if duplicate mobile
   group.members = group.members.filter((m) => m.mobile !== newMember.mobile);
   group.members.push(newMember);
+
+  // Recalculate household scale
+  group.household_scale = computeHouseholdScale(group.members.length).code;
 
   try {
     await updateDoc(doc(db, 'family_groups', groupId), { members: group.members });

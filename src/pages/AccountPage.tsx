@@ -29,6 +29,7 @@ import {
   Home,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { HouseholdScaleBadge, MemberClassificationBadge } from '@/components/HouseholdScaleBadge';
 import { navigate, PATHS } from '@/lib/router';
 import {
   fetchOrders,
@@ -1106,6 +1107,30 @@ export function AccountPage() {
 
               {familyGroup ? (
                 <div className="mt-6 space-y-4">
+                  {/* Household Scale / Member Capacity Visual Analytics Card */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-amber-50/60 p-4 sm:p-5 shadow-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded-md">
+                          Household Capacity Analytics
+                        </span>
+                        <span className="text-[10px] text-ink-500 font-mono">Activation Planned by Year-End</span>
+                      </div>
+                      <h4 className="mt-1 font-display text-base font-bold text-ink-950">
+                        {familyGroup.household_name} · Member Scale
+                      </h4>
+                      <p className="text-xs text-ink-600 mt-0.5">
+                        Categorized for morning grocery &amp; kitchen volumes according to active registered headcount ({familyGroup.members.length} members).
+                      </p>
+                    </div>
+
+                    <HouseholdScaleBadge
+                      code={familyGroup.household_scale}
+                      memberCount={familyGroup.members.length}
+                      showDetails
+                    />
+                  </div>
+
                   <div className="rounded-2xl border border-ink-100 bg-ink-50/60 p-4 text-xs">
                     <p className="font-bold text-ink-900 uppercase tracking-wider text-[11px] text-ink-500">Verified Household Address</p>
                     <p className="mt-1 text-ink-800 font-medium">{familyGroup.household_address}</p>
@@ -1137,36 +1162,43 @@ export function AccountPage() {
                     </div>
                     <div className="divide-y divide-ink-100 rounded-2xl border border-ink-100 overflow-hidden bg-white">
                       {familyGroup.members.map((m) => {
-                        const isDomestic = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(m.role);
+                        const isDomestic = ['housemaid', 'helper', 'driver', 'caretaker', 'personal_security', 'family_manager', 'officestaff', 'domestic_help'].includes(m.role);
+                        const isFamily = m.classification === 'family' || (!m.classification && !isDomestic);
+                        const roleLabel =
+                          m.role === 'owner'
+                            ? 'Household Head'
+                            : m.role === 'housemaid'
+                            ? 'Housemaid'
+                            : m.role === 'helper'
+                            ? 'House Helper'
+                            : m.role === 'driver'
+                            ? 'Family Driver'
+                            : m.role === 'caretaker'
+                            ? 'Caretaker'
+                            : m.role === 'personal_security'
+                            ? 'Personal Security'
+                            : m.role === 'family_manager'
+                            ? 'Family Manager'
+                            : m.role === 'officestaff'
+                            ? 'Office Staff'
+                            : m.role === 'domestic_help'
+                            ? 'Domestic Staff'
+                            : 'Family Member';
+
                         return (
                           <div key={m.uid} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3">
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-bold text-ink-900">{m.full_name}</p>
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                  m.role === 'owner'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : isDomestic
-                                    ? 'bg-amber-100 text-amber-900'
-                                    : 'bg-brand-50 text-brand-800'
-                                }`}>
-                                  {m.role === 'owner'
-                                    ? 'Household Head'
-                                    : m.role === 'housemaid'
-                                    ? 'Housemaid'
-                                    : m.role === 'helper'
-                                    ? 'House Helper'
-                                    : m.role === 'driver'
-                                    ? 'Family Driver'
-                                    : m.role === 'officestaff'
-                                    ? 'Office Staff'
-                                    : m.role === 'domestic_help'
-                                    ? 'Domestic Staff'
-                                    : 'Family Member'}
-                                </span>
+                                
+                                {/* Family vs Family Support Staff Classification */}
+                                <MemberClassificationBadge
+                                  classification={isFamily ? 'family' : 'family_support_staff'}
+                                  roleLabel={roleLabel}
+                                />
                               </div>
-                              <p className="text-xs text-ink-500 mt-0.5">
-                                Mobile: {m.mobile} · {isDomestic ? 'Daily Subscription Only (No Wallet Access)' : 'Full Kitchen Ordering'}
+                              <p className="text-xs text-ink-500 mt-1">
+                                Mobile: {m.mobile} · {isDomestic ? 'Family Support Staff (Daily Subscription Only · Locked Doorstep)' : 'Full Kitchen Ordering Access'}
                               </p>
                               {m.additional_addresses && m.additional_addresses.length > 0 && (
                                 <p className="text-[11px] text-brand-700 mt-0.5">
@@ -1455,11 +1487,18 @@ export function AccountPage() {
                         value={newMemberRole}
                         onChange={(e) => setNewMemberRole(e.target.value as any)}
                       >
-                        <option value="family_member">Family Member (Full Kitchen Ordering Access)</option>
-                        <option value="housemaid">Housemaid (Daily Subscription Only · Locked to Doorstep)</option>
-                        <option value="helper">House Helper (Daily Subscription Only · Locked to Doorstep)</option>
-                        <option value="driver">Family Driver (Daily Subscription Only · Locked to Doorstep)</option>
-                        <option value="officestaff">Office Staff (Daily Subscription Only · Locked to Doorstep)</option>
+                        <optgroup label="Family Household">
+                          <option value="family_member">Family Member (Full Kitchen Ordering Access)</option>
+                        </optgroup>
+                        <optgroup label="Family Support Staff">
+                          <option value="housemaid">Housemaid (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="helper">House Helper (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="driver">Family Driver (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="caretaker">Caretaker (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="personal_security">Personal Security (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="family_manager">Family Manager (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="officestaff">Office Staff (Daily Subscription Only · Locked to Doorstep)</option>
+                        </optgroup>
                       </select>
                     </div>
                     <div>
@@ -1543,12 +1582,19 @@ export function AccountPage() {
                         value={joinRole}
                         onChange={(e) => setJoinRole(e.target.value as any)}
                       >
-                        <option value="family_member">Family Member (Full Kitchen Ordering Access)</option>
-                        <option value="housemaid">Housemaid (Daily Subscription Only · Locked to Doorstep)</option>
-                        <option value="helper">House Helper (Daily Subscription Only · Locked to Doorstep)</option>
-                        <option value="driver">Family Driver (Daily Subscription Only · Locked to Doorstep)</option>
-                        <option value="officestaff">Office Staff (Daily Subscription Only · Locked to Doorstep)</option>
-                        <option value="domestic_help">Domestic Staff (Daily Subscription Only · Locked to Doorstep)</option>
+                        <optgroup label="Family Household">
+                          <option value="family_member">Family Member (Full Kitchen Ordering Access)</option>
+                        </optgroup>
+                        <optgroup label="Family Support Staff">
+                          <option value="housemaid">Housemaid (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="helper">House Helper (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="driver">Family Driver (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="caretaker">Caretaker (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="personal_security">Personal Security (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="family_manager">Family Manager (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="officestaff">Office Staff (Daily Subscription Only · Locked to Doorstep)</option>
+                          <option value="domestic_help">Domestic Staff (Daily Subscription Only · Locked to Doorstep)</option>
+                        </optgroup>
                       </select>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
