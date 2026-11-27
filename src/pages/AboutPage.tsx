@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
+import { JourneyConnect } from '@/components/JourneyConnect';
 
 const VALUES = [
   {
@@ -194,6 +195,13 @@ export function AboutPage() {
                 </div>
               </Reveal>
             ))}
+          </div>
+
+          {/* Journey Connect Section from reference */}
+          <div className="mt-16">
+            <Reveal delay={150}>
+              <JourneyConnect />
+            </Reveal>
           </div>
         </div>
       </section>

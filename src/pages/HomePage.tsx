@@ -17,6 +17,7 @@ import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
 import { MascotDuoStanding, MascotLiveStanding } from '@/components/Logo';
 import { KitchenEmpathyBanner } from '@/components/KitchenEmpathyBanner';
+import { JourneyConnect } from '@/components/JourneyConnect';
 import { useAuth } from '@/lib/auth';
 
 const HERO_IMG =
@@ -348,6 +349,13 @@ export function HomePage() {
           <div className="mt-12 max-w-2xl mx-auto">
             <Reveal delay={120}>
               <MascotDuoStanding />
+            </Reveal>
+          </div>
+
+          {/* Journey Connect Section from reference */}
+          <div className="mt-16 max-w-4xl mx-auto">
+            <Reveal delay={180}>
+              <JourneyConnect />
             </Reveal>
           </div>
         </div>
