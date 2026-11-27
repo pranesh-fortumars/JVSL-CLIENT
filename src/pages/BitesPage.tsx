@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
+import { SustainableImpactShowcase } from '@/components/SustainableImpactShowcase';
 
 type BiteItem = {
   id: string;
@@ -162,6 +163,13 @@ export function BitesPage() {
               <p className="mt-0.5 text-xs text-ink-600">{v.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Sustainable Health, Wallet & Mother Earth Showcase */}
+      <section className="py-12 bg-white border-b border-ink-100">
+        <div className="container-page">
+          <SustainableImpactShowcase />
         </div>
       </section>
 

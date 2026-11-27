@@ -12,6 +12,7 @@ import {
 import { Reveal } from '@/components/Reveal';
 import { navigate, PATHS } from '@/lib/router';
 import { JourneyConnect } from '@/components/JourneyConnect';
+import { SustainableImpactShowcase } from '@/components/SustainableImpactShowcase';
 
 const VALUES = [
   {
@@ -201,6 +202,13 @@ export function AboutPage() {
           <div className="mt-16">
             <Reveal delay={150}>
               <JourneyConnect />
+            </Reveal>
+          </div>
+
+          {/* Natural Preservation & Sustainable Zero Waste Showcase */}
+          <div className="mt-14">
+            <Reveal delay={200}>
+              <SustainableImpactShowcase />
             </Reveal>
           </div>
         </div>
