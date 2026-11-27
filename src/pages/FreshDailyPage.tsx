@@ -21,7 +21,9 @@ import {
 import { navigate, PATHS } from '@/lib/router';
 import { fetchProducts, type Product } from '@/lib/firestoreService';
 import { SEASONAL_CATALOGUE, type Season, type SeasonalProduce } from '@/data/seasonalProduce';
-import { Mascot, MascotDuoStanding, MascotRotator } from '@/components/Logo';
+import { Mascot, MascotDuoStanding, MascotRotator, JvlsdAuthenticitySeal } from '@/components/Logo';
+import { MilkbasketCategoryExplorer } from '@/components/MilkbasketCategoryExplorer';
+import { COMPANY_CONFIG } from '@/data/companyConfig';
 
 export function FreshDailyPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -103,6 +105,15 @@ export function FreshDailyPage() {
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-gold-300 shrink-0" />
                   <span>Morning 8–9 AM Prompt Delivery</span>
+                </div>
+              </div>
+
+              {/* JVLSD Authenticity Seal & License Summary */}
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <JvlsdAuthenticitySeal compact />
+                <div className="text-[11px] text-emerald-200/90 font-mono">
+                  <span>{COMPANY_CONFIG.certifications.fssaiLicense}</span><br />
+                  <span>{COMPANY_CONFIG.certifications.gstin}</span>
                 </div>
               </div>
             </div>
@@ -205,6 +216,17 @@ export function FreshDailyPage() {
           </div>
         </div>
       </section>
+      {/* Milkbasket Style Visual Category Explorer */}
+      <section className="py-10 bg-emerald-50/40 border-b border-emerald-100">
+        <div className="container-page">
+          <MilkbasketCategoryExplorer
+            onSelectCategory={(clusterId, subId) => {
+              navigate(PATHS.order);
+            }}
+          />
+        </div>
+      </section>
+
       <section className="py-16 sm:py-20 bg-white">
         <div className="container-page">
           <div className="text-center max-w-2xl mx-auto">
@@ -387,6 +409,17 @@ export function FreshDailyPage() {
       </section>
 
       {/* How the Planned Procurement System Works */}
+      {/* Milkbasket Style Visual Category Explorer */}
+      <section className="py-10 bg-emerald-50/40 border-b border-emerald-100">
+        <div className="container-page">
+          <MilkbasketCategoryExplorer
+            onSelectCategory={(clusterId, subId) => {
+              navigate(PATHS.order);
+            }}
+          />
+        </div>
+      </section>
+
       <section className="py-16 sm:py-20 bg-white">
         <div className="container-page">
           <div className="text-center max-w-2xl mx-auto">

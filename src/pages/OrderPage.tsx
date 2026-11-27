@@ -49,7 +49,10 @@ import {
 import { useAuth } from '@/lib/auth';
 import { SEASONAL_CATALOGUE, type SeasonalProduce } from '@/data/seasonalProduce';
 import { RECIPE_PREP_KITS, type RecipePrepKit } from '@/data/recipePacks';
-import { HeartPulse, BookOpen, AlertTriangle, Star, ThumbsUp, Send, ChefHat, Scissors, AlertOctagon } from 'lucide-react';
+import { HeartPulse, BookOpen, AlertTriangle, Star, ThumbsUp, Send, ChefHat, Scissors, AlertOctagon, Award, ShieldCheck } from 'lucide-react';
+import { MilkbasketCategoryExplorer } from '@/components/MilkbasketCategoryExplorer';
+import { JvlsdAuthenticitySeal } from '@/components/Logo';
+import { COMPANY_CONFIG } from '@/data/companyConfig';
 
 type Cart = Record<string, number>; // productId -> quantity
 
@@ -373,6 +376,25 @@ export function OrderPage() {
                         first Fresh Daily order. Final promotional rules will be confirmed
                         before going live.
                       </p>
+                    </div>
+
+                    {/* Milkbasket Style Visual Category Explorer */}
+                    <div className="mt-6">
+                      <MilkbasketCategoryExplorer
+                        onSelectCategory={(clusterId, subId) => {
+                          if (subId) {
+                            setSearchQuery(subId.replace(/-/g, ' '));
+                          } else if (clusterId === 'dairy-morning') {
+                            setCategoryFilter('milk');
+                          } else if (clusterId === 'farm-veggies') {
+                            setCategoryFilter('vegetable');
+                          } else if (clusterId === 'seasonal-fruits') {
+                            setCategoryFilter('fruit');
+                          } else {
+                            setCategoryFilter('all');
+                          }
+                        }}
+                      />
                     </div>
 
                     {/* Products */}
@@ -1737,8 +1759,26 @@ function Checkout({
   };
 
   const update = (k: keyof typeof info, v: string) => {
-    // Requirements: All Customer profile details capture strictly in CAPITAL LETTERS
-    const sanitized = k === 'notes' ? v : v.toUpperCase();
+    // Requirements (Part D):
+    // 1. Profile fields strictly CAPITAL LETTERS & NUMBERS (NUMERIC ONLY) - no special characters.
+    // 2. Address can have ONLY commas (,) and hyphens (-) alongside alphanumeric characters.
+    let sanitized = v;
+
+    if (k === 'notes') {
+      sanitized = v; // notes can have normal punctuation
+    } else if (k === 'email') {
+      sanitized = v.toLowerCase().trim();
+    } else if (k === 'street_address' || k === 'address' || k === 'house_flat' || k === 'building_society' || k === 'landmark' || k === 'area') {
+      // Address allowed: A-Z, 0-9, space, comma (,), hyphen (-)
+      sanitized = v.replace(/[^A-Za-z0-9, \-]/g, '').toUpperCase();
+    } else if (k === 'telephone' || k === 'mobile' || k === 'pincode') {
+      // Numeric only
+      sanitized = v.replace(/\D/g, '');
+    } else {
+      // Customer profile fields: uppercase alphanumeric only, no special characters
+      sanitized = v.replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
+    }
+
     const updated = { ...info, [k]: sanitized };
     setInfo(updated);
     if (errors[k]) setErrors((e) => ({ ...e, [k]: '' }));
@@ -2383,7 +2423,7 @@ function Checkout({
               className="input-field uppercase tracking-wide font-medium"
               value={info.first_name}
               onChange={(e) => {
-                const val = e.target.value.toUpperCase();
+                const val = e.target.value.replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
                 setInfo((prev) => ({
                   ...prev,
                   first_name: val,
@@ -2392,7 +2432,7 @@ function Checkout({
                 if (errors.first_name) setErrors((err) => ({ ...err, first_name: '' }));
               }}
               autoComplete="given-name"
-              placeholder="e.g. SURESH"
+              placeholder="e.g. SURESH (CAPITALS ONLY)"
             />
             {errors.first_name && <p className="field-error" role="alert">{errors.first_name}</p>}
           </div>
@@ -2405,7 +2445,7 @@ function Checkout({
               className="input-field uppercase tracking-wide font-medium"
               value={info.last_name}
               onChange={(e) => {
-                const val = e.target.value.toUpperCase();
+                const val = e.target.value.replace(/[^A-Za-z0-9 ]/g, '').toUpperCase();
                 setInfo((prev) => ({
                   ...prev,
                   last_name: val,
@@ -2414,7 +2454,7 @@ function Checkout({
                 if (errors.last_name) setErrors((err) => ({ ...err, last_name: '' }));
               }}
               autoComplete="family-name"
-              placeholder="e.g. SHAH"
+              placeholder="e.g. SHAH (CAPITALS ONLY)"
             />
             {errors.last_name && <p className="field-error" role="alert">{errors.last_name}</p>}
           </div>
@@ -2438,16 +2478,19 @@ function Checkout({
             {errors.email && <p className="field-error" role="alert">{errors.email}</p>}
           </div>
 
-          {/* 4. Address (Textarea style from reference page) */}
+          {/* 4. Address (Textarea style - only letters, numbers, spaces, commas and hyphens allowed) */}
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="co-address">Address <span className="text-red-600" aria-hidden>*</span></label>
+            <div className="flex items-center justify-between">
+              <label className="label" htmlFor="co-address">Address <span className="text-red-600" aria-hidden>*</span></label>
+              <span className="text-[10px] text-ink-500 font-mono">Only commas (,) &amp; hyphens (-) allowed</span>
+            </div>
             <textarea
               id="co-address"
               rows={3}
               className="input-field resize-y font-medium uppercase"
               value={info.street_address}
               onChange={(e) => {
-                const val = e.target.value.toUpperCase();
+                const val = e.target.value.replace(/[^A-Za-z0-9, \-]/g, '').toUpperCase();
                 setInfo((prev) => {
                   const combined = `${val ? val + ', ' : ''}${prev.landmark ? 'NEAR ' + prev.landmark + ', ' : ''}${prev.area ? prev.area + ', ' : ''}${prev.city}, ${prev.state} - ${prev.pincode}`;
                   return { ...prev, street_address: val, address: combined.toUpperCase() };
@@ -2518,7 +2561,7 @@ function Checkout({
 
           {/* 9. Telephone */}
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="co-telephone">Telephone <span className="text-red-600" aria-hidden>*</span></label>
+            <label className="label" htmlFor="co-telephone">Telephone / Mobile (Numbers Only) <span className="text-red-600" aria-hidden>*</span></label>
             <div className="relative">
               <input
                 id="co-telephone"
@@ -2526,13 +2569,13 @@ function Checkout({
                 className="input-field font-mono pr-28"
                 value={info.telephone || info.mobile}
                 onChange={(e) => {
-                  const val = e.target.value;
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                   setInfo((prev) => ({ ...prev, telephone: val, mobile: val }));
                   if (errors.telephone) setErrors((err) => ({ ...err, telephone: '' }));
                 }}
                 autoComplete="tel"
-                placeholder="98250 12345"
-                maxLength={14}
+                placeholder="9825012345 (10 DIGITS ONLY)"
+                maxLength={10}
               />
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
                 WhatsApp OTP
@@ -2677,12 +2720,17 @@ function Checkout({
                 <MapPin className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-bold text-ink-950">Address Re-Confirmation</h3>
-                <p className="text-xs text-ink-500">Please verify your doorstep dispatch location before final submission.</p>
+                <h3 className="font-display text-lg font-bold text-ink-950">Address Re-Confirmation &amp; Compliance</h3>
+                <p className="text-xs text-ink-500">Please verify your doorstep dispatch location before final invoice generation.</p>
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl bg-amber-50/60 p-4 border border-amber-200/80">
+            {/* Official JVLSD Authenticity & Compliance Card */}
+            <div className="mt-4">
+              <JvlsdAuthenticitySeal className="w-full" />
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-amber-50/60 p-4 border border-amber-200/80">
               <p className="text-xs font-bold uppercase tracking-wider text-amber-900 mb-1">
                 Recipient Details:
               </p>
@@ -2707,6 +2755,18 @@ function Checkout({
                 <p className="mt-1 font-sans text-sm font-black text-ink-950 leading-snug">
                   {info.notes ? `"${info.notes}"` : mode === 'next_day' ? 'NEXT-DAY 8:00 AM – 9:00 AM ONLY · VERIFY OTP ON ARRIVAL' : 'SAME-DAY IMMEDIATE DELIVERY · VERIFY OTP ON ARRIVAL'}
                 </p>
+              </div>
+
+              {/* Mandatory Official Compliance Licenses on Bill Invoice */}
+              <div className="mt-3 rounded-xl bg-ink-950 p-3 text-gold-200 font-mono text-[10px] space-y-0.5 border border-gold-400/30">
+                <p className="font-bold text-gold-300 uppercase tracking-wider text-[11px] mb-1">
+                  Official Bill / Invoice Compliance Record
+                </p>
+                <p><span className="text-ink-400">OPERATOR:</span> {COMPANY_CONFIG.legalName} ({COMPANY_CONFIG.franchiseeClarification})</p>
+                <p><span className="text-ink-400">LLPIN:</span> {COMPANY_CONFIG.certifications.cinLlp}</p>
+                <p><span className="text-ink-400">FSSAI:</span> {COMPANY_CONFIG.certifications.fssaiLicense}</p>
+                <p><span className="text-ink-400">GSTIN:</span> {COMPANY_CONFIG.certifications.gstin}</p>
+                <p className="text-emerald-400 text-[9px] pt-1 font-sans">{COMPANY_CONFIG.sustainabilityStatement}</p>
               </div>
 
               <div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-100/70 p-2.5 rounded-xl border border-emerald-200">

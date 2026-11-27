@@ -47,12 +47,24 @@ export function Navbar() {
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
         scrolled
-          ? 'bg-white/90 backdrop-blur-md border-b border-ink-100 shadow-soft'
-          : 'bg-white/60 backdrop-blur-sm'
+          ? 'bg-white/95 backdrop-blur-md border-b border-ink-100 shadow-soft'
+          : 'bg-white/80 backdrop-blur-sm'
       }`}
-      style={{ height: 'var(--header-h)' }}
     >
-      <nav className="container-page flex h-full items-center justify-between" aria-label="Primary">
+      {/* Top Statement Bar: Sustainability & Franchisee Clarification */}
+      <div className="bg-emerald-900 text-gold-200 text-[11px] sm:text-xs py-1 px-3 border-b border-gold-400/20">
+        <div className="container-page flex items-center justify-between gap-2 overflow-x-auto whitespace-nowrap scrollbar-none py-0.5">
+          <div className="flex items-center gap-1.5 text-emerald-100 font-medium">
+            <span className="text-emerald-300 font-bold">🌱 Eco-Friendly Packaging:</span>
+            <span>Zero-plastic approach with almost zero kitchen produce wastage.</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gold-300 font-semibold shrink-0">
+            <span>JVLSD-FD: Authorized Franchisee Partner of Shakhwala.com</span>
+          </div>
+        </div>
+      </div>
+
+      <nav className="container-page flex items-center justify-between" style={{ height: 'var(--header-h)' }} aria-label="Primary">
         <button
           onClick={() => go(PATHS.home)}
           className="flex items-center gap-2.5 rounded-lg"

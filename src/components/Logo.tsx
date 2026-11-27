@@ -390,3 +390,48 @@ export function MascotLiveStanding({ className = '' }: { className?: string }) {
     </div>
   );
 }
+
+/**
+ * Official JVLSD Authenticity Seal for all deliverables, footers, checkout & bill invoices
+ */
+export function JvlsdAuthenticitySeal({
+  compact = false,
+  className = '',
+}: {
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`inline-flex items-center gap-3 rounded-2xl border border-gold-400/50 bg-gradient-to-br from-ink-950 via-[#132c1e] to-ink-950 p-3 text-gold-200 shadow-lift ${
+        compact ? 'p-2 text-xs' : 'p-3.5'
+      } ${className}`}
+    >
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-gold-500 to-amber-300 p-0.5 shadow-soft">
+        <div className="flex h-full w-full items-center justify-center rounded-full bg-ink-950">
+          <img
+            src="/jvlsd-emblem-round.png"
+            alt="JVLSD Authenticity Emblem"
+            className="h-8 w-8 object-contain filter drop-shadow-[0_2px_6px_rgba(212,175,55,0.6)]"
+          />
+        </div>
+      </div>
+      <div className="flex flex-col text-left">
+        <div className="flex items-center gap-1.5">
+          <span className="font-display font-black text-[11px] sm:text-xs uppercase tracking-widest text-gold-300">
+            JVLSD Authenticity Seal
+          </span>
+          <span className="rounded bg-gold-400/20 px-1.5 py-0.2 text-[9px] font-black uppercase text-gold-300 border border-gold-400/40">
+            100% Genuine
+          </span>
+        </div>
+        <p className="text-[10px] text-ink-300 leading-tight mt-0.5">
+          Jagatpati Vigneshwara LSD LLP · FSSAI No. 10724999000452
+        </p>
+        <p className="text-[9px] text-emerald-400 font-medium">
+          Zero-Plastic Eco Packaging · Minimal Kitchen Wastage
+        </p>
+      </div>
+    </div>
+  );
+}

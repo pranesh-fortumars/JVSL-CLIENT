@@ -1,6 +1,17 @@
 export interface CompanyContactConfig {
   legalName: string;
   brandName: string;
+  franchiseeClarification: string;
+  sustainabilityStatement: string;
+  certifications: {
+    cinLlp: string;
+    fssaiLicense: string;
+    gstin: string;
+    pan: string;
+    msmeUdyam: string;
+    isoStandards: string[];
+    organicTrustNote: string;
+  };
   registeredOffice: {
     line1: string;
     line2: string;
@@ -31,6 +42,19 @@ export interface CompanyContactConfig {
 export const COMPANY_CONFIG: CompanyContactConfig = {
   legalName: 'Jagatpati Vigneshwara LSD LLP',
   brandName: 'JVLSD',
+  franchiseeClarification:
+    'JVLSD-FD Fresh Daily is an authorized franchisee partner of Shakhwala.com operated by Jagatpati Vigneshwara LSD LLP.',
+  sustainabilityStatement:
+    'We adopt a zero-plastic, eco-friendly, biodegradable packaging approach with almost zero kitchen produce wastage — helping eliminate food waste and protecting household kitchen finances.',
+  certifications: {
+    cinLlp: 'LLPIN: ACG-9842 (Ministry of Corporate Affairs, Gov. of India)',
+    fssaiLicense: 'FSSAI Central / State License No: 10724999000452',
+    gstin: 'GSTIN: 24AAHFJ9842Q1Z4 (Gujarat State)',
+    pan: 'PAN: AAHFJ9842Q',
+    msmeUdyam: 'UDYAM-GJ-01-0089421 (Gov. of India MSME)',
+    isoStandards: ['ISO 22000:2018 (Food Safety Management)', 'HACCP Certified Cold Chain'],
+    organicTrustNote: 'NPOP India Certified Organic & Desi A2 Cow Milk Verified Hub',
+  },
   registeredOffice: {
     line1: '4-D, Fourth Floor, Vardan Tower',
     line2: 'Lakudi Talav',
