@@ -398,6 +398,51 @@ export function OrderPage() {
                       />
                     </div>
 
+                    {/* Fresh & Cut Produce Sourcing, Breathable Packaging & Non-Cancellable Policy Notice */}
+                    <div className="mt-6 rounded-3xl border border-emerald-300 bg-gradient-to-br from-emerald-50 via-white to-amber-50/70 p-5 sm:p-6 shadow-soft space-y-3.5">
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white shrink-0 mt-0.5">
+                          🌱
+                        </span>
+                        <div>
+                          <h4 className="font-display text-sm sm:text-base font-bold text-ink-950">
+                            Farm-Sourced, Hygienically Prepared &amp; Packed in Breathable Eco Bags
+                          </h4>
+                          <p className="mt-1 text-xs text-ink-600 leading-relaxed">
+                            All fresh vegetables, fruits &amp; cut produce are sourced directly from verified farmers and local morning markets, thoroughly cleaned, and sorted per individual customer order. Delivered in <strong>eco-friendly breathable bags</strong> and <strong>biodegradable compostable containers</strong>.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Plastic-Free Composite Explanation */}
+                      <div className="rounded-2xl bg-white/90 p-4 border border-emerald-200 text-xs text-ink-700 space-y-1.5">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                          <span>✓ 100% Zero-Plastic Packing Standard</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-ink-600">
+                          <strong>Why No Conventional Plastic?</strong> Conventional plastic packaging leads to rapid bacteria formation, oxidation, unappealing color changes, messy moisture buildup, unpleasant odour, and altered taste—rendering produce uneatable later. We strictly use <strong>biodegradable, recyclable composite eco-friendly containers &amp; breathable materials</strong>.
+                        </p>
+                        <p className="text-[10px] text-emerald-800 font-medium italic">
+                          "Today sustainable choices might sound heavy to some, but this small initiative helps each one of us enable others toward the need of the hour."
+                        </p>
+                      </div>
+
+                      {/* Non-cancellable & Non-refundable notice for Cut Veg & Fruit */}
+                      <div className="rounded-2xl bg-amber-50/90 p-4 border border-amber-300 text-xs text-amber-950">
+                        <div className="flex items-center gap-2 font-black text-amber-900 uppercase tracking-wide text-[11px]">
+                          <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
+                          <span>Important: Cut Format Produce Cancellation Policy</span>
+                        </div>
+                        <p className="mt-1.5 leading-relaxed font-semibold">
+                          Orders to be delivered in cut format <u>cannot be cancelled nor amount refunded</u> once placed &amp; paid.
+                        </p>
+                        <div className="mt-2 text-[11px] space-y-1 font-mono text-ink-700 bg-white/80 p-2.5 rounded-xl border border-amber-200">
+                          <p><strong className="text-forest-900 font-sans">Strictly Non-Cancellable Cut Vegetables:</strong> Tomato, Potato, Onion, Brinjal, Cucumber, Mushroom, Zucchini, Leafy Greens (Palak, Methi, Arbi Leaves), Avocado.</p>
+                          <p><strong className="text-forest-900 font-sans">Strictly Non-Cancellable Cut Fruits:</strong> Papaya, Watermelon, Muskmelon, Pomegranate, Apple, Custard Apple, Pineapple, Strawberry, Banana.</p>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Products */}
                     <div className="mt-8 space-y-10">
                       <CategoryGroup
@@ -671,17 +716,20 @@ export function OrderPage() {
                               </label>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 {[
-                                  { id: 'individual', title: 'Individual Cut', desc: 'Separately packed vegetable' },
-                                  { id: 'mixed_box', title: 'Mixed Box', desc: 'Assorted in one kitchen box' },
-                                  { id: 'recipe', title: 'Recipe Prep Pack', desc: 'Pre-cut for a specific dish' },
+                                  { id: 'individual', title: 'Individual Cut', desc: 'Separately packed vegetable', active: true },
+                                  { id: 'mixed_box', title: 'Mixed Box', desc: 'Assorted in one kitchen box', active: true },
+                                  { id: 'recipe', title: 'Recipe Prep Pack', desc: 'Curated dish kit (Reserved for future activation)', active: false },
                                 ].map((opt) => {
                                   const current = cutVegConfigs[cutConfigModalProduct.id]?.preparation_type || 'individual';
                                   const isSel = current === opt.id;
+                                  const isDisabled = !opt.active;
                                   return (
                                     <button
                                       key={opt.id}
                                       type="button"
+                                      disabled={isDisabled}
                                       onClick={() => {
+                                        if (isDisabled) return;
                                         setCutErrorNotice(null);
                                         setCutVegConfigs((prev) => ({
                                           ...prev,
@@ -692,12 +740,21 @@ export function OrderPage() {
                                         }));
                                       }}
                                       className={`p-3 text-left rounded-2xl border transition-all ${
-                                        isSel
+                                        isDisabled
+                                          ? 'border-ink-200 bg-ink-50/70 opacity-60 cursor-not-allowed text-ink-400'
+                                          : isSel
                                           ? 'border-brand-600 bg-brand-50/60 text-brand-900 ring-2 ring-brand-300'
                                           : 'border-ink-200 bg-white hover:bg-ink-50 text-ink-800'
                                       }`}
                                     >
-                                      <p className="font-bold text-xs">{opt.title}</p>
+                                      <div className="flex items-center justify-between">
+                                        <p className="font-bold text-xs">{opt.title}</p>
+                                        {isDisabled && (
+                                          <span className="text-[9px] font-black uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                                            Inactive
+                                          </span>
+                                        )}
+                                      </div>
                                       <p className="text-[11px] text-ink-500 mt-0.5">{opt.desc}</p>
                                     </button>
                                   );
@@ -705,39 +762,15 @@ export function OrderPage() {
                               </div>
                             </div>
 
-                            {/* 12.2 Recipe Selection (When Recipe chosen) */}
+                            {/* 12.2 Recipe Selection (When Recipe chosen - Inactive placeholder) */}
                             {cutVegConfigs[cutConfigModalProduct.id]?.preparation_type === 'recipe' && (
                               <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
                                 <label className="block text-xs font-bold uppercase tracking-wider text-amber-900 mb-2 flex items-center gap-1.5">
-                                  <ChefHat className="h-4 w-4" /> Select Recipe Kit
+                                  <ChefHat className="h-4 w-4" /> Recipe Kit (Reserved for Future Activation)
                                 </label>
-                                <select
-                                  value={cutVegConfigs[cutConfigModalProduct.id]?.recipe_name || RECIPE_PREP_KITS[0].name}
-                                  onChange={(e) => {
-                                    setCutErrorNotice(null);
-                                    const kit = RECIPE_PREP_KITS.find((k) => k.name === e.target.value);
-                                    if (mode === 'next_day' && kit?.hasOnionOrPotato) {
-                                      setCutErrorNotice(
-                                        `"${kit.name}" contains onion/potato and cannot be scheduled for next-day pre-order. Please select Same-Day mode or choose an unoxidized recipe kit.`
-                                      );
-                                    }
-                                    setCutVegConfigs((prev) => ({
-                                      ...prev,
-                                      [cutConfigModalProduct.id]: {
-                                        ...(prev[cutConfigModalProduct.id] || {}),
-                                        preparation_type: 'recipe',
-                                        recipe_name: e.target.value,
-                                      },
-                                    }));
-                                  }}
-                                  className="w-full rounded-xl border border-amber-300 bg-white p-2.5 text-xs font-semibold text-ink-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                >
-                                  {RECIPE_PREP_KITS.map((k) => (
-                                    <option key={k.id} value={k.name}>
-                                      {k.name} ({k.vernacularName || k.description})
-                                    </option>
-                                  ))}
-                                </select>
+                                <p className="text-xs text-amber-800">
+                                  Recipe-based cut vegetable packs are currently inactive and will be enabled by store administration soon. Please select Individual Cut or Mixed Box.
+                                </p>
                               </div>
                             )}
 

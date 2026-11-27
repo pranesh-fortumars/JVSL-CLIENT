@@ -57,13 +57,21 @@ export function TermsPage() {
               <h2 className="font-display text-lg font-bold text-ink-900">3. Non-Availability, Undelivered Returns &amp; Cancellation Policy</h2>
               <ul className="mt-2 list-disc pl-5 space-y-1 text-ink-600">
                 <li><strong>Doorstep Non-Availability &amp; Return:</strong> In case of customer non-availability, no response to telephone calls, and no instructions left regarding where to deliver (such as next door or security desk), the order is returned to the hub and an immediate status update is dispatched via WhatsApp.</li>
+                <li><strong>Strict Non-Cancellable Policy for Cut Vegetables &amp; Fruits:</strong> Orders to be delivered in cut format <u>cannot be cancelled nor amount refunded once placed &amp; paid</u>. This applies strictly to:
+                  <ul className="list-circle pl-5 mt-1 space-y-0.5 text-xs text-ink-700">
+                    <li><strong>Cut Vegetables:</strong> Tomato, Potato, Onion, Brinjal, Cucumber, Mushroom, Zucchini, Leafy Greens (Palak, Methi, Arbi Leaves), and Avocado.</li>
+                    <li><strong>Cut Fruits:</strong> Papaya, Watermelon, Muskmelon, Pomegranate, Apple, Custard Apple, Pineapple, Strawberry, and Banana.</li>
+                  </ul>
+                  <p className="mt-1 text-[11px] text-ink-500 italic">Reason: Pre-cut fresh produce undergoes rapid oxidation and cell respiration; once prepared to individual specification, it cannot be safely re-routed or preserved.</p>
+                </li>
+                <li><strong>Zero-Plastic Composite Packaging Mandate:</strong> All produce is packaged in biodegradable, compostable breathable bags and composite containers. Conventional plastic packaging is completely avoided to prevent bacteria buildup, oxidation color change, trapped moisture, bad odour, and altered taste.</li>
                 <li><strong>Repeated Incidences &amp; Service Cancellation:</strong> If non-availability without instructions occurs 3 times in any quarter (even continuously) OR 5 times in a year:
                   <ul className="list-circle pl-5 mt-1 space-y-0.5">
                     <li>Next-day pre-order and standing subscription services are subject to cancellation, even after customer confirmation of non-repetition after one year.</li>
                     <li>If the customer wishes to continue service after initial trouble, mandatory penalty delivery charges apply: <strong>₹30 for all deliveries within 3 km</strong> (irrespective of order value) and <strong>₹100 for deliveries between 3 km to 10 km</strong>.</li>
                   </ul>
                 </li>
-                <li><strong>Order Cancellation &amp; Non-Refundable Delivery Charge:</strong> In the event of customer cancellation, promotional discount credits are accounted for and deducted from produce refunds. Any delivery charge collected is strictly retained and non-refundable.</li>
+                <li><strong>Order Cancellation &amp; Non-Refundable Delivery Charge:</strong> In the event of standard order cancellation, promotional discount credits are accounted for and deducted from produce refunds. Any delivery charge collected is strictly retained and non-refundable.</li>
                 <li><strong>20% Monthly Volume Privilege Discount:</strong> Applies to the first purchase of ₹500 and above each month. Subsequent smaller orders (₹100+) unlock the 20% discount (up to 3 orders monthly).</li>
                 <li><strong>Standing Subscriptions (+2% Off):</strong> Scheduled daily/weekly recurring deliveries carry an additional 2% privilege discount with automated OTP delivery verification.</li>
               </ul>

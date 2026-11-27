@@ -260,6 +260,75 @@ export function BitesPage() {
           ))}
         </div>
       </section>
+      {/* Blinkit-Style Seller Hub / Partner with JVLSD Section */}
+      <section className="mt-16 bg-gradient-to-br from-emerald-950 via-forest-950 to-ink-950 text-white rounded-3xl p-8 sm:p-12 border border-emerald-900 shadow-lift">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-gold-400/40 bg-gold-400/15 px-3.5 py-1 text-xs font-bold text-gold-300">
+              <Sparkles className="h-3.5 w-3.5" /> JVLSD Seller Hub &amp; Entrepreneurial Launchpad
+            </div>
+            <h2 className="mt-4 font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
+              Grow Your Brand on JVLSD. Direct Access to Daily Kitchen Households.
+            </h2>
+            <p className="mt-4 text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-normal">
+              Inspired by leading seller platforms (like Blinkit Partner Hub, IndiaMart, and Shopify), we provide a dedicated launchpad for local food artisans, regional producers, and home chefs. Join our platform to connect with a verified daily consumer market with zero predatory listing costs, 100% biodegradable composite packaging, and prompt payouts.
+            </p>
+
+            <div className="mt-6 space-y-2 text-xs text-emerald-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-gold-300 shrink-0" />
+                <span>Daily recurring breakfast and evening tea consumer audience.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-gold-300 shrink-0" />
+                <span>100% zero-plastic biodegradable composite packaging and sustainable logistics.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-gold-300 shrink-0" />
+                <span>Fair 60/40 franchisee unit revenue share and transparent account settlement.</span>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(PATHS.contact)}
+                className="btn-primary px-6 py-2.5 text-xs font-bold shadow-lift flex items-center gap-2"
+              >
+                Join as Seller Partner <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(PATHS.survey)}
+                className="rounded-2xl border border-white/20 bg-white/10 px-5 py-2.5 text-xs font-bold text-white hover:bg-white/20 transition-all"
+              >
+                Seller Hub Survey
+              </button>
+            </div>
+          </div>
+
+          {/* Seller Hub Benefits Comparison */}
+          <div className="rounded-3xl border border-gold-400/30 bg-white/5 p-6 backdrop-blur-md shadow-2xl">
+            <h3 className="font-display text-base font-bold text-gold-300 mb-4">
+              Why Partner With JVLSD Over Generic Marketplaces?
+            </h3>
+            <div className="space-y-3 text-xs text-ink-200">
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                <p className="font-bold text-white text-xs">Dedicated High-Retention Audience</p>
+                <p className="mt-1 text-emerald-100/80 text-[11px]">Unlike generic listings lost in millions of products on Amazon or IndiaMart, your regional snacks &amp; bites get direct doorstep placement in verified family baskets.</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                <p className="font-bold text-white text-xs">Zero Inventory Hoarding &amp; Spoilage</p>
+                <p className="mt-1 text-emerald-100/80 text-[11px]">Advance planned pre-ordering aligns supply with exact demand—no leftover warehouse waste or inventory write-offs.</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                <p className="font-bold text-white text-xs">Eco-Conscious Brand Association</p>
+                <p className="mt-1 text-emerald-100/80 text-[11px]">Packed and delivered with our 100% zero-plastic, biodegradable composite packaging standard.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
