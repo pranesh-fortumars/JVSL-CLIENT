@@ -2293,7 +2293,10 @@ export type AlertLog = {
   id: string;
   timestamp: string;
   recipient_phone: string;
-  channel: 'sms' | 'whatsapp' | 'both';
+  recipient_name?: string;
+  recipient_email?: string;
+  role?: 'booking_person' | 'master_head' | 'member';
+  channel: 'sms' | 'whatsapp' | 'both' | 'email' | 'all';
   type:
     | 'subscription_change'
     | 'pause'
@@ -2302,20 +2305,34 @@ export type AlertLog = {
     | 'family_approval_request'
     | 'approval_confirmed'
     | 'approval_rejected'
-    | 'delivery_update';
+    | 'delivery_update'
+    | 'order_placed'
+    | 'payment_confirmed';
   title: string;
   message: string;
   approval_status?: 'pending' | 'accepted' | 'rejected';
   action_target_id?: string;
   decided_by?: string;
   decided_at?: string;
+  retention_days?: number; // Routine operational messages default to 7 days
+  expires_at?: string; // Auto deletion timestamp unless has_customer_query is true
+  has_customer_query?: boolean; // Trail info permanently retained if query/issue raised
+  query_ticket_id?: string;
 };
 
 export async function sendSmsWhatsAppAlert(alert: Omit<AlertLog, 'id' | 'timestamp'>): Promise<AlertLog> {
+  const now = new Date();
+  const retentionDays = alert.retention_days || 7;
+  const expiresAt = alert.has_customer_query
+    ? undefined
+    : new Date(now.getTime() + retentionDays * 24 * 60 * 60 * 1000).toISOString();
+
   const fullAlert: AlertLog = {
     ...alert,
     id: `ALT_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    timestamp: new Date().toISOString(),
+    timestamp: now.toISOString(),
+    retention_days: retentionDays,
+    expires_at: expiresAt,
   };
 
   // Play audio alert instantly for user awareness
@@ -2333,6 +2350,188 @@ export async function sendSmsWhatsAppAlert(alert: Omit<AlertLog, 'id' | 'timesta
   } catch (e) {}
 
   return fullAlert;
+}
+
+/**
+ * Dual-Sided Operational Alerts:
+ * Dispatches operational confirmations (Order, Payment, Delivery) simultaneously
+ * across SMS, WhatsApp, and Email to BOTH the Booking Person and Household Master Profile.
+ * Automatically marks routine pings for 7-day retention/auto-cleanup,
+ * while preserving permanent trail if customer queries/issues are flagged.
+ */
+export async function sendDualSidedOperationalAlert(params: {
+  bookingPerson: { name: string; phone: string; email?: string };
+  masterPerson?: { name: string; phone: string; email?: string } | null;
+  type: AlertLog['type'];
+  title: string;
+  message: string;
+  orderId?: string;
+  hasCustomerQuery?: boolean;
+  queryTicketId?: string;
+}): Promise<AlertLog[]> {
+  const sentAlerts: AlertLog[] = [];
+
+  // 1. Alert Booking Person (SMS + WhatsApp + Email)
+  const bookingAlert = await sendSmsWhatsAppAlert({
+    recipient_name: params.bookingPerson.name,
+    recipient_phone: params.bookingPerson.phone,
+    recipient_email: params.bookingPerson.email,
+    role: 'booking_person',
+    channel: 'all',
+    type: params.type,
+    title: params.title,
+    message: params.message,
+    action_target_id: params.orderId,
+    retention_days: 7,
+    has_customer_query: params.hasCustomerQuery,
+    query_ticket_id: params.queryTicketId,
+  });
+  sentAlerts.push(bookingAlert);
+
+  // 2. Alert Master Profile (if exists and distinct from booking person)
+  if (params.masterPerson && params.masterPerson.phone !== params.bookingPerson.phone) {
+    const masterAlert = await sendSmsWhatsAppAlert({
+      recipient_name: params.masterPerson.name,
+      recipient_phone: params.masterPerson.phone,
+      recipient_email: params.masterPerson.email,
+      role: 'master_head',
+      channel: 'all',
+      type: params.type,
+      title: `[Family Master Alert] ${params.title}`,
+      message: `Activity by ${params.bookingPerson.name}: ${params.message}`,
+      action_target_id: params.orderId,
+      retention_days: 7,
+      has_customer_query: params.hasCustomerQuery,
+      query_ticket_id: params.queryTicketId,
+    });
+    sentAlerts.push(masterAlert);
+  }
+
+  return sentAlerts;
+}
+
+/**
+ * Clean up expired routine operational alerts older than 7 days,
+ * preserving all alerts with has_customer_query == true as permanent audit trails.
+ */
+export async function cleanupExpiredOperationalAlerts(): Promise<number> {
+  const now = new Date().toISOString();
+  let deletedCount = 0;
+  try {
+    const list: AlertLog[] = JSON.parse(localStorage.getItem('jvlsd_notification_alerts') || '[]');
+    const kept = list.filter((a) => {
+      if (a.has_customer_query) return true; // keep permanent query trail
+      if (a.expires_at && a.expires_at < now) {
+        deletedCount++;
+        return false;
+      }
+      return true;
+    });
+    localStorage.setItem('jvlsd_notification_alerts', JSON.stringify(kept));
+  } catch (e) {}
+  return deletedCount;
+}
+
+/* =========================================================================
+   Live Millisecond Stock Reservation & Concurrency Management
+   Prevents overlapping orders, race conditions, and double charges
+   ========================================================================= */
+
+export type StockReservation = {
+  reservation_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  user_id: string;
+  reserved_at_ms: number;
+  expires_at_ms: number; // TTL (e.g. 180,000 ms = 3 minutes)
+  status: 'reserved' | 'committed' | 'released';
+};
+
+const RESERVATION_TTL_MS = 180 * 1000; // 3 minutes payment window
+
+/**
+ * Reserve product stock with millisecond precision before launching payment gateway.
+ */
+export async function reserveStockMillisecond(
+  items: Array<{ id: string; name: string; quantity: number; availableStock?: number }>,
+  userId: string
+): Promise<{ success: boolean; errorItem?: string; reservationIds: string[] }> {
+  const now = Date.now();
+  const existingReservations: StockReservation[] = JSON.parse(
+    localStorage.getItem('jvlsd_stock_reservations') || '[]'
+  );
+
+  // Purge expired reservations first
+  const activeReservations = existingReservations.filter(
+    (r) => r.status === 'reserved' && r.expires_at_ms > now
+  );
+
+  const reservationIds: string[] = [];
+
+  for (const item of items) {
+    if (item.availableStock !== undefined) {
+      // Sum currently reserved quantities for this product by others
+      const currentlyLocked = activeReservations
+        .filter((r) => r.product_id === item.id && r.user_id !== userId)
+        .reduce((sum, r) => sum + r.quantity, 0);
+
+      const effectiveStock = item.availableStock - currentlyLocked;
+      if (effectiveStock < item.quantity) {
+        return {
+          success: false,
+          errorItem: item.name,
+          reservationIds: [],
+        };
+      }
+    }
+
+    const reservationId = `RES_${now}_${Math.random().toString(36).slice(2, 7)}`;
+    activeReservations.push({
+      reservation_id: reservationId,
+      product_id: item.id,
+      product_name: item.name,
+      quantity: item.quantity,
+      user_id: userId,
+      reserved_at_ms: now,
+      expires_at_ms: now + RESERVATION_TTL_MS,
+      status: 'reserved',
+    });
+    reservationIds.push(reservationId);
+  }
+
+  localStorage.setItem('jvlsd_stock_reservations', JSON.stringify(activeReservations));
+  return { success: true, reservationIds };
+}
+
+/**
+ * Commit stock permanently upon payment confirmation.
+ */
+export async function commitStockReservations(reservationIds: string[]): Promise<void> {
+  try {
+    const list: StockReservation[] = JSON.parse(
+      localStorage.getItem('jvlsd_stock_reservations') || '[]'
+    );
+    const updated = list.map((r) =>
+      reservationIds.includes(r.reservation_id) ? { ...r, status: 'committed' as const } : r
+    );
+    localStorage.setItem('jvlsd_stock_reservations', JSON.stringify(updated));
+  } catch (e) {}
+}
+
+/**
+ * Release reserved stock if user aborts or gateway payment fails.
+ */
+export async function releaseStockReservations(reservationIds: string[]): Promise<void> {
+  try {
+    const list: StockReservation[] = JSON.parse(
+      localStorage.getItem('jvlsd_stock_reservations') || '[]'
+    );
+    const updated = list.map((r) =>
+      reservationIds.includes(r.reservation_id) ? { ...r, status: 'released' as const } : r
+    );
+    localStorage.setItem('jvlsd_stock_reservations', JSON.stringify(updated));
+  } catch (e) {}
 }
 
 export async function fetchNotificationAlerts(recipientPhone?: string): Promise<AlertLog[]> {

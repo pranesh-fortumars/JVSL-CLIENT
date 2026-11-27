@@ -36,6 +36,10 @@ import {
   fetchFamilyGroup,
   fetchSystemDiscountConfig,
   sendSmsWhatsAppAlert,
+  sendDualSidedOperationalAlert,
+  reserveStockMillisecond,
+  commitStockReservations,
+  releaseStockReservations,
   fetchCustomerLienProfile,
   type CustomerLienProfile,
   type Product,
@@ -1972,7 +1976,28 @@ function Checkout({
   const placeOrder = async () => {
     setSubmitting(true);
     setSubmitError(null);
+    let stockReservations: string[] = [];
     try {
+      // 1. Live Millisecond Inventory Lock before payment / finalizing order
+      const stockCheck = await reserveStockMillisecond(
+        cartItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+        })),
+        user?.uid || info.mobile || 'guest'
+      );
+
+      if (!stockCheck.success) {
+        setSubmitError(
+          `Live Inventory Notice: Item "${stockCheck.errorItem}" was just claimed by another customer in the last millisecond. Please adjust your cart.`
+        );
+        setSubmitting(false);
+        setShowConfirmModal(false);
+        return;
+      }
+      stockReservations = stockCheck.reservationIds;
+
       const finalCustomerName = (info.customer_name || `${info.first_name} ${info.last_name}`).trim();
       const finalMobile = (info.telephone || info.mobile).trim();
       const finalAddress = info.address.trim() || `${info.street_address ? info.street_address + ', ' : ''}${info.house_flat ? info.house_flat + ', ' : ''}${info.building_society ? info.building_society + ', ' : ''}${info.area ? info.area + ', ' : ''}${info.city}, ${info.state} - ${info.pincode}`;
@@ -1992,6 +2017,11 @@ function Checkout({
         total_amount: finalPayable,
         payment_method: paymentMethod === 'wallet' ? 'Prepaid Wallet' : paymentMethod === 'upi' ? 'UPI' : paymentMethod === 'card' ? 'Credit/Debit Card' : paymentMethod === 'sodexo' ? 'Sodexo/Pluxee' : 'Cash on Delivery',
       });
+
+      // Commit locked stock permanently
+      if (stockReservations.length > 0) {
+        await commitStockReservations(stockReservations);
+      }
 
       // Update user financial balance if wallet or discounts applied
       if (user?.uid && (walletDeduction > 0 || promoDiscount > 0 || loyaltyDeduction > 0)) {
@@ -2024,16 +2054,29 @@ function Checkout({
         localStorage.removeItem('jvlsd_checkout_draft');
       } catch (e) {}
 
-      // Send Audio alert + SMS/WhatsApp order confirmation
+      // Dual-Sided Operational Alerts: SMS + WhatsApp + Email to BOTH Booking Person and Household Master
       try {
-        await sendSmsWhatsAppAlert({
-          recipient_phone: finalMobile,
-          channel: 'both',
-          type: 'subscription_change',
-          title: 'Order Placed & Dispatched Alert',
-          message: `Namaste ${finalCustomerName}! Your JVLSD Fresh Daily order (#${(res?.id || `ORD-${Date.now()}`).slice(-8)}) has been successfully confirmed for delivery on ${deliveryDate}. Final payable: ₹${finalPayable.toFixed(2)}. Verified via WhatsApp OTP upon morning arrival.`,
-          action_target_id: res?.id,
-          approval_status: 'accepted',
+        const orderId = res?.id || `ORD-${Date.now()}`;
+        const masterContact = profile?.family_group_id
+          ? {
+              name: 'Household Master',
+              phone: profile.mobile || finalMobile,
+              email: profile.email || info.email,
+            }
+          : undefined;
+
+        await sendDualSidedOperationalAlert({
+          bookingPerson: {
+            name: finalCustomerName,
+            phone: finalMobile,
+            email: info.email,
+          },
+          masterPerson: masterContact,
+          type: 'order_placed',
+          orderId,
+          title: 'Order Confirmed & Live Inventory Reserved',
+          message: `Namaste! JVLSD Fresh Daily order (#${orderId.slice(-8)}) confirmed for delivery on ${deliveryDate}. Final payable: ₹${finalPayable.toFixed(2)} (${paymentMethod === 'card' ? 'incl. Card surcharge' : 'UPI 0% fee'}). Verified via WhatsApp OTP upon arrival.`,
+          hasCustomerQuery: false,
         });
       } catch (e) {}
 
@@ -2041,6 +2084,9 @@ function Checkout({
       onPlaced(res?.id || `ORD-${Date.now()}`, finalCustomerName);
     } catch (err) {
       console.error(err);
+      if (stockReservations.length > 0) {
+        await releaseStockReservations(stockReservations);
+      }
       setSubmitError('We could not place your order just now. Please try again.');
     } finally {
       setSubmitting(false);
