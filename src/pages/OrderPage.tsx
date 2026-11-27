@@ -45,6 +45,7 @@ import {
   type FamilyGroup,
   type CutVegPreference,
   type SystemDiscountConfig,
+  type FamilyMember,
 } from '@/lib/firestoreService';
 import { useAuth } from '@/lib/auth';
 import { SEASONAL_CATALOGUE, type SeasonalProduce } from '@/data/seasonalProduce';
@@ -1419,7 +1420,10 @@ function Checkout({
   // Customer Lien & Observation Status (Undelivered Repeated Incidences)
   const [lienProfile, setLienProfile] = useState<CustomerLienProfile | null>(null);
 
-  // Ahmedabad Pin code lookup database for automatic city/area/state & Digipin mapping
+  const [familyMemberRecord, setFamilyMemberRecord] = useState<FamilyMember | null>(null);
+  const [walletRestrictedNotice, setWalletRestrictedNotice] = useState<string | null>(null);
+
+  // Gujarat / Ahmedabad Pin code lookup database for automatic city/area/state & Digipin mapping
   const AHMEDABAD_PIN_MAP: Record<string, { area: string; city: string; state: string; digipin: string; distKm: number }> = {
     '380009': { area: 'NAVRANGPURA / LAKUDI / STADIUM', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-NAV-009', distKm: 0.5 },
     '380014': { area: 'USMANPURA / ASHRAM ROAD', city: 'AHMEDABAD', state: 'GUJARAT', digipin: 'GJ-380-USM-014', distKm: 1.2 },
@@ -1605,10 +1609,13 @@ function Checkout({
   const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - couponDiscount - loyaltyDeduction + cardFee + deliveryFee);
 
   // Wallet deduction calculation
+  const isDomesticStaff = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(familyMemberRecord?.role || '');
+
   const walletDeduction = useMemo(() => {
+    if (isDomesticStaff) return 0; // Strictly restricted
     if (!applyWallet || walletBalance <= 0 || paymentMethod !== 'wallet') return 0;
     return Math.min(walletBalance, afterDiscountTotal);
-  }, [applyWallet, walletBalance, paymentMethod, afterDiscountTotal]);
+  }, [isDomesticStaff, applyWallet, walletBalance, paymentMethod, afterDiscountTotal]);
 
   const finalPayable = Math.max(0, afterDiscountTotal - walletDeduction);
 
@@ -1650,7 +1657,16 @@ function Checkout({
       if (profile.family_group_id) {
         fetchFamilyGroup(profile.family_group_id).then((grp) => {
           if (grp) {
-            const memberRecord = grp.members?.find((m) => m.uid === user?.uid);
+            const memberRecord = grp.members?.find((m) => m.uid === user?.uid || m.mobile === profile?.mobile);
+            if (memberRecord) {
+              setFamilyMemberRecord(memberRecord);
+              const isDomestic = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(memberRecord.role);
+              if (isDomestic) {
+                setWalletRestrictedNotice('Domestic staff / helper accounts are restricted from using household wallet or loyalty points.');
+                setApplyWallet(false);
+                setApplyLoyalty(false);
+              }
+            }
             if (memberRecord?.address_locked) {
               setIsAddressLocked(true);
               setInfo((prev) => ({
@@ -2597,20 +2613,53 @@ function Checkout({
             </label>
           </div>
 
-          {/* 11. Auto DIGIPIN Field & Resolved Area */}
-          <div className="sm:col-span-2">
-            <div className="flex items-center justify-between">
-              <label className="label">Auto-Captured DIGIPIN (Postal Grid Code)</label>
-              <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                Verified Postal Code
+          {/* 11. Auto DIGIPIN Field (1st Preferred Delivery Coordinate) & Fallback */}
+          <div className="sm:col-span-2 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-brand-50/40 p-4 border border-emerald-200 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs">
+                  #1
+                </span>
+                <div>
+                  <label className="text-xs font-bold text-emerald-950 uppercase tracking-wider block">
+                    DIGIPIN (1st Preferred Delivery Dispatch Mode)
+                  </label>
+                  <p className="text-[11px] text-emerald-800">
+                    Precision 4m x 4m National Postal Geo-Grid code for accurate morning doorstep drops.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300 shrink-0">
+                Primary Postal Grid
               </span>
             </div>
-            <input
-              type="text"
-              readOnly
-              className="input-field font-mono text-xs bg-ink-50/80 cursor-not-allowed font-bold text-brand-900"
-              value={info.digipin || 'Automatically assigned upon entering PIN / ZIP code'}
-            />
+
+            <div className="mt-3 flex flex-col sm:flex-row items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                className="input-field font-mono text-xs bg-white cursor-not-allowed font-extrabold text-brand-950 border-emerald-300 flex-1"
+                value={info.digipin || 'Automatically captured from Postal PIN code (e.g. GJ-380-NAV-009)'}
+              />
+              {info.digipin ? (
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-3 py-2 rounded-xl shrink-0">
+                  <span>✓ DIGIPIN Active</span>
+                </div>
+              ) : (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(info.address || 'Ahmedabad')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-ink-700 bg-ink-100 hover:bg-ink-200 px-3 py-2 rounded-xl shrink-0"
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>Google Maps (Last Fallback Option)</span>
+                </a>
+              )}
+            </div>
+            <p className="mt-2 text-[10px] text-ink-500 italic">
+              * Delivery policy: DIGIPIN is always used as 1st preference for routing &amp; dispatch. Google Maps navigation coordinates are accessed only as a secondary fallback if DIGIPIN is unavailable.
+            </p>
           </div>
 
           {/* 12. Order Notes */}

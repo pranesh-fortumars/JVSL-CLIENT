@@ -36,6 +36,8 @@ import {
   createFamilyGroup,
   joinFamilyGroupByCode,
   fetchFamilyGroup,
+  addFamilyMemberDirectly,
+  approveFamilyMemberOrdering,
   fetchFamilyExpenseProposals,
   saveFamilyExpenseProposal,
   updateFamilyExpenseStatus,
@@ -60,6 +62,7 @@ import {
   type SubscriptionFrequency,
   type SubscriptionItem,
   type AlertLog,
+  type FamilyMember,
 } from '@/lib/firestoreService';
 
 const STATUS_LABEL: Record<OrderRow['status'], string> = {
@@ -112,12 +115,18 @@ export function AccountPage() {
   const [familyGroup, setFamilyGroup] = useState<FamilyGroup | null>(null);
   const [familyLoading, setFamilyLoading] = useState<boolean>(false);
   const [inviteInput, setInviteInput] = useState<string>('');
-  const [joinRole, setJoinRole] = useState<'family_member' | 'domestic_help'>('family_member');
+  const [joinRole, setJoinRole] = useState<FamilyMember['role']>('family_member');
   const [createHouseholdName, setCreateHouseholdName] = useState<string>('');
   const [createAddress, setCreateAddress] = useState<string>('');
+  const [createDigipin, setCreateDigipin] = useState<string>('');
   const [groupActionNotice, setGroupActionNotice] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showJoinModal, setShowJoinModal] = useState<boolean>(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState<boolean>(false);
+  const [newMemberName, setNewMemberName] = useState<string>('');
+  const [newMemberMobile, setNewMemberMobile] = useState<string>('');
+  const [newMemberRole, setNewMemberRole] = useState<FamilyMember['role']>('family_member');
+  const [newMemberAdditionalAddr, setNewMemberAdditionalAddr] = useState<string>('');
 
   // Authenticated Financial Balances
   const [realWallet, setRealWallet] = useState<number>(0);
@@ -1106,118 +1115,181 @@ export function AccountPage() {
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-3">
-                      Authorized Household Members ({familyGroup.members.length})
-                    </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500">
+                        Authorized Household Members ({familyGroup.members.length})
+                      </h4>
+                      {familyGroup.creator_uid === user.uid && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewMemberName('');
+                            setNewMemberMobile('');
+                            setNewMemberRole('family_member');
+                            setNewMemberAdditionalAddr('');
+                            setShowAddMemberModal(true);
+                          }}
+                          className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1 shadow-xs"
+                        >
+                          + Add Member / Staff
+                        </button>
+                      )}
+                    </div>
                     <div className="divide-y divide-ink-100 rounded-2xl border border-ink-100 overflow-hidden bg-white">
-                      {familyGroup.members.map((m) => (
-                        <div key={m.uid} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold text-ink-900">{m.full_name}</p>
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                m.role === 'owner'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : m.role === 'domestic_help'
-                                  ? 'bg-amber-100 text-amber-900'
-                                  : 'bg-brand-50 text-brand-800'
-                              }`}>
-                                {m.role === 'owner' ? 'Group Owner' : m.role === 'domestic_help' ? 'Domestic Staff / Maid' : 'Family Member'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-ink-500 mt-0.5">
-                              Mobile: {m.mobile} · Joined {new Date(m.joined_at).toLocaleDateString('en-IN')}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold ${
-                              m.can_order ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-700'
-                            }`}>
-                              {m.can_order ? '✓ Ordering Authorized' : '✕ No Order Access'}
-                            </span>
-                            {m.address_locked && (
-                              <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-brand-50 text-brand-800 border border-brand-200">
-                                🔒 Doorstep Locked
-                              </span>
-                            )}
-
-                            {/* Family Authority Approver Badge & Assignment */}
-                            {familyGroup.approver_uid === m.uid ? (
-                              <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                                👑 Authority Approver (SMS/WhatsApp)
-                              </span>
-                            ) : familyGroup.creator_uid === user.uid ? (
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const updated = { ...familyGroup, approver_uid: m.uid };
-                                  setFamilyGroup(updated);
-                                  localStorage.setItem(`jvlsd_family_group_${familyGroup.id}`, JSON.stringify(updated));
-                                  setGroupActionNotice(`${m.full_name} is now designated as the single Authority Approver for all household orders and subscription changes.`);
-                                }}
-                                className="rounded-lg border border-ink-200 px-2 py-0.5 text-[10px] font-semibold text-ink-600 hover:bg-ink-100"
-                              >
-                                Set as Approver
-                              </button>
-                            ) : null}
-
-                            {/* B: Two-Party Removal Mutual Confirmation */}
-                            {m.removal_pending ? (
-                              m.uid === user.uid ? (
-                                <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 p-1.5 rounded-xl">
-                                  <span className="text-[10px] font-bold text-amber-900">Removal requested. Confirm?</span>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      await confirmFamilyMemberRemoval(familyGroup.id, m.uid, true);
-                                      const updated = await fetchFamilyGroup(familyGroup.id);
-                                      setFamilyGroup(updated);
-                                      setGroupActionNotice('You have confirmed departure from the household group.');
-                                    }}
-                                    className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold"
-                                  >
-                                    Accept
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      await confirmFamilyMemberRemoval(familyGroup.id, m.uid, false);
-                                      const updated = await fetchFamilyGroup(familyGroup.id);
-                                      setFamilyGroup(updated);
-                                      setGroupActionNotice('Departure request declined.');
-                                    }}
-                                    className="px-2 py-0.5 rounded-lg bg-ink-200 text-ink-800 text-[10px] font-bold"
-                                  >
-                                    Decline
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                                  Awaiting Member Confirmation
+                      {familyGroup.members.map((m) => {
+                        const isDomestic = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(m.role);
+                        return (
+                          <div key={m.uid} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-ink-900">{m.full_name}</p>
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                  m.role === 'owner'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : isDomestic
+                                    ? 'bg-amber-100 text-amber-900'
+                                    : 'bg-brand-50 text-brand-800'
+                                }`}>
+                                  {m.role === 'owner'
+                                    ? 'Household Head'
+                                    : m.role === 'housemaid'
+                                    ? 'Housemaid'
+                                    : m.role === 'helper'
+                                    ? 'House Helper'
+                                    : m.role === 'driver'
+                                    ? 'Family Driver'
+                                    : m.role === 'officestaff'
+                                    ? 'Office Staff'
+                                    : m.role === 'domestic_help'
+                                    ? 'Domestic Staff'
+                                    : 'Family Member'}
                                 </span>
-                              )
-                            ) : (
-                              (familyGroup.creator_uid === user.uid || m.uid === user.uid) && m.role !== 'owner' && (
+                              </div>
+                              <p className="text-xs text-ink-500 mt-0.5">
+                                Mobile: {m.mobile} · {isDomestic ? 'Daily Subscription Only (No Wallet Access)' : 'Full Kitchen Ordering'}
+                              </p>
+                              {m.additional_addresses && m.additional_addresses.length > 0 && (
+                                <p className="text-[11px] text-brand-700 mt-0.5">
+                                  Allowed Addr: {m.additional_addresses.join('; ')}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              {/* One-time Master Approval Status */}
+                              {m.is_approved ? (
+                                <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  ✓ Approved
+                                </span>
+                              ) : (
+                                familyGroup.creator_uid === user.uid ? (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const updated = await approveFamilyMemberOrdering(familyGroup.id, m.uid, true);
+                                      if (updated) setFamilyGroup(updated);
+                                      setGroupActionNotice(`Ordering access approved for ${m.full_name}.`);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-bold text-xs hover:bg-emerald-800"
+                                  >
+                                    Grant One-Time Approval
+                                  </button>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                    Awaiting Master Approval
+                                  </span>
+                                )
+                              )}
+
+                              {m.address_locked && (
+                                <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-brand-50 text-brand-800 border border-brand-200">
+                                  🔒 Doorstep Locked
+                                </span>
+                              )}
+
+                              {isDomestic && (
+                                <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold bg-rose-50 text-rose-700 border border-rose-200 text-[10px]">
+                                  No Wallet / Loyalty
+                                </span>
+                              )}
+
+                              {/* Family Authority Approver Badge & Assignment */}
+                              {familyGroup.approver_uid === m.uid ? (
+                                <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                  👑 Authority Approver (SMS/WhatsApp)
+                                </span>
+                              ) : familyGroup.creator_uid === user.uid ? (
                                 <button
                                   type="button"
                                   onClick={async () => {
-                                    if (confirm(`Request mutual removal for ${m.full_name}? In accordance with household rules, this action requires mutual confirmation.`)) {
-                                      await requestFamilyMemberRemoval(familyGroup.id, user.uid, m.uid);
-                                      const updated = await fetchFamilyGroup(familyGroup.id);
-                                      setFamilyGroup(updated);
-                                      setGroupActionNotice(`Removal request submitted for ${m.full_name}. Awaiting their confirmation.`);
-                                    }
+                                    const updated = { ...familyGroup, approver_uid: m.uid };
+                                    setFamilyGroup(updated);
+                                    localStorage.setItem(`jvlsd_family_group_${familyGroup.id}`, JSON.stringify(updated));
+                                    setGroupActionNotice(`${m.full_name} is now designated as the single Authority Approver for all household orders and subscription changes.`);
                                   }}
-                                  className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline px-1.5 py-0.5"
+                                  className="rounded-lg border border-ink-200 px-2 py-0.5 text-[10px] font-semibold text-ink-600 hover:bg-ink-100"
                                 >
-                                  Remove Member
+                                  Set as Approver
                                 </button>
-                              )
-                            )}
+                              ) : null}
+
+                              {/* B: Two-Party Removal Mutual Confirmation */}
+                              {m.removal_pending ? (
+                                m.uid === user.uid ? (
+                                  <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 p-1.5 rounded-xl">
+                                    <span className="text-[10px] font-bold text-amber-900">Removal requested. Confirm?</span>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await confirmFamilyMemberRemoval(familyGroup.id, m.uid, true);
+                                        const updated = await fetchFamilyGroup(familyGroup.id);
+                                        setFamilyGroup(updated);
+                                        setGroupActionNotice('You have confirmed departure from the household group.');
+                                      }}
+                                      className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await confirmFamilyMemberRemoval(familyGroup.id, m.uid, false);
+                                        const updated = await fetchFamilyGroup(familyGroup.id);
+                                        setFamilyGroup(updated);
+                                        setGroupActionNotice('Departure request declined.');
+                                      }}
+                                      className="px-2 py-0.5 rounded-lg bg-ink-200 text-ink-800 text-[10px] font-bold"
+                                    >
+                                      Decline
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                                    Awaiting Member Confirmation
+                                  </span>
+                                )
+                              ) : (
+                                (familyGroup.creator_uid === user.uid || m.uid === user.uid) && m.role !== 'owner' && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (confirm(`Request mutual removal for ${m.full_name}? In accordance with household rules, this action requires mutual confirmation.`)) {
+                                        await requestFamilyMemberRemoval(familyGroup.id, user.uid, m.uid);
+                                        const updated = await fetchFamilyGroup(familyGroup.id);
+                                        setFamilyGroup(updated);
+                                        setGroupActionNotice(`Removal request submitted for ${m.full_name}. Awaiting their confirmation.`);
+                                      }
+                                    }}
+                                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline px-1.5 py-0.5"
+                                  >
+                                    Remove Member
+                                  </button>
+                                )
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1321,6 +1393,105 @@ export function AccountPage() {
               </div>
             )}
 
+            {/* Modal: Add Member Directly by Master */}
+            {showAddMemberModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-950/70 backdrop-blur-sm">
+                <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-ink-100">
+                  <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+                    <h4 className="font-display text-base font-bold text-ink-950">Add Member / Staff to Household</h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMemberModal(false)}
+                      className="h-7 w-7 rounded-lg bg-ink-100 text-ink-600 flex items-center justify-center"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!familyGroup || !newMemberName.trim() || !newMemberMobile.trim()) return;
+                      const updated = await addFamilyMemberDirectly(familyGroup.id, {
+                        fullName: newMemberName.trim(),
+                        mobile: newMemberMobile.trim(),
+                        role: newMemberRole,
+                        additionalAddress: newMemberAdditionalAddr.trim() || undefined,
+                      });
+                      if (updated) {
+                        setFamilyGroup(updated);
+                        setShowAddMemberModal(false);
+                        setGroupActionNotice(`Added ${newMemberName.toUpperCase()} to ${familyGroup.household_name}. Verified with household DIGIPIN.`);
+                      }
+                    }}
+                    className="mt-4 space-y-4"
+                  >
+                    <div>
+                      <label className="label">Full Name (Capitals Only)</label>
+                      <input
+                        type="text"
+                        className="input-field uppercase font-bold"
+                        value={newMemberName}
+                        onChange={(e) => setNewMemberName(e.target.value.replace(/[^A-Za-z0-9 ]/g, '').toUpperCase())}
+                        placeholder="e.g. RAMESH BHAI"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Mobile Number (10 Digits)</label>
+                      <input
+                        type="tel"
+                        className="input-field font-mono font-bold"
+                        value={newMemberMobile}
+                        onChange={(e) => setNewMemberMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="e.g. 9825012345"
+                        required
+                        maxLength={10}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Designation / Role in Household</label>
+                      <select
+                        className="input-field"
+                        value={newMemberRole}
+                        onChange={(e) => setNewMemberRole(e.target.value as any)}
+                      >
+                        <option value="family_member">Family Member (Full Kitchen Ordering Access)</option>
+                        <option value="housemaid">Housemaid (Daily Subscription Only · Locked to Doorstep)</option>
+                        <option value="helper">House Helper (Daily Subscription Only · Locked to Doorstep)</option>
+                        <option value="driver">Family Driver (Daily Subscription Only · Locked to Doorstep)</option>
+                        <option value="officestaff">Office Staff (Daily Subscription Only · Locked to Doorstep)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Permitted Additional Address <span className="text-ink-400 font-normal">(optional)</span></label>
+                      <input
+                        type="text"
+                        className="input-field uppercase text-xs"
+                        value={newMemberAdditionalAddr}
+                        onChange={(e) => setNewMemberAdditionalAddr(e.target.value.replace(/[^A-Za-z0-9, \-]/g, '').toUpperCase())}
+                        placeholder="e.g. OFFICE: 4-D VARDAN TOWER, NAVRANGPURA"
+                      />
+                      <p className="text-[10px] text-ink-500 mt-0.5">
+                        Double-verified backend via DIGIPIN. Domestic staff cannot use wallet/loyalty points.
+                      </p>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddMemberModal(false)}
+                        className="btn-ghost text-xs px-3 py-2"
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn-primary text-xs px-4 py-2">
+                        Add &amp; Authorize Member
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
             {/* Modal: Join Family Group by Code */}
             {showJoinModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-950/70 backdrop-blur-sm">
@@ -1373,7 +1544,11 @@ export function AccountPage() {
                         onChange={(e) => setJoinRole(e.target.value as any)}
                       >
                         <option value="family_member">Family Member (Full Kitchen Ordering Access)</option>
-                        <option value="domestic_help">Domestic Staff / Maid (Locked strictly to Household Doorstep)</option>
+                        <option value="housemaid">Housemaid (Daily Subscription Only · Locked to Doorstep)</option>
+                        <option value="helper">House Helper (Daily Subscription Only · Locked to Doorstep)</option>
+                        <option value="driver">Family Driver (Daily Subscription Only · Locked to Doorstep)</option>
+                        <option value="officestaff">Office Staff (Daily Subscription Only · Locked to Doorstep)</option>
+                        <option value="domestic_help">Domestic Staff (Daily Subscription Only · Locked to Doorstep)</option>
                       </select>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">

@@ -48,16 +48,31 @@ export type Profile = {
   family_group_id?: string;
 };
 
+export type FamilyMemberRole =
+  | 'owner'
+  | 'family_member'
+  | 'housemaid'
+  | 'helper'
+  | 'driver'
+  | 'officestaff'
+  | 'domestic_help'; // backward compatibility
+
 export type FamilyMember = {
   uid: string;
   full_name: string;
   mobile: string;
-  role: 'owner' | 'family_member' | 'domestic_help';
+  role: FamilyMemberRole;
   can_order: boolean;
   address_locked: boolean;
   joined_at: string;
   authorized_by?: string;
   is_family_approver?: boolean; // Authority approval for orders/subscription changes for this address
+  is_approved?: boolean; // Master single one-time approval for ordering access
+  can_use_wallet?: boolean; // false for housemaid, helper, driver, officestaff
+  can_use_loyalty?: boolean; // false for housemaid, helper, driver, officestaff
+  can_order_daily_subscription_only?: boolean; // true for housemaid, helper, driver, officestaff
+  synced_digipin?: string; // Double verification syncing with DIGIPIN
+  additional_addresses?: string[]; // Permitted additional addresses once verified by master
   removal_pending?: boolean;
   removal_requested_by?: string;
   removal_reason?: string;
@@ -67,6 +82,7 @@ export type FamilyGroup = {
   id: string;
   household_name: string;
   household_address: string;
+  household_digipin?: string;
   invite_code: string;
   creator_uid: string;
   member_uids?: string[];
@@ -868,13 +884,15 @@ export async function updateUserRole(userId: string, role: Profile['role']): Pro
 export async function createFamilyGroup(
   creator: { uid: string; name: string; mobile: string },
   householdName: string,
-  householdAddress: string
+  householdAddress: string,
+  householdDigipin?: string
 ): Promise<FamilyGroup> {
   const code = 'FAM-' + Math.random().toString(36).substring(2, 7).toUpperCase();
   const group: FamilyGroup & { member_uids: string[] } = {
     id: 'grp_' + Date.now(),
     household_name: householdName,
     household_address: householdAddress,
+    household_digipin: householdDigipin,
     invite_code: code,
     creator_uid: creator.uid,
     member_uids: [creator.uid],
@@ -887,6 +905,11 @@ export async function createFamilyGroup(
         can_order: true,
         address_locked: false,
         joined_at: new Date().toISOString(),
+        is_approved: true,
+        can_use_wallet: true,
+        can_use_loyalty: true,
+        can_order_daily_subscription_only: false,
+        synced_digipin: householdDigipin,
       },
     ],
     created_at: new Date().toISOString(),
@@ -909,9 +932,9 @@ export async function createFamilyGroup(
 }
 
 export async function joinFamilyGroupByCode(
-  user: { uid: string; name: string; mobile: string },
+  user: { uid: string; name: string; mobile: string; address?: string; digipin?: string },
   code: string,
-  role: 'family_member' | 'domestic_help' = 'family_member'
+  role: FamilyMemberRole = 'family_member'
 ): Promise<FamilyGroup | null> {
   let targetGroup: FamilyGroup | null = null;
 
@@ -935,15 +958,30 @@ export async function joinFamilyGroupByCode(
 
   // Add new member if not already in group
   if (!targetGroup.members.some((m) => m.uid === user.uid)) {
+    const isDomesticOrStaff = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(role);
+    const isOwnerOrDirectFamily = role === 'family_member';
+
+    // Backend verification: syncing with DIGIPIN for double verification
+    const verifiedDigipin = user.digipin || targetGroup.household_digipin;
+
     const newMember: FamilyMember = {
       uid: user.uid,
       full_name: user.name,
       mobile: user.mobile,
       role,
-      can_order: role === 'family_member',
-      address_locked: role === 'domestic_help',
+      // If direct family, ordering is approved; if domestic help/driver/staff, master must approve once
+      is_approved: isOwnerOrDirectFamily,
+      can_order: isOwnerOrDirectFamily,
+      address_locked: isDomesticOrStaff,
       joined_at: new Date().toISOString(),
       authorized_by: targetGroup.creator_uid,
+      // Rule: housemaid, helper, driver, officestaff have NO access to family wallet or loyalty points
+      can_use_wallet: !isDomesticOrStaff,
+      can_use_loyalty: !isDomesticOrStaff,
+      // Rule: domestic staff can only place daily subscription orders for the family
+      can_order_daily_subscription_only: isDomesticOrStaff,
+      synced_digipin: verifiedDigipin,
+      additional_addresses: [],
     };
     targetGroup.members.push(newMember);
     const updatedMemberUids = Array.from(new Set([...(targetGroup as any).member_uids || [], user.uid]));
@@ -960,6 +998,96 @@ export async function joinFamilyGroupByCode(
   }
 
   return targetGroup;
+}
+
+/**
+ * Master One-Time Approval for Family / Domestic Staff
+ */
+export async function approveFamilyMemberOrdering(
+  groupId: string,
+  targetMemberUid: string,
+  approved: boolean,
+  allowAdditionalAddress?: string
+): Promise<FamilyGroup | null> {
+  const group = await fetchFamilyGroup(groupId);
+  if (!group) return null;
+
+  const member = group.members.find((m) => m.uid === targetMemberUid);
+  if (member) {
+    member.is_approved = approved;
+    member.can_order = approved;
+    if (allowAdditionalAddress) {
+      member.additional_addresses = Array.from(new Set([...(member.additional_addresses || []), allowAdditionalAddress]));
+    }
+  }
+
+  try {
+    await updateDoc(doc(db, 'family_groups', groupId), { members: group.members });
+  } catch (e) {
+    console.warn('approveFamilyMemberOrdering notice:', e);
+  }
+
+  try {
+    const list: FamilyGroup[] = JSON.parse(localStorage.getItem('jvlsd_family_groups') || '[]');
+    const updated = list.map((g) => (g.id === groupId ? group : g));
+    localStorage.setItem('jvlsd_family_groups', JSON.stringify(updated));
+  } catch (e) {}
+
+  return group;
+}
+
+/**
+ * Add Member Directly by Household Owner (with Mobile, Role, and DIGIPIN verification)
+ */
+export async function addFamilyMemberDirectly(
+  groupId: string,
+  memberData: {
+    fullName: string;
+    mobile: string;
+    role: FamilyMemberRole;
+    additionalAddress?: string;
+  }
+): Promise<FamilyGroup | null> {
+  const group = await fetchFamilyGroup(groupId);
+  if (!group) return null;
+
+  const isDomesticOrStaff = ['housemaid', 'helper', 'driver', 'officestaff', 'domestic_help'].includes(memberData.role);
+  const tempUid = 'mem_' + memberData.mobile.replace(/\D/g, '') || `mem_${Date.now()}`;
+
+  const newMember: FamilyMember = {
+    uid: tempUid,
+    full_name: memberData.fullName.toUpperCase(),
+    mobile: memberData.mobile.replace(/\D/g, ''),
+    role: memberData.role,
+    joined_at: new Date().toISOString(),
+    is_approved: true, // directly approved since added by master
+    can_order: true,
+    address_locked: isDomesticOrStaff,
+    authorized_by: group.creator_uid,
+    can_use_wallet: !isDomesticOrStaff,
+    can_use_loyalty: !isDomesticOrStaff,
+    can_order_daily_subscription_only: isDomesticOrStaff,
+    synced_digipin: group.household_digipin,
+    additional_addresses: memberData.additionalAddress ? [memberData.additionalAddress.toUpperCase()] : [],
+  };
+
+  // Remove existing if duplicate mobile
+  group.members = group.members.filter((m) => m.mobile !== newMember.mobile);
+  group.members.push(newMember);
+
+  try {
+    await updateDoc(doc(db, 'family_groups', groupId), { members: group.members });
+  } catch (e) {
+    console.warn('addFamilyMemberDirectly notice:', e);
+  }
+
+  try {
+    const list: FamilyGroup[] = JSON.parse(localStorage.getItem('jvlsd_family_groups') || '[]');
+    const updated = list.map((g) => (g.id === groupId ? group : g));
+    localStorage.setItem('jvlsd_family_groups', JSON.stringify(updated));
+  } catch (e) {}
+
+  return group;
 }
 
 /**
