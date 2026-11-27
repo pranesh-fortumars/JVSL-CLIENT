@@ -220,7 +220,7 @@ export function FreshDailyPage() {
       <section className="py-10 bg-emerald-50/40 border-b border-emerald-100">
         <div className="container-page">
           <MilkbasketCategoryExplorer
-            onSelectCategory={(clusterId, subId) => {
+            onSelectCategory={(clusterId: string, subId?: string) => {
               navigate(PATHS.order);
             }}
           />
@@ -409,17 +409,6 @@ export function FreshDailyPage() {
       </section>
 
       {/* How the Planned Procurement System Works */}
-      {/* Milkbasket Style Visual Category Explorer */}
-      <section className="py-10 bg-emerald-50/40 border-b border-emerald-100">
-        <div className="container-page">
-          <MilkbasketCategoryExplorer
-            onSelectCategory={(clusterId, subId) => {
-              navigate(PATHS.order);
-            }}
-          />
-        </div>
-      </section>
-
       <section className="py-16 sm:py-20 bg-white">
         <div className="container-page">
           <div className="text-center max-w-2xl mx-auto">

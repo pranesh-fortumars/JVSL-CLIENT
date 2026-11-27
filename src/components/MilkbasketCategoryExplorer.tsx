@@ -23,7 +23,15 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Cookie,
 };
 
-export function MilkbasketCategoryExplorer() {
+export interface MilkbasketCategoryExplorerProps {
+  onSelectCategory?: (clusterId: string, subId?: string) => void;
+  className?: string;
+}
+
+export function MilkbasketCategoryExplorer({
+  onSelectCategory,
+  className = '',
+}: MilkbasketCategoryExplorerProps = {}) {
   const [selectedClusterId, setSelectedClusterId] = useState<string>(
     MILKBASKET_TAXONOMY[0].id
   );
@@ -34,8 +42,23 @@ export function MilkbasketCategoryExplorer() {
 
   const IconComp = ICON_MAP[activeCluster.iconName] || ShoppingBag;
 
+  const handleClusterClick = (clusterId: string) => {
+    setSelectedClusterId(clusterId);
+    if (onSelectCategory) {
+      onSelectCategory(clusterId);
+    }
+  };
+
+  const handleSubClick = (clusterId: string, subId: string) => {
+    if (onSelectCategory) {
+      onSelectCategory(clusterId, subId);
+    } else {
+      navigate(PATHS.order);
+    }
+  };
+
   return (
-    <div className="rounded-3xl border border-ink-100 bg-white p-6 sm:p-8 shadow-card">
+    <div className={`rounded-3xl border border-ink-100 bg-white p-6 sm:p-8 shadow-card ${className}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-100 pb-5">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-800">
@@ -69,7 +92,7 @@ export function MilkbasketCategoryExplorer() {
             <button
               key={cluster.id}
               type="button"
-              onClick={() => setSelectedClusterId(cluster.id)}
+              onClick={() => handleClusterClick(cluster.id)}
               className={`rounded-2xl p-4 text-left transition-all border ${
                 isSelected
                   ? 'border-brand-600 bg-brand-50/70 text-brand-950 shadow-soft ring-2 ring-brand-300'
@@ -115,7 +138,7 @@ export function MilkbasketCategoryExplorer() {
           {activeCluster.subcategories.map((sub: SubCategory) => (
             <div
               key={sub.id}
-              onClick={() => navigate(PATHS.order)}
+              onClick={() => handleSubClick(activeCluster.id, sub.id)}
               className="group flex cursor-pointer items-center justify-between rounded-xl bg-white p-3.5 border border-ink-100 shadow-2xs transition-all hover:border-brand-300 hover:shadow-soft"
             >
               <div>

@@ -381,7 +381,7 @@ export function OrderPage() {
                     {/* Milkbasket Style Visual Category Explorer */}
                     <div className="mt-6">
                       <MilkbasketCategoryExplorer
-                        onSelectCategory={(clusterId, subId) => {
+                        onSelectCategory={(clusterId: string, subId?: string) => {
                           if (subId) {
                             setSearchQuery(subId.replace(/-/g, ' '));
                           } else if (clusterId === 'dairy-morning') {
