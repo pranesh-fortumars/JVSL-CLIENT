@@ -203,13 +203,14 @@ export type CustomerLienProfile = {
   customer_name: string;
   incidents: UndeliveredIncident[];
   is_cautious_marked: boolean; // Flagged as "be cautious"
-  is_in_lien_period: boolean; // Active 6-month lien period
+  is_in_lien_period: boolean; // Active penalty observation period
   lien_start_date?: string;
-  lien_end_date?: string; // Exactly 6 months after trigger
+  lien_end_date?: string; // 1 year after trigger
   quarterly_incident_counts: Record<string, number>; // e.g. { "2026-Q1": 3 }
   yearly_incident_count: number;
-  penalty_delivery_fee_3km: number; // Rs 100 for <= 3km
-  penalty_delivery_fee_3_10km: number; // Rs 150 for 3-10km
+  penalty_delivery_fee_3km: number; // ₹30 for all deliveries irrespective of value within 3km
+  penalty_delivery_fee_3_10km: number; // ₹100 for 3-10km
+  is_services_cancelled?: boolean; // Cancellation of nextday + subscription services if repeated
   observation_notes: string;
 };
 
@@ -525,15 +526,18 @@ export function getQuarterKey(date: Date = new Date()): string {
 
 /**
  * Fetch or compute Customer Lien Profile & Observation Status:
- * Business Rules:
- * 1. Undelivered multiple times due to non-availability with no instruction of where to deliver next door.
- * 2. If repeated about 3 times in any quarter OR more than 5 incidents by year-end:
- *    - Marked & highlighted intimated as "BE CAUTIOUS".
- *    - Entered into 6-month lien & observation period.
- *    - Delivery charge penalty during this 6-month lien:
- *      * Rs 100/- for <= 3 km radius orders
- *      * Rs 150/- for 3 to 10 km radius orders
- * 3. If found fine after 6-month observation, retains standard delivery charges.
+ * Revised Rules:
+ * 1. Standard Delivery Charges:
+ *    - ₹0 for <= 3 km radius
+ *    - ₹30 for 3 to 10 km radius
+ *    - Beyond 10 km: Strictly for Bites only (₹75 by our service for minimum value ₹500)
+ * 2. In case of non-availability, no response to calls, and no instructions where to deliver (e.g. next-door):
+ *    - The order is returned and an update message is sent to WhatsApp.
+ * 3. In case this situation is repeated 3 times in any quarter (even continuously) OR 5 times in a year:
+ *    - Possibility of cancellation of next-day + subscription services, even after confirmation of non-repetition after 1 year.
+ *    - If customer wishes to continue after initial trouble:
+ *      * Penalty delivery charge within 3 km: ₹30 for all deliveries irrespective of value
+ *      * Penalty delivery charge for 3 to 10 km: ₹100 for all deliveries
  */
 export async function fetchCustomerLienProfile(phoneOrUid: string): Promise<CustomerLienProfile> {
   const cleanKey = phoneOrUid.trim().replace(/\D/g, '') || phoneOrUid.trim();
@@ -546,8 +550,9 @@ export async function fetchCustomerLienProfile(phoneOrUid: string): Promise<Cust
     is_in_lien_period: false,
     quarterly_incident_counts: {},
     yearly_incident_count: 0,
-    penalty_delivery_fee_3km: 100,
-    penalty_delivery_fee_3_10km: 150,
+    penalty_delivery_fee_3km: 30, // ₹30 within 3km for penalty customers
+    penalty_delivery_fee_3_10km: 100, // ₹100 for 3-10km for penalty customers
+    is_services_cancelled: false,
     observation_notes: '',
   };
 
@@ -567,14 +572,14 @@ export async function fetchCustomerLienProfile(phoneOrUid: string): Promise<Cust
     }
   } catch (e) {}
 
-  // Check if lien period has expired (> 6 months)
+  // Check if penalty observation period has expired (> 1 year)
   if (profile.is_in_lien_period && profile.lien_end_date) {
     const now = new Date().getTime();
     const expiry = new Date(profile.lien_end_date).getTime();
     if (now > expiry) {
-      // 6 month observation completed satisfactorily: lift penalty and restore normal rates
+      // 1 year observation completed with non-repetition confirmation
       profile.is_in_lien_period = false;
-      profile.observation_notes = '6-Month lien observation period completed with good standing. Standard delivery fees restored.';
+      profile.observation_notes = '1-Year observation period completed with non-repetition confirmation. Standard delivery rates restored (₹0 within 3km, ₹30 for 3-10km).';
       try {
         localStorage.setItem(`jvlsd_lien_${cleanKey}`, JSON.stringify(profile));
       } catch (e) {}
@@ -587,7 +592,7 @@ export async function fetchCustomerLienProfile(phoneOrUid: string): Promise<Cust
 /**
  * Record an undelivered incidence (due to customer non-availability without alternate doorstep instruction)
  */
-export async function recordUndeliveredIncident(order: OrderRow, details: string = 'Customer unavailable and no alternate next-door delivery instruction provided.'): Promise<CustomerLienProfile> {
+export async function recordUndeliveredIncident(order: OrderRow, details: string = 'Customer unavailable, no response to call, and no instruction where to deliver.'): Promise<CustomerLienProfile> {
   const cleanKey = (order.mobile || order.user_id || '').trim().replace(/\D/g, '');
   const now = new Date();
   const qKey = getQuarterKey(now);
@@ -618,16 +623,35 @@ export async function recordUndeliveredIncident(order: OrderRow, details: string
   currentProfile.quarterly_incident_counts[qKey] = qCount;
   currentProfile.yearly_incident_count = yCount;
 
-  // Criteria: repeated 3 times in any quarter OR more than 5 times in year
-  if (qCount >= 3 || yCount > 5) {
+  // Always send WhatsApp update on return:
+  try {
+    await sendSmsWhatsAppAlert({
+      recipient_phone: order.mobile,
+      channel: 'both',
+      type: 'delivery_update',
+      title: '📦 Order Returned: Non-Availability & No Delivery Instruction',
+      message: `Dear ${order.customer_name || 'Customer'}, your delivery on ${now.toLocaleDateString('en-IN')} could not be completed as you were unavailable with no response to calls and no alternate delivery instructions (e.g. next-door / guard drop) provided. The produce has been safely returned. Please note incident recorded (${qCount}/3 this quarter, ${yCount}/5 annually).`,
+      action_target_id: order.id,
+      approval_status: 'accepted',
+    });
+  } catch (e) {}
+
+  // Criteria: repeated 3 times in any quarter (even continuously) OR 5 times in year
+  if (qCount >= 3 || yCount >= 5) {
     currentProfile.is_cautious_marked = true;
     currentProfile.is_in_lien_period = true;
     currentProfile.lien_start_date = now.toISOString();
-    // Exactly 6 months observation period
-    const sixMonthsLater = new Date(now);
-    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
-    currentProfile.lien_end_date = sixMonthsLater.toISOString();
-    currentProfile.observation_notes = `Flagged 'BE CAUTIOUS' due to ${qCount >= 3 ? `${qCount} undelivered incidences in ${qKey}` : `${yCount} undelivered incidences in ${yKey}`}. Placed under 6-month lien observation with ₹100 (≤3km) / ₹150 (3-10km) delivery charge.`;
+    
+    // 1 Year observation period
+    const oneYearLater = new Date(now);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    currentProfile.lien_end_date = oneYearLater.toISOString();
+
+    // Cancellation of next-day & subscription services flag
+    currentProfile.is_services_cancelled = true;
+    currentProfile.penalty_delivery_fee_3km = 30; // ₹30 for all deliveries within 3km
+    currentProfile.penalty_delivery_fee_3_10km = 100; // ₹100 for 3-10km
+    currentProfile.observation_notes = `Repeated non-availability (Quarterly: ${qCount}/3, Annual: ${yCount}/5). Next-day and subscription services subject to cancellation. Penalty rates apply: ₹30 within 3km, ₹100 for 3-10km upon reactivation.`;
 
     // Send warning notification via Audio & WhatsApp/SMS
     try {
@@ -635,14 +659,14 @@ export async function recordUndeliveredIncident(order: OrderRow, details: string
         recipient_phone: order.mobile,
         channel: 'both',
         type: 'subscription_change',
-        title: '⚠️ BE CAUTIOUS: Delivery Notice & 6-Month Observation',
-        message: `Alert for ${order.customer_name}: Your delivery on ${now.toLocaleDateString('en-IN')} could not be completed due to non-availability with no next-door delivery instruction (Incident #${qCount} this quarter). As per store policy, account is marked 'BE CAUTIOUS' with a 6-month observation lien. A delivery charge of ₹100 (within 3km) / ₹150 (3-10km) will apply for the next 6 months. Standard charges will be restored if deliveries proceed smoothly.`,
+        title: '⚠️ REPEATED UNDELIVERED INCIDENCE NOTICE',
+        message: `Important Notice for ${order.customer_name}: Undelivered incidences reached ${qCount} times this quarter (${yCount} annually). As per store policy, your next-day pre-order and subscription services are placed on hold/cancellation. To continue service after non-repetition confirmation, penalty delivery charges apply: ₹30 for all deliveries within 3km, and ₹100 for 3-10km.`,
         action_target_id: order.id,
         approval_status: 'accepted',
       });
     } catch (e) {}
   } else {
-    currentProfile.observation_notes = `${qCount} of 3 quarterly incidents recorded (${yCount} annual). Please provide next-door delivery instructions if away.`;
+    currentProfile.observation_notes = `${qCount} of 3 quarterly incidents recorded (${yCount} annual). Order returned with WhatsApp notification.`;
   }
 
   // Persist in Firestore & Local storage
@@ -2131,7 +2155,15 @@ export type AlertLog = {
   timestamp: string;
   recipient_phone: string;
   channel: 'sms' | 'whatsapp' | 'both';
-  type: 'subscription_change' | 'pause' | 'resume' | 'extend' | 'family_approval_request' | 'approval_confirmed' | 'approval_rejected';
+  type:
+    | 'subscription_change'
+    | 'pause'
+    | 'resume'
+    | 'extend'
+    | 'family_approval_request'
+    | 'approval_confirmed'
+    | 'approval_rejected'
+    | 'delivery_update';
   title: string;
   message: string;
   approval_status?: 'pending' | 'accepted' | 'rejected';

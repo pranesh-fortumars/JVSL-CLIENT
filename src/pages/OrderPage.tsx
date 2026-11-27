@@ -1586,25 +1586,63 @@ function Checkout({
     return 1.5; // Default within 3km Navrangpura core
   }, [info.address, info.pincode, AHMEDABAD_PIN_MAP]);
 
-  // Delivery Charges with Lien Period / Caution Rules:
-  // - If customer is in 6-month lien observation period (due to 3+ quarter or 5+ annual undelivered incidents):
-  //   * Within 3 km: ₹100 penalty delivery charge
-  //   * 3 to 10 km: ₹150 penalty delivery charge
-  // - Otherwise, standard rules apply:
-  //   * Same-day emergency dispatch: ₹125 below ₹500, ₹75 above ₹500
-  //   * Next-day pre-order: Free (unless in lien period, where ₹100 / ₹150 applies)
+  // Check if order contains only Bites items
+  const isOnlyBitesOrder = useMemo(() => {
+    if (cartItems.length === 0) return false;
+    return cartItems.every((item) => {
+      const name = item.name.toLowerCase();
+      return (
+        name.includes('bite') ||
+        name.includes('khakhra') ||
+        name.includes('makhana') ||
+        name.includes('cookie') ||
+        name.includes('snack') ||
+        name.includes('dry') ||
+        name.includes('roasted') ||
+        name.includes('chana')
+      );
+    });
+  }, [cartItems]);
+
+  // Delivery Charges with Revised Rules:
+  // 1. Standard rules:
+  //    - Within 3 km: ₹0 (Free delivery)
+  //    - 3 to 10 km: ₹30
+  //    - Beyond 10 km: Strictly for Bites only (₹75 by our service for min order value ₹500)
+  // 2. Penalty rules for customers with repeated undelivered incidences:
+  //    - Within 3 km: ₹30 for all deliveries irrespective of value
+  //    - 3 to 10 km: ₹100 for all deliveries
+  // 3. Same-day emergency surcharge (if chosen): +₹75 (above ₹500) or +₹125 (below ₹500)
   const deliveryFee = useMemo(() => {
+    // A: In penalty observation period
     if (lienProfile?.is_in_lien_period) {
       return estimatedDistanceKm <= 3.0
-        ? lienProfile.penalty_delivery_fee_3km || 100
-        : lienProfile.penalty_delivery_fee_3_10km || 150;
+        ? lienProfile.penalty_delivery_fee_3km || 30
+        : lienProfile.penalty_delivery_fee_3_10km || 100;
     }
 
+    // B: Beyond 10 km: Strictly allowed for Bites only, ₹75 for minimum value ₹500
+    if (estimatedDistanceKm > 10.0) {
+      if (isOnlyBitesOrder && rawSubtotal >= 500) {
+        return 75;
+      }
+      return 75; // Handled by validator, but safe fallback
+    }
+
+    // C: 3 km to 10 km zone
+    if (estimatedDistanceKm > 3.0 && estimatedDistanceKm <= 10.0) {
+      if (mode === 'same_day') {
+        return 30 + (rawSubtotal < 500 ? 125 : 75);
+      }
+      return 30; // Standard ₹30 for 3-10km
+    }
+
+    // D: 0 to 3 km zone
     if (mode === 'same_day') {
       return rawSubtotal < 500 ? 125 : 75;
     }
-    return 0;
-  }, [lienProfile, estimatedDistanceKm, mode, rawSubtotal]);
+    return 0; // ₹0 for 3km radius
+  }, [lienProfile, estimatedDistanceKm, mode, rawSubtotal, isOnlyBitesOrder]);
 
   const afterDiscountTotal = Math.max(0, rawSubtotal - tieredDiscountAmount - promoDiscount - couponDiscount - loyaltyDeduction + cardFee + deliveryFee);
 
@@ -1822,9 +1860,9 @@ function Checkout({
     if (!info.pincode.trim()) e.pincode = 'Please enter valid 6-digit PIN code.';
 
     // Geofencing validation for dispatch zones from Navrangpura Hub (23.0372° N, 72.5613° E)
-    // 0 to 3 km: Free delivery
-    // 3 to 10 km: Paid delivery (default ₹30 fee) when enabled by administrator
-    // Beyond 10 km: Outside service boundary
+    // 0 to 3 km: ₹0 delivery charge
+    // 3 to 10 km: ₹30 delivery charge
+    // Beyond 10 km: Only permitted for Bites (dry snacks) with ₹75 delivery fee and minimum value ₹500
     const NAVRANGPURA_HUB = { lat: 23.0372, lng: 72.5613 };
     const AHMEDABAD_PIN_COORDS: Record<string, { lat: number; lng: number }> = {
       '380009': { lat: 23.0372, lng: 72.5613 }, // Navrangpura (~0.0 km)
@@ -1868,7 +1906,11 @@ function Checkout({
     }
 
     if (calculatedDistance > 10.0) {
-      e.address = `Delivery address is approximately ${calculatedDistance.toFixed(1)} km away, which is outside our 10 km maximum service boundary (as per DIGIPIN).`;
+      if (!isOnlyBitesOrder) {
+        e.address = `Delivery address is ${calculatedDistance.toFixed(1)} km away. Deliveries beyond 10 km are strictly available only for Bites items. Fresh vegetables, fruits & milk are restricted within 10 km.`;
+      } else if (rawSubtotal < 500) {
+        e.address = `Delivery address is ${calculatedDistance.toFixed(1)} km away. Beyond 10 km, Bites deliveries require a minimum order value of ₹500 (Delivery fee ₹75 applies). Current cart: ₹${rawSubtotal.toFixed(2)}.`;
+      }
     }
 
     return e;

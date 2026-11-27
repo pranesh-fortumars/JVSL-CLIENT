@@ -41,26 +41,31 @@ export function TermsPage() {
             </section>
 
             <section>
-              <h2 className="font-display text-lg font-bold text-ink-900">2. Service Scope &amp; Fulfillment</h2>
+              <h2 className="font-display text-lg font-bold text-ink-900">2. Service Scope, Delivery Charges &amp; Zones</h2>
               <p className="mt-2">
-                JVLSD operates the Fresh Daily (JVLSD-FD) delivery framework as a franchisee partner of Shakhwala. Deliveries are categorized as:
+                JVLSD operates the Fresh Daily (JVLSD-FD) delivery framework as an authorized franchisee partner of Shakhwala.com. Delivery fees and zones from the hub are defined as follows:
               </p>
               <ul className="mt-2 list-disc pl-5 space-y-1 text-ink-600">
-                <li><strong>Next-Day Pre-Order:</strong> Scheduled farm procurement to reduce kitchen waste; delivered early morning (8:00 AM – 9:00 AM).</li>
-                <li><strong>Same-Day Dispatch:</strong> Emergency dispatch within a 10 km radius as per DIGIPIN (₹125 for orders below ₹500, ₹75 for orders ₹500 and above; strictly within 3 km of Navrangpura Hub).</li>
+                <li><strong>Within 3 km Radius:</strong> ₹0 (Free morning delivery).</li>
+                <li><strong>3 km to 10 km Radius:</strong> Standard delivery charge of ₹30.</li>
+                <li><strong>Beyond 10 km Radius:</strong> Strictly available only for Bites &amp; beyond dry snack produce. Delivery fee is ₹75 fulfilled directly by our service for a minimum order value of ₹500. Fresh vegetables, fruits, and milk are restricted to within 10 km to guarantee zero-spoilage freshness.</li>
+                <li><strong>Same-Day Emergency Dispatch:</strong> Emergency dispatch within local reach (₹125 for orders below ₹500, ₹75 for orders ₹500 and above).</li>
               </ul>
             </section>
 
             <section>
-              <h2 className="font-display text-lg font-bold text-ink-900">3. Wallet, 20% Discount Rules &amp; Cancellation Policy</h2>
+              <h2 className="font-display text-lg font-bold text-ink-900">3. Non-Availability, Undelivered Returns &amp; Cancellation Policy</h2>
               <ul className="mt-2 list-disc pl-5 space-y-1 text-ink-600">
-                <li>Prepaid wallet reloads require a minimum of ₹1,000 for the initial load. When your balance reaches ₹300, subsequent top-ups must be at least ₹300.</li>
-                <li>A promotional balance of ₹50 is credited to your account upon successful placement of your first qualifying order.</li>
-                <li><strong>20% Monthly Volume Privilege Discount:</strong> Applies to all first purchases of ₹500 and above each month. Only after qualifying with an initial ₹500+ order can the 20% discount be availed on smaller purchases (₹100+) any time in the month (limited to under 3 smaller purchases per month).</li>
-                <li><strong>Order Cancellation &amp; Non-Refundable Delivery Charge:</strong> In the event of order cancellation, the discount amount is accounted for and deducted from the produce refund. Any delivery charge collected is strictly retained and non-refundable.</li>
-                <li><strong>Delivery Incidences &amp; 6-Month Lien Observation:</strong> If deliveries are repeatedly undelivered due to customer non-availability without alternate next-door delivery instructions (≥3 times in a quarter or &gt;5 times in a year), the account is marked "BE CAUTIOUS" and placed under a 6-month lien observation with adjusted delivery charges (₹100 for ≤3 km, ₹150 for 3–10 km). Standard delivery charges are restored if observation concludes satisfactorily.</li>
-                <li><strong>Standing Subscriptions (+2% Off):</strong> Scheduled deliveries (Daily, Alternate, Weekly, Bi-Weekly, Monthly) carry an additional 2% discount with flexible pause/resume/extend options and WhatsApp/SMS authentication.</li>
-                <li>Loyalty points (1 pt = ₹1) can be redeemed against qualifying grocery deliveries subject to platform redemption ceilings.</li>
+                <li><strong>Doorstep Non-Availability &amp; Return:</strong> In case of customer non-availability, no response to telephone calls, and no instructions left regarding where to deliver (such as next door or security desk), the order is returned to the hub and an immediate status update is dispatched via WhatsApp.</li>
+                <li><strong>Repeated Incidences &amp; Service Cancellation:</strong> If non-availability without instructions occurs 3 times in any quarter (even continuously) OR 5 times in a year:
+                  <ul className="list-circle pl-5 mt-1 space-y-0.5">
+                    <li>Next-day pre-order and standing subscription services are subject to cancellation, even after customer confirmation of non-repetition after one year.</li>
+                    <li>If the customer wishes to continue service after initial trouble, mandatory penalty delivery charges apply: <strong>₹30 for all deliveries within 3 km</strong> (irrespective of order value) and <strong>₹100 for deliveries between 3 km to 10 km</strong>.</li>
+                  </ul>
+                </li>
+                <li><strong>Order Cancellation &amp; Non-Refundable Delivery Charge:</strong> In the event of customer cancellation, promotional discount credits are accounted for and deducted from produce refunds. Any delivery charge collected is strictly retained and non-refundable.</li>
+                <li><strong>20% Monthly Volume Privilege Discount:</strong> Applies to the first purchase of ₹500 and above each month. Subsequent smaller orders (₹100+) unlock the 20% discount (up to 3 orders monthly).</li>
+                <li><strong>Standing Subscriptions (+2% Off):</strong> Scheduled daily/weekly recurring deliveries carry an additional 2% privilege discount with automated OTP delivery verification.</li>
               </ul>
             </section>
 
