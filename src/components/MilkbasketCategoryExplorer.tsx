@@ -63,7 +63,7 @@ export function MilkbasketCategoryExplorer({
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-800">
             <Sparkles className="h-3.5 w-3.5 text-brand-600" />
-            <span>Milkbasket-Style Visual Category Explorer</span>
+            <span>JVLSD Fresh Daily · Visual Category Explorer</span>
           </div>
           <h3 className="mt-2 font-display text-xl sm:text-2xl font-bold text-ink-950">
             Daily Kitchen Pantry &amp; Morning Milk Taxonomy
