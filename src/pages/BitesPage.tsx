@@ -268,7 +268,7 @@ export function BitesPage() {
           ))}
         </div>
       </section>
-      {/* Blinkit-Style Seller Hub / Partner with JVLSD Section */}
+      {/* JVLSD Seller Hub & Entrepreneurial Partner Platform Section */}
       <section className="mt-16 bg-gradient-to-br from-emerald-950 via-forest-950 to-ink-950 text-white rounded-3xl p-8 sm:p-12 border border-emerald-900 shadow-lift">
         <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
           <div>
@@ -279,7 +279,7 @@ export function BitesPage() {
               Grow Your Brand on JVLSD. Direct Access to Daily Kitchen Households.
             </h2>
             <p className="mt-4 text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-normal">
-              Inspired by leading seller platforms (like Blinkit Partner Hub, IndiaMart, and Shopify), we provide a dedicated launchpad for local food artisans, regional producers, and home chefs. Join our platform to connect with a verified daily consumer market with zero predatory listing costs, 100% biodegradable composite packaging, and prompt payouts.
+              A dedicated direct-to-household launchpad for regional food artisans, local producers, and home culinary entrepreneurs. Join our network to connect with a verified daily consumer audience with zero predatory listing costs, 100% biodegradable composite packaging, and transparent account settlement.
             </p>
 
             <div className="mt-6 space-y-2 text-xs text-emerald-200">
@@ -323,7 +323,7 @@ export function BitesPage() {
             <div className="space-y-3 text-xs text-ink-200">
               <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
                 <p className="font-bold text-white text-xs">Dedicated High-Retention Audience</p>
-                <p className="mt-1 text-emerald-100/80 text-[11px]">Unlike generic listings lost in millions of products on Amazon or IndiaMart, your regional snacks &amp; bites get direct doorstep placement in verified family baskets.</p>
+                <p className="mt-1 text-emerald-100/80 text-[11px]">Unlike mass-listing marketplaces where small brands get lost among millions of products, your regional snacks &amp; bites get direct doorstep placement in verified family subscription baskets.</p>
               </div>
               <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
                 <p className="font-bold text-white text-xs">Zero Inventory Hoarding &amp; Spoilage</p>
